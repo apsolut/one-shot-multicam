@@ -169,3 +169,16 @@ dialog ul{padding-left:18px;color:var(--muted);margin:8px 0}
 .banner.out a{color:#fff}
 #keyCard.attention{box-shadow:0 0 0 2px var(--warn),0 0 24px rgba(255,181,71,.35);animation:pulse 1.6s ease-in-out 3}
 @keyframes pulse{50%{box-shadow:0 0 0 3px var(--warn),0 0 36px rgba(255,181,71,.55)}}
+/* Scene mode */
+.scene-opts{display:grid;gap:10px;margin:12px 0}.scene-opts select{max-width:100%}
+.sc-grid{display:grid;grid-template-columns:1.4fr 1fr;gap:18px}@media(max-width:760px){.sc-grid{grid-template-columns:1fr}}
+.sc-dialogue{display:grid;gap:4px;margin-bottom:12px;font-size:14px}.sc-a{color:var(--muted)}.sc-a b{color:var(--A);margin-right:6px}
+#mode,#scPartner{grid-template-columns:repeat(3,1fr)}
+.sc-line{display:grid;grid-template-columns:minmax(0,1fr) auto auto auto;gap:6px;align-items:center;margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid var(--line)}
+.sc-line .sc-after{grid-column:1/-1;font-size:13px;padding:7px 10px;color:var(--muted)}
+.sc-stills{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.sc-stills img{width:100%;border-radius:10px;display:block}
+.sc-stills figcaption{font-size:12px;color:var(--muted);margin-top:4px}.sc-stills figure{margin:0}
+.sc-log{font-size:12px;color:var(--dim);white-space:pre-wrap;max-height:140px;overflow:auto;margin:10px 0 0}
+.sc-edl{display:flex;gap:2px;margin:12px 0 8px;font-size:11px}.sc-shot-chip{padding:4px 6px;border-radius:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.sc-shot-chip.A{background:rgba(141,138,168,.25)}.sc-shot-chip.B{background:rgba(124,92,255,.35)}
+#scPlayer{width:100%;max-width:360px;border-radius:14px;display:block;margin:8px 0;background:#000}

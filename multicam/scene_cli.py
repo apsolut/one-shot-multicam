@@ -45,9 +45,8 @@ def cmd(a):
     if a.scmd == "voices":
         print("\n".join(S.render_voices(model_dir=a.model_dir))); return
     if a.scmd in ("stills", "clips", "a-clips", "run"):
-        est = S.estimate(sc, "stills" if a.scmd == "stills" else "clips" if a.scmd == "clips" else "all")
-        if a.scmd == "a-clips":
-            est = {"n_jobs": 1, "jobs": {"reshoot": "1 per A turn without a covering clip"}, "usd": S.JOB_COST["reshoot"]}
+        est = S.estimate(sc, {"stills": "stills", "clips": "clips", "a-clips": "a"}.get(a.scmd, "all"),
+                         reshoot_a=a.scmd == "run" and a.reshoot_a)
         _confirm(a, est)
         b0 = _balance("before")
         if a.scmd == "a-clips" or (a.scmd == "run" and a.reshoot_a):

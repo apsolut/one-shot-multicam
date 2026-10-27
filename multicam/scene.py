@@ -31,7 +31,9 @@ from typing import Callable
 
 from .util import load_json, need, probe, run, save_json
 
-WF_DIR = Path(__file__).resolve().parent.parent / "workflows"
+import os as _os
+
+WF_DIR = Path(_os.environ.get("MULTICAM_WORKFLOWS", Path(__file__).resolve().parent.parent / "workflows"))
 VOICE_DIR = Path(__file__).resolve().parent / "voices"
 PARTNER_MODES = ("clone", "photo", "character")
 OUT_W, OUT_H, OUT_FPS = 720, 1280, 30
@@ -308,7 +310,7 @@ def _a_side_clip(sc) -> dict | None:
 
 def voice_ref(sc, work: Path) -> Path:
     """Reference audio for the ID-LoRA voice: a slice of your real take (clone) or an open TTS sample."""
-    work = Path(work)
+    work = Path(work).resolve()
     if sc.get("voice") == "self":
         tr = load_json(sc["transcript"])
         s = max(tr["sentences"], key=lambda x: x["end"] - x["start"])
@@ -347,21 +349,40 @@ def render_voices(out_dir: Path = VOICE_DIR, text: str = VOICE_TEXT, names=None,
 
 
 # ------------------------------------------------------------------ paid steps
-def estimate(sc: dict, what: str = "all") -> dict:
+def a_wants(sc: dict) -> list[tuple[str, float, str]]:
+    """A turns that still need a re-shoot: (name, src_start, preset). Turn 0 -> wide, turns after B -> right90."""
+    tr = load_json(sc["transcript"])
+    out = []
+    for i, t in enumerate(turns(sc, tr)):
+        if t["who"] != "A":
+            continue
+        preset = "right90" if i > 0 else "wide"
+        if i == 0 and t["end"] - t["start"] < 3.0:
+            continue
+        probe_t = t["start"] if i > 0 else t["start"] + 1.2
+        if not any(c["src_start"] <= probe_t and c["src_start"] + 4.9 >= min(t["end"], probe_t + 2.0)
+                   and c.get("preset") == preset for c in sc["a_clips"].values()):
+            out.append((f"a{i}", round(max(0.0, probe_t - 0.3), 3), preset))
+    return out
+
+
+def estimate(sc: dict, what: str = "all", reshoot_a: bool = False) -> dict:
     n_lines = len(sc["lines"])
-    jobs = {"stills": 0, "line": 0, "react": 0}
+    jobs = {"stills": 0, "line": 0, "react": 0, "reshoot": 0}
     if what in ("all", "stills") and not sc["stills"]:
         jobs["stills"] = 2 if sc["partner"] == "character" and not sc.get("photo") else 1
     if what in ("all", "clips"):
         jobs["line"] = sum(1 for k in range(n_lines) if str(k) not in sc["b_clips"])
-        jobs["react"] = 0 if "react" in sc["b_clips"] else 1
+        jobs["react"] = 0 if ("react" in sc["b_clips"] or not n_lines) else 1
+    if reshoot_a or what == "a":
+        jobs["reshoot"] = len(a_wants(sc)) if sc["lines"] else 0
     usd = sum(JOB_COST[k] * v for k, v in jobs.items())
     return {"jobs": jobs, "n_jobs": sum(jobs.values()), "usd": round(usd, 3)}
 
 
 def make_stills(sc: dict, work: Path, key=None, seed=None, log=print) -> dict:
     """1 Qwen-Image-Edit job (2 for a fictional character): 8 partner stills, defaults picked for single/ots/close."""
-    work = Path(work)
+    work = Path(work).resolve()
     wf, b, raw = _wf("scene_edit")
     sd = work / "stills"
     sd.mkdir(parents=True, exist_ok=True)
@@ -410,7 +431,7 @@ def _job(sc, kind, rec):
 def make_clips(sc: dict, work: Path, key=None, only: list[str] | None = None, seed=None, parallel: int = 3,
                log=print, on_status: Callable[[str, dict], None] | None = None) -> dict:
     """LTX-2.3 ID LoRA: one clip per B line (exact words, B voice) + one B listening clip for L-cuts."""
-    work = Path(work)
+    work = Path(work).resolve()
     if not sc["stills"]:
         raise SystemExit("no partner stills yet: run `multicam scene stills` first")
     wf, b, _ = _wf("idlora")
@@ -454,29 +475,24 @@ def make_clips(sc: dict, work: Path, key=None, only: list[str] | None = None, se
     return sc["b_clips"]
 
 
-def make_a_clips(sc: dict, work: Path, key=None, log=print) -> dict:
+def make_a_clips(sc: dict, work: Path, key=None, log=print, parallel: int = 3) -> dict:
     """CrossView re-shoots of the real take for A's own angles (side = right90, matched eyeline; wide)."""
     from .reshoot import run_reshoot_job
-    work = Path(work)
-    tr = load_json(sc["transcript"])
+    work = Path(work).resolve()
     wf, b, _ = _wf("crossview")
-    T = turns(sc, tr)
-    wants = []
-    for i, t in enumerate(T):
-        if t["who"] != "A":
-            continue
-        preset = "right90" if i > 0 else "wide"
-        st = max(0.0, t["start"] - 0.3)
-        if not any(c["src_start"] <= t["start"] and c["src_start"] + 4.9 >= min(t["end"], t["start"] + 2)
-                   and c.get("preset") == preset for c in sc["a_clips"].values()):
-            wants.append((f"a{i}", st, preset))
-    for name, st, preset in wants:
-        log(f"A re-shoot {name} @ {st:.2f}s ({preset})")
+
+    def go(w):
+        name, st, preset = w
         out = work / "a_clips" / f"{name}_{preset}.mp4"
-        rec = run_reshoot_job(sc["source"], st, preset, 0, out, wf, b, key=key, work_dir=work / "a_clips")
-        _job(sc, f"reshoot:{name}", rec)
-        if rec["status"] == "success":
-            sc["a_clips"][name] = {"path": str(out), "src_start": st, "preset": preset, "synced": True}
+        return w, out, run_reshoot_job(sc["source"], st, preset, 0, out, wf, b, key=key, work_dir=work / "a_clips")
+    wants = a_wants(sc)
+    log(f"A angles: {len(wants)} CrossView re-shoot job(s)")
+    with ThreadPoolExecutor(max(1, parallel)) as ex:
+        for (name, st, preset), out, rec in ex.map(go, wants):
+            _job(sc, f"reshoot:{name}", rec)
+            if rec["status"] == "success":
+                sc["a_clips"][name] = {"path": str(out), "src_start": st, "preset": preset, "synced": True}
+            log(f"  A {name} ({preset}): {rec['status']} {rec.get('error') or ''}")
     save(work, sc)
     return sc["a_clips"]
 
@@ -535,7 +551,7 @@ def _cut_near(words: list[dict], t: float, lo: float, hi: float) -> float:
 
 def plan_edit(sc: dict, work: Path, react: bool = True) -> list[dict]:
     """-> output timeline of shots: {who, cam, src, path, in, dur, audio:(path,in,dur)|None, label}."""
-    work = Path(work)
+    work = Path(work).resolve()
     tr = load_json(sc["transcript"])
     words = tr["words"]
     T = turns(sc, tr)
@@ -635,7 +651,7 @@ def render(sc: dict, work: Path, out: str | Path | None = None, labels: bool = F
            crf: int = 19, preset: str = "medium") -> dict:
     """Shot / reverse-shot edit -> scene.mp4 (720x1280, 30 fps, yuv420p, +faststart). A = real audio, B = clip audio."""
     need("ffmpeg")
-    work = Path(work)
+    work = Path(work).resolve()
     out = Path(out or work / "scene.mp4")
     edl = plan_edit(sc, work, react=react)
     W, H, F = OUT_W, OUT_H, OUT_FPS

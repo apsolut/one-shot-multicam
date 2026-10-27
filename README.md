@@ -63,6 +63,7 @@ Now each insert is a **video-to-video re-shoot** of the matching 5 s of the real
 |---|---|
 | **Talk mode** (default) | Whisper word timings, inserts that enter mid-phrase and exit on a phrase end, B/C alternation. Re-shoot inserts are time-locked to your real take; classic (ID LoRA) inserts are auto-aligned (offset + 0.85–1.15× retime) to your real words |
 | **Music mode** (beta) | Beat-synced inserts placed where your real face is turned away. You supply the lyrics; alignment is by onsets |
+| **Scene mode** (new) | **Talk to your other self**: one take becomes a two-person shot / reverse-shot scene. The partner (your restyled other self in your voice, a consented photo, or an AI character) answers with lines you type; see [Scene mode](#scene-mode-talk-to-your-other-self) |
 | **Web app** | Upload, transcribe, plan cuts, see a **cost estimate → confirm**, then live per-job progress, player with CAM-label toggle and before/after, download |
 | **Remix** | Click any shot on the cut-list timeline: switch B↔C, drop it (back to A), or **re-roll** just that insert (1 job, new seed or another angle). Re-rendering is free |
 | **Share** | A self-contained share bundle (HTML page + mp4 + poster, zip) and a ready X post with #OpenSourceHiggsfield |
@@ -402,6 +403,66 @@ Docs: <https://docs.comfy.org/development/cloud/overview>,
 <https://docs.comfy.org/development/cloud/api-reference>. The v1 API is marked deprecated in
 favor of Comfy API v2 (`POST /api/v2/jobs`, `Authorization: Bearer`,
 <https://docs.comfy.org/openapi-v2.yaml>). This tool still uses v1, which works today.
+
+## Scene mode: talk to your other self
+
+**One real take becomes a two-person scene.** You talk; a partner answers between your sentences, and
+the edit cuts **shot / reverse-shot** like a drama or a podcast. You are speaker **A** (your real take +
+CrossView re-shoots of it), the partner is speaker **B**:
+
+| Partner | Look | Voice |
+|---|---|---|
+| 🪞 **Your other self** (default) | Your own face from a mirrored frame of your side angle, restyled by Qwen-Image-Edit 2511 into a clearly different "version" of you: wardrobe, light and room (`night`, `noir`, `office`, `studio` or free text) | **Your voice**: the LTX-2.3 ID-LoRA voice reference is a 5 s slice of your real take |
+| 🖼 **Person from a photo** | Your upload (**only photos of people who consented**; the app makes you tick that) | An open TTS reference voice ([Kokoro-82M](https://huggingface.co/hexgrad/Kokoro-82M), Apache-2.0, 6 samples ship in `multicam/voices/`) |
+| ✨ **AI character** | A fictional person made by Qwen-Image-Edit from a text description | Kokoro voice |
+
+![Scene mode, other-self demo: real take, B listening (over the shoulder), B single, A side angle, B over-the-shoulder, real take, B close-up](docs/img/scene-clone-strip.jpg)
+
+How it works:
+
+1. **Lines.** You type B's lines and pick which of your sentences each one answers (`1:Wait. Really?`),
+   or press *Suggest* (templates; an OpenAI-compatible LLM is used only if `MULTICAM_LLM_URL` +
+   `MULTICAM_LLM_KEY` are set). Manual entry is the default.
+2. **Partner stills, 1 Qwen job.** `workflows/scene_edit_api.json` is the Qwen "Multiple Character
+   Angles" template with all 8 branch prompts (and inputs) exposed, so one job returns 8 free-form edits:
+   B **single**, B **over-the-shoulder** (your shoulder in the right foreground) and B **close-up**, plus
+   alternates. Every B framing looks **screen-right**; your side angle looks screen-left (180° rule;
+   the clone frame is mirrored for that).
+3. **B's lines, 1 LTX-2.3 ID LoRA job each** (~$0.03): first frame = the still, `[SPEECH]:` = the exact
+   line, voice reference = your audio (clone) or a Kokoro sample. The model speaks and moves the lips in
+   the same pass, so B's lip sync is native; whisper finds the spoken span and trims padding. One more
+   job makes a **B listening** clip for reaction cuts.
+4. **Your angles.** CrossView re-shoots of your take (`right90` side for the matched eyeline, `wide`),
+   time-locked to your real audio. Reuse the ones from a talk-mode run with `--a-clips` (free).
+5. **Edit (free, local).** A's turns use your **real audio**; B's turns use the clip audio
+   (level-matched, the mix is loudness-normalized to −16 LUFS). A turn after B opens on your side angle,
+   long turns get an **L-cut to B listening** while you keep talking, and every speaker gets ≥ 2 angles.
+   Output: `scene.mp4` (720×1280, 30 fps, yuv420p, +faststart) and a labeled copy.
+
+```bash
+# talk to your other self (reuse talk-mode re-shoots of the same take as your angles)
+multicam -C sc scene init selfie.mp4 --partner clone --look night \
+  --a-clips work/gen/reshoot/clips.json \
+  --a-look "a bearded man wearing black over-ear headphones and a grey sweater, lit by magenta light" \
+  --line "1:You let an AI write your code?" --line "2@ots:Overnight? Come on. Who reviews it?" \
+  --line "4@close:Or I'm the one who still knows how it works."
+multicam -C sc scene run --yes --labels      # 1 Qwen + 4 LTX jobs ≈ $0.19, then render
+# a podcast with someone else: --partner photo --photo host.png --person woman --voice af_heart
+# or a fictional one: --partner character --character "a podcast host in her 30s, curly hair"
+```
+
+In the web app pick **🎭 Scene** next to Talk / Music, choose the partner, then write the lines in the
+Scene card; the estimate (stills + lines + listening clip + your side angles) is confirmed before
+anything is spent. API: `POST /api/scene`, `GET /api/scene/{id}`, `POST /api/scene/{id}/lines|suggest|generate|render`.
+
+Measured on the demo (17.5 s take, 3 answers): 1 Qwen stills job ≈ $0.03–0.06, each B line ≈ $0.03,
+total ≈ $0.15–0.20 when your angles are reused; the rendered scene is 26–28 s.
+
+Honest limits: the clone keeps your face well in the stills, but it's a restyle (slightly slimmer and
+younger-looking at some angles). ID LoRA often leaves a ~0.8 s pause after a full stop inside a line, so
+short single-sentence lines cut tighter. Your real take looks into the lens, so its eyeline isn't matched
+to B; the side re-shoots are. B's voice clone is the ID-LoRA reference (pitch close to yours,
+measured ~120–160 Hz vs 113 Hz), not a dedicated TTS clone.
 
 ## Music mode (dance / lip-sync clips)
 

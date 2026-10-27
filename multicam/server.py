@@ -1017,6 +1017,9 @@ def create_app(app_state: App):
     async def http_exc(_, exc: HTTPException):
         return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
 
+    from .scene_web import mount as mount_scene  # Scene mode: /api/scene/...
+    mount_scene(api, A, key_or_403, charge_or_403)
+
     docs = REPO_ROOT / "docs"
     if docs.is_dir():  # the static gallery (same files GitHub Pages serves)
         api.mount("/gallery", StaticFiles(directory=str(docs), html=True), name="gallery")

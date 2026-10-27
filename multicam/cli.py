@@ -98,7 +98,8 @@ def cmd_assemble(a):
     tr = load_json(tr_path) if tr_path.exists() else None
     shots = assemble(plan, a.out, clips_json=a.clips, clips_dir=a.clips_dir, video=a.video, labels=a.labels,
                      shake=a.shake, shake_px=a.shake_px, cut_lead_frames=a.cut_lead_frames,
-                     align=not a.no_align, transcript=tr, align_cache=Path(a.workdir) / "align_cache")
+                     align=not a.no_align, transcript=tr, align_cache=Path(a.workdir) / "align_cache",
+                     max_long=a.max_long, preset=a.preset)
     for s in shots:
         print_shot(s)
     print(f"wrote {a.out}")
@@ -323,6 +324,8 @@ def main(argv=None):
     p.add_argument("--shake", action="store_true", help="subtle synthetic handheld shake on inserts")
     p.add_argument("--shake-px", type=float, default=10.0)
     p.add_argument("--cut-lead-frames", type=int, default=0, help="video-only: cut N frames before the word (audio untouched)")
+    p.add_argument("--max-long", type=int, help="cap the long side, e.g. 1280 for a fast 720p render")
+    p.add_argument("--preset", default="medium", help="x264 preset (veryfast ≈4x faster than medium)")
     p.set_defaults(fn=cmd_assemble)
 
     p = sub.add_parser("align", help="lip-sync align generated inserts to the real words (writes offset/speed)")

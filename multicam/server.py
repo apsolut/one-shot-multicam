@@ -127,6 +127,11 @@ class App:
         self.hosted_floor_usd = hosted_floor_usd  # restart-proof stop: refuse when the real balance nears this
         self.hosted_key_env = hosted_key_env
         self.engine = engine if engine in ENGINES else "reshoot"  # default for new projects
+        import os as _os
+        # small shared-CPU hosts: render at <=1280 px with a fast x264 preset (≈4x less CPU than 1080p/medium)
+        rm = _os.environ.get("MULTICAM_RENDER_MAX", "1280" if self.hosted else "")
+        self.render_max_long = int(rm) if rm.strip().isdigit() and int(rm) > 0 else None
+        self.render_preset = _os.environ.get("MULTICAM_RENDER_PRESET", "veryfast" if self.hosted else "medium")
         self.max_jobs = max_jobs
         self.max_jobs_per_run = max_jobs_per_run
         self.repo_url = repo_url
@@ -560,8 +565,11 @@ class App:
         outd = p.work / "renders"
         outd.mkdir(exist_ok=True)
         clean, labeled = outd / f"final_v{ver}.mp4", outd / f"final_v{ver}_labeled.mp4"
-        shots = assemble(plan, clean, clips=clips, video=src, shake=shake, transcript=tr)
-        assemble(plan, labeled, clips=clips, video=src, shake=shake, labels=True, transcript=tr)
+        kw = dict(clips=clips, video=src, shake=shake, transcript=tr, max_long=self.render_max_long,
+                  preset=self.render_preset)
+        shots = assemble(plan, clean, **kw)
+        p.set_step("render", "running", "ffmpeg (labeled copy)")
+        assemble(plan, labeled, labels=True, **kw)
         with p.lock:
             p.state.setdefault("renders", []).append({"v": ver, "clean": p.rel(clean), "labeled": p.rel(labeled),
                                                        "t": time.time(),

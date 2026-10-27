@@ -44,11 +44,18 @@ def load_clips(plan: dict, clips_json: str | None, clips_dir: str | None) -> dic
     return clips
 
 
+TRIM_TOL = 0.3     # s: max trim of an insert whose clip falls just short of the shot
+MIN_INSERT = 0.6   # s: never trim an insert below this
+
+
 def resolve_shots(plan: dict, clips: dict, fps: float) -> list[dict]:
     """Attach clips to inserts; fall back to A when a clip is missing or doesn't cover the shot."""
     out = []
+    carry = None  # start override for the shot after a trimmed insert
     for s in plan["shots"]:
         s = dict(s)
+        if carry is not None:
+            s["start"], carry = carry, None
         s["src"] = "real"
         if s["cam"] != "A":
             c = clips.get(s.get("chunk"))
@@ -60,7 +67,22 @@ def resolve_shots(plan: dict, clips: dict, fps: float) -> list[dict]:
                 speed = float(s.get("speed", 1.0))
                 cs = s["start"] - c["src_start"] + float(s.get("offset", 0.0))
                 ce = cs + speed * (s["end"] - s["start"])
-                if cs >= 0 and ce <= c["info"]["duration"] + 1e-3:
+                dur = c["info"]["duration"]
+                # clip slightly short of the shot (e.g. the plan moved a few frames after the clip was made):
+                # trim the insert by up to TRIM_TOL s and let the neighbouring real shot take the gap
+                if -TRIM_TOL <= cs < 0 and s["end"] - (s["start"] - cs / speed) >= MIN_INSERT and out:
+                    s["start"] = round(s["start"] - cs / speed, 4)
+                    out[-1]["end"] = s["start"]
+                    s["trimmed"] = True
+                    cs = 0.0
+                    ce = speed * (s["end"] - s["start"])
+                over = ce - dur
+                if 1e-3 < over <= TRIM_TOL and (s["end"] - over / speed) - s["start"] >= MIN_INSERT:
+                    s["end"] = round(s["end"] - over / speed - 1e-3, 4)
+                    ce = cs + speed * (s["end"] - s["start"])
+                    carry = s["end"]
+                    s["trimmed"] = True
+                if cs >= 0 and ce <= dur + 1e-3:
                     s.update(src="generated", clip=c["path"], clip_start=round(cs, 4), clip_end=round(ce, 4),
                              speed=speed)
                 else:

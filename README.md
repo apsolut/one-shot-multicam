@@ -160,15 +160,18 @@ Generation uses two official Comfy Cloud templates, exported in API format to `w
 |---|---|---|---|
 | **Qwen 1 Click Multiple Character Angles** | `workflows/qwen_angles_api.json` (+ `_ui.json` to open in ComfyUI) | [Qwen-Image-Edit-2511](https://huggingface.co/Qwen/Qwen-Image-Edit-2511) + [fal Multiple-Angles LoRA](https://huggingface.co/fal/Qwen-Image-Edit-2511-Multiple-Angles-LoRA) | Apache-2.0 / Apache-2.0 |
 | **LTX-2.3: ID LoRA** | `workflows/idlora_api.json` (+ `_ui.json`) | [LTX-2.3](https://huggingface.co/Lightricks/LTX-2.3) + [ID-LoRA](https://github.com/ID-LoRA/ID-LoRA) (TalkVid), Gemma 3 text encoder | [LTX-2 Community License](https://github.com/ID-LoRA/ID-LoRA/blob/main/LICENSE) (open weights; free under $10M revenue) / Gemma Terms |
-| **CrossView re-shoot** (built from the LTX IC-LoRA example graphs; `workflows/build_v2v.py` regenerates it) | `workflows/crossview_api.json` + `crossview_bindings.json` | [LTX-2.3](https://huggingface.co/Lightricks/LTX-2.3) 22B dev fp8 + distilled LoRA (0.6) + [CrossView IC-LoRA v0.9](https://huggingface.co/Cseti/LTX2.3-22B_IC-LoRA-CrossView-Prompt) (1.5), Gemma 3 text encoder, x2 spatial upscaler | LTX-2 Community License / Apache-2.0 / Gemma Terms |
+| **CrossView re-shoot** (built from the LTX IC-LoRA example graphs; `workflows/build_v2v.py` regenerates it) | `workflows/crossview_api.json` + `crossview_bindings.json` (+ annotated `crossview_ui.json`) | [LTX-2.3](https://huggingface.co/Lightricks/LTX-2.3) 22B dev fp8 + distilled LoRA (0.6) + [CrossView IC-LoRA v0.9](https://huggingface.co/Cseti/LTX2.3-22B_IC-LoRA-CrossView-Prompt) (1.5), Gemma 3 text encoder, x2 spatial upscaler | LTX-2 Community License / Apache-2.0 / Gemma Terms |
 | (local) speech timings | — | [faster-whisper](https://github.com/SYSTRAN/faster-whisper) `small` | MIT |
 
 There are no partner or closed API nodes; every model is open weights. LTX-2.3 is the core
 video model, and Qwen only makes the stills.
 
+![The CrossView re-shoot graph in ComfyUI: your real 5 s take is the IC-LoRA reference, the real audio is frozen into the audio latent, the prompt is only a camera move, then a x2 latent upscale](docs/img/workflow-crossview.jpg)
+
 Open `workflows/*_ui.json` in ComfyUI to see or tweak the exact graphs. If you run them by hand
 in the ComfyUI app, use **Cameras & cost → Bring your own stills / clips** in the web app to
-import the results and render for free.
+import the results and render for free. Re-shoot clips (from `crossview_ui.json` or `multicam reshoot`)
+are time-locked to the source: import them with `synced=true` (API `POST …/clips`) to skip re-alignment.
 
 ## Web app architecture
 

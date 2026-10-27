@@ -39,6 +39,9 @@ def whisper_words(video: str | Path, model: str = "small", language: str = "en",
     segments, _info = m.transcribe(
         decode_audio(video), language=language, word_timestamps=True,
         initial_prompt=initial_prompt, beam_size=5,
+        # deterministic: no temperature-fallback sampling (it once produced a hallucinated transcript
+        # under heavy CPU load) and no conditioning loops on earlier text
+        temperature=0.0, condition_on_previous_text=False,
     )
     words = []
     for seg in segments:

@@ -809,7 +809,10 @@ def create_app(app_state: App):
 
     @api.post("/api/projects/{pid}/clips")
     def import_clip(pid: str, chunk: str = Form(...), cam: str = Form(...), file: UploadFile = File(...),
-                    src_start: float | None = Form(None)):
+                    src_start: float | None = Form(None), synced: bool = Form(False),
+                    camera: str | None = Form(None)):
+        """Import your own clip. synced=true: a time-locked re-shoot of the source (e.g. from
+        `multicam reshoot`): no whisper alignment, offset 0, speed 1."""
         p = proj(pid)
         plan = p.base_plan()
         ch = next((c for c in plan["chunks"] if c["id"] == chunk), None)
@@ -822,7 +825,9 @@ def create_app(app_state: App):
         dest = p.work / "gen" / "clips" / f"{chunk}_{cam}_v{n}.mp4"
         dest.parent.mkdir(parents=True, exist_ok=True)
         _limited_copy(file.file, dest, A.max_upload_mb)
-        A.register_clip(p, chunk, cam, dest, ch["start"] if src_start is None else src_start, still="imported")
+        A.register_clip(p, chunk, cam, dest, ch["start"] if src_start is None else src_start, still="imported",
+                        extra={"synced": True, "engine": "reshoot", "camera": (camera or "")[:120] or None}
+                        if synced else None)
         with p.lock:
             n = sum(len(v) for v in p.state["clips"].values())
             if p.state["steps"]["cameras"]["status"] in ("pending", "done"):

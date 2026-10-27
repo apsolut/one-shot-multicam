@@ -39,6 +39,10 @@ def cmd(a):
         elif a.line:
             from .util import load_json
             sc["lines"] = S.parse_lines(a.line, len(load_json(sc["transcript"])["sentences"]))
+        for k, c in list(sc["b_clips"].items()):  # a clip only stays valid for the same words + framing
+            if k.isdigit() and (int(k) >= len(sc["lines"]) or c.get("text") != sc["lines"][int(k)]["text"]
+                                or c.get("shot") != (sc["lines"][int(k)].get("shot") or S.b_shot_for(int(k)))):
+                sc["b_clips"].pop(k)
         S.save(work, sc); show(sc); return
     if a.scmd == "import-a":
         S.import_a_clips(sc, work, a.clips_json); show(sc); return
@@ -61,7 +65,17 @@ def cmd(a):
         if a.scmd != "run":
             return
     if a.scmd in ("render", "run"):
-        r = S.render(S.load(work), work, out=a.out, labels=a.labels, react=not a.no_react)
+        sc = S.load(work)
+        ed = dict(sc.get("edit") or {})
+        if getattr(a, "skip", None) is not None:
+            ed["skip"] = [int(x) for x in a.skip.split(",") if x.strip()]
+        if getattr(a, "open_on", None):
+            ed["open"] = None if a.open_on == "a" else a.open_on
+        if getattr(a, "loose", False):
+            ed["tight"] = False
+        sc["edit"] = ed
+        S.save(work, sc)
+        r = S.render(sc, work, out=a.out, labels=a.labels, react=not a.no_react)
         for s in r["shots"]:
             print(f"  {s['t']:6.2f}s +{s['dur']:.2f}  {s['cam']:10s} {s['words'] or ''}")
         print(f"wrote {r['output']} ({r['duration']:.1f}s)")
@@ -125,4 +139,7 @@ def add_parser(sub):
     q = ss.add_parser("render", help="free: cut the scene -> scene.mp4 (720x1280)")
     q.add_argument("--out"); q.add_argument("--labels", action="store_true", help="burn speaker/camera labels")
     q.add_argument("--no-react", action="store_true", help="no L-cut to B listening")
+    q.add_argument("--skip", help="drop A sentences (editorial cut), e.g. 2 or 2,3 ('' = none); saved in scene.json")
+    q.add_argument("--open-on", choices=["react", "a"], help="react = open on B listening (over-the-shoulder hook)")
+    q.add_argument("--loose", action="store_true", help="keep the natural pauses (v1 timing)")
     p.set_defaults(fn=cmd)

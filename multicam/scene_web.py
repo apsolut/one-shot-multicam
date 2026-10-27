@@ -213,6 +213,10 @@ def mount(api, A, key_or_403, charge_or_403):
         if body.get("voice") and body["voice"] != sc.get("voice") and (body["voice"] in S.VOICES or body["voice"] == "self"):
             sc["voice"] = body["voice"]
             sc["b_clips"] = {}
+        if isinstance(body.get("edit"), dict):  # {tight, skip:[i], open:"react"|null}
+            e = body["edit"]
+            sc["edit"] = {"tight": bool(e.get("tight", True)), "open": "react" if e.get("open") == "react" else None,
+                          "skip": [int(x) for x in (e.get("skip") or []) if 0 <= int(x) < n][:20]}
         if "reshoot_a" in body:
             set_web(sid, reshoot_a=bool(body["reshoot_a"]))
         S.save(d, sc)

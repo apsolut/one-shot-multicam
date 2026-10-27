@@ -240,8 +240,10 @@ def b_visual(sc, shot: str, listening: bool = False) -> str:
     frame = {"single": "", "ots": ", seen over the out-of-focus shoulder of the other speaker in the foreground",
              "close": ", tight close-up"}.get(shot.split("_")[0], "")
     act = ("listens silently with the mouth closed, small nod, thoughtful skeptical expression, blinking naturally"
-           if listening else "talking with natural head movement, expressive face and accurate lip sync")
-    return (f"{who}{frame}, looking at someone off-screen to the right, {act}, static camera, shallow depth of field, "
+           if listening else "talking with clearly articulated, natural mouth movements (lips, teeth and jaw move with "
+           "every syllable), relaxed natural head movement and accurate lip sync")
+    return (f"{who}{frame}, keeps looking at someone off-screen to the right and never looks into the camera, {act}, "
+            "natural skin texture with visible pores, not airbrushed, static camera, shallow depth of field, "
             "photorealistic film.")
 
 
@@ -261,15 +263,37 @@ def react_prompt(sc, shot: str) -> str:
 
 
 # ------------------------------------------------------------------ timing / turns
+EDIT_DEFAULTS = {"tight": True, "gap": 0.55, "skip": [], "open": None}
+
+
+def edit_opts(sc: dict) -> dict:
+    return {**EDIT_DEFAULTS, **(sc.get("edit") or {})}
+
+
 def turns(sc: dict, tr: dict) -> list[dict]:
-    """Alternate A (groups of real sentences) and B (lines). Times are source-relative for A."""
-    sents = tr["sentences"]
-    after = {}
+    """Alternate A (groups of real sentences) and B (lines). Times are source-relative for A.
+    edit.skip drops A sentences (an editorial cut); edit.tight splits A at pauses > edit.gap so the pause is
+    removed under a camera change, and uses short pads around every turn."""
+    ed = edit_opts(sc)
+    sents, skip = tr["sentences"], set(ed["skip"] or [])
+    pad0, pad1 = (0.12, 0.2) if ed["tight"] else (0.25, 0.28)
+    after: dict[int, list[int]] = {}
     for k, ln in enumerate(sc["lines"]):
-        after.setdefault(ln["after"], []).append(k)
-    out, cur = [], []
+        a = ln["after"]
+        while a in skip and a > 0:  # a line after a skipped sentence follows the last kept one
+            a -= 1
+        after.setdefault(a, []).append(k)
+    out, cur, prev = [], [], None
     for s in sents:
+        if s["i"] in skip:
+            if cur:
+                out.append({"who": "A", "sents": cur}); cur = []
+            prev = None
+            continue
+        if cur and ed["tight"] and prev is not None and s["start"] - prev["end"] > ed["gap"]:
+            out.append({"who": "A", "sents": cur}); cur = []
         cur.append(s["i"])
+        prev = s
         if s["i"] in after:
             out.append({"who": "A", "sents": cur}); cur = []
             for k in after[s["i"]]:
@@ -281,8 +305,8 @@ def turns(sc: dict, tr: dict) -> list[dict]:
             a, b = sents[t["sents"][0]], sents[t["sents"][-1]]
             prev_end = sents[a["i"] - 1]["end"] if a["i"] > 0 else 0.0
             nxt = sents[b["i"] + 1]["start"] if b["i"] + 1 < len(sents) else tr["duration"]
-            t["start"] = round(max(prev_end + 0.5 * (a["start"] - prev_end), a["start"] - 0.25, 0.0), 3)
-            t["end"] = round(min(b["end"] + 0.28, nxt - 0.08 if nxt > b["end"] else b["end"] + 0.28, tr["duration"]), 3)
+            t["start"] = round(max(prev_end + 0.5 * (a["start"] - prev_end), a["start"] - pad0, 0.0), 3)
+            t["end"] = round(min(b["end"] + pad1, nxt - 0.08 if nxt > b["end"] else b["end"] + pad1, tr["duration"]), 3)
     return out
 
 
@@ -559,7 +583,9 @@ def plan_edit(sc: dict, work: Path, react: bool = True) -> list[dict]:
                   key=lambda c: c["src_start"])
     wide = sorted([c for c in sc["a_clips"].values() if c.get("preset") in ("wide", "aerial", "closeup", "left45", "left90")],
                   key=lambda c: c["src_start"])
-    rc = sc["b_clips"].get("react")
+    rc = sc["b_clips"].get("react") if react else None
+    ed = edit_opts(sc)
+    last_cam = None
     react_used: list[tuple[float, float]] = []
     edl = []
 
@@ -575,8 +601,9 @@ def plan_edit(sc: dict, work: Path, react: bool = True) -> list[dict]:
             dur_clip = probe(c["path"])["duration"]
             w = _match_line(w, c.get("text") or "")
             if w:
-                c0 = max(0.0, w[0]["start"] - 0.12)
-                c1 = min(dur_clip - 0.05, w[-1]["end"] + 0.3)
+                h0, h1 = (0.08, 0.22) if edit_opts(sc)["tight"] else (0.12, 0.3)
+                c0 = max(0.0, w[0]["start"] - h0)
+                c1 = min(dur_clip - 0.05, w[-1]["end"] + h1)
             else:
                 c0, c1 = 0.2, dur_clip - 0.1
             edl.append({"who": "B", "cam": f"B {c['shot']}", "src": "ai", "path": c["path"], "in": round(c0, 3),
@@ -588,17 +615,27 @@ def plan_edit(sc: dict, work: Path, react: bool = True) -> list[dict]:
         audio = (sc["source"], t0, round(t1 - t0, 3))
         segs = []  # (cam, src, clip, start, end) in source time
         cur, used = t0, None
-        if i > 0 and T[i - 1]["who"] == "B":  # open on A's side angle: matched eyeline after B's shot
-            cut = _cut_near(aw, min(t1 - 0.8, t0 + 1.6), t0 + 0.9, t1 - 0.6)
-            for cam, pool in (("A side", side), ("A wide", wide)):
-                c = covering(pool, t0, cut)
-                if c and cut - t0 >= 0.8:
-                    segs.append((cam, "ai", c, t0, cut)); cur, used = cut, cam
+        prev_who = T[i - 1]["who"] if i > 0 else None
+        if prev_who == "B":  # open on A's side angle: matched eyeline after B's shot
+            opening = [("A side", "ai", side), ("A wide", "ai", wide)]
+        elif prev_who == "A":  # split turn (pause or skipped sentence removed): hide the jump with a camera change
+            opening = [(c, src, pool) for c, src, pool in (("A side", "ai", side), ("A wide", "ai", wide),
+                                                           ("B listens", "react", rc)) if c != last_cam]
+        elif ed["open"] == "react" and rc:  # open on the partner listening (over-the-shoulder hook)
+            opening = [("B listens", "react", rc)]
+        else:
+            opening = []
+        if opening:
+            cut = t1 if t1 - t0 < 2.2 else _cut_near(aw, min(t1 - 0.8, t0 + 1.6), t0 + 0.9, t1 - 0.6)
+            for cam, src, pool in opening:
+                c = pool if src == "react" else covering(pool, t0, cut)
+                if c and cut - t0 >= 0.6:
+                    segs.append((cam, src, c, t0, cut)); cur, used = cut, cam
                     break
         # long stretches: real A, then an insert (B listening = L-cut with A's audio running, A side, A wide)
         pool = [("B listens", "react", rc)] if (react and rc) else []
         pool += [("A side", "ai", None), ("A wide", "ai", None)]
-        while t1 - cur > 3.2 and pool:
+        while t1 - cur > 2.9 and pool:
             a = _cut_near(aw, cur + 1.5, cur + 1.1, t1 - 1.8)
             bb = _cut_near(aw, a + 1.4, a + 0.9, t1 - 0.9)
             if bb - a < 0.8:
@@ -614,7 +651,11 @@ def plan_edit(sc: dict, work: Path, react: bool = True) -> list[dict]:
             if not pick:
                 break
             segs.append(("A real", "real", None, cur, a)); segs.append((*pick, a, bb)); cur, used = bb, pick[0]
-        segs.append(("A real", "real", None, cur, t1))
+        if segs and segs[-1][0] != "A real" and t1 - cur < 0.7:  # no sliver of A before the next turn
+            segs[-1] = (*segs[-1][:4], t1)
+        else:
+            segs.append(("A real", "real", None, cur, t1))
+        last_cam = next((sg[0] for sg in reversed(segs) if sg[4] - sg[3] >= 0.05), "A real")
         first = True
         for cam, src, c, s0, s1 in segs:
             if s1 - s0 < 0.05:
@@ -629,8 +670,10 @@ def plan_edit(sc: dict, work: Path, react: bool = True) -> list[dict]:
                 d = s1 - s0
                 cands = [round(0.3 + 0.1 * q, 2) for q in range(int(max(0.0, rdur - d - 0.35) / 0.1) + 1)]
                 free = [q for q in cands if not any(q - 0.1 < w["end"] and w["start"] < q + d for w in rw)] or cands or [0.0]
-                fresh = [q for q in free if not any(q < u1 and u0 < q + d for u0, u1 in react_used)]
-                cin = (fresh or free)[0]
+                def unused(qs):
+                    return [q for q in qs if not any(q < u1 and u0 < q + d for u0, u1 in react_used)]
+                # silent + not shown yet > not shown yet (a closed-mouth "hmm" reads as a reaction) > silent
+                cin = (unused(free) or unused(cands) or free)[0]
                 react_used.append((cin, cin + d))
                 path = c["path"]
             edl.append({"who": "A", "cam": cam, "src": src, "path": path, "in": round(max(0.0, cin), 3),

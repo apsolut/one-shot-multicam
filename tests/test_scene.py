@@ -22,7 +22,7 @@ def test_parse_lines():
 
 
 def test_turns_alternate_and_bounds():
-    sc = {"lines": S.parse_lines(["1:a", "2:b", "4:c"], 5)}
+    sc = {"lines": S.parse_lines(["1:a", "2:b", "4:c"], 5), "edit": {"tight": False}}
     T = S.turns(sc, TR)
     assert [t["who"] for t in T] == ["A", "B", "A", "B", "A", "B"]
     a = [t for t in T if t["who"] == "A"]
@@ -30,6 +30,18 @@ def test_turns_alternate_and_bounds():
     for t in a:  # pads never cross into the neighbouring sentence
         assert 0 <= t["start"] < t["end"] <= TR["duration"]
     assert a[1]["start"] >= TR["sentences"][1]["end"] and a[1]["end"] <= TR["sentences"][3]["start"]
+
+
+def test_tight_splits_pauses_and_skips():
+    sc = {"lines": S.parse_lines(["1:a", "4:c"], 5), "edit": {"tight": True, "skip": [2]}}
+    T = S.turns(sc, TR)
+    a = [t["sents"] for t in T if t["who"] == "A"]
+    assert a == [[0], [1], [3], [4]]  # 0.76 s pause split, sentence 2 cut, 0.64 s pause split
+    assert [t["who"] for t in T] == ["A", "A", "B", "A", "A", "B"]
+    assert all(2 not in t.get("sents", []) for t in T)
+    sc["lines"] = S.parse_lines(["2:after a skipped one"], 5)
+    T = S.turns(sc, TR)
+    assert T[2] == {"who": "B", "line": 0} and T[1]["sents"] == [1]
 
 
 def test_match_line_drops_padding():

@@ -437,6 +437,10 @@ How it works:
 5. **Edit (free, local).** A's turns use your **real audio**; B's turns use the clip audio
    (level-matched, the mix is loudness-normalized to −16 LUFS). A turn after B opens on your side angle,
    long turns get an **L-cut to B listening** while you keep talking, and every speaker gets ≥ 2 angles.
+   **Tight timing** (default): pauses longer than 0.55 s between your sentences are cut out under a camera
+   change, and every turn gets short pads, so the dialogue keeps moving. `render --skip 2` drops a
+   sentence as an editorial cut, `--open-on react` opens on the partner listening over your shoulder,
+   `--loose` keeps the natural pauses (API: `POST /api/scene/{id}/lines {"edit": {...}}`).
    Output: `scene.mp4` (720×1280, 30 fps, yuv420p, +faststart) and a labeled copy.
 
 ```bash
@@ -456,11 +460,15 @@ Scene card; the estimate (stills + lines + listening clip + your side angles) is
 anything is spent. API: `POST /api/scene`, `GET /api/scene/{id}`, `POST /api/scene/{id}/lines|suggest|generate|render`.
 
 Measured on the demo (17.5 s take, 3 answers): 1 Qwen stills job ≈ $0.03–0.06, each B line ≈ $0.03,
-total ≈ $0.15–0.20 when your angles are reused; the rendered scene is 26–28 s.
+total ≈ $0.15–0.20 when your angles are reused. With tight timing the scenes are 24.2 s (other self,
+opens on the over-the-shoulder hook) and 23.8 s (podcast, one sentence cut), down from 26–28 s.
+Write B's lines as one short sentence: ID LoRA tends to leave a ~0.8 s pause after a full stop.
 
-Honest limits: the clone keeps your face well in the stills, but it's a restyle (slightly slimmer and
-younger-looking at some angles). ID LoRA often leaves a ~0.8 s pause after a full stop inside a line, so
-short single-sentence lines cut tighter. Your real take looks into the lens, so its eyeline isn't matched
+Honest limits (an independent review of v1 gave resemblance 6/10, AI lip sync 5/10, believability 6/10):
+the clone is a restyle, so its skin looks smoothed and it reads slightly slimmer and younger; ID LoRA mouths
+can be rigid and repetitive, and a partner can drift into looking at the lens at the end of a clip (the
+prompts now ask for articulated mouth shapes, natural skin and a held eyeline; the template's CFG is 1,
+so a negative prompt has no effect). Re-roll a weak line with a new seed rather than keeping it. Your real take looks into the lens, so its eyeline isn't matched
 to B; the side re-shoots are. B's voice clone is the ID-LoRA reference (pitch close to yours,
 measured ~120–160 Hz vs 113 Hz), not a dedicated TTS clone.
 

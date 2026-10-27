@@ -1,0 +1,29 @@
+# media stays out of git
+*.mp4
+*.mov
+*.webm
+*.mkv
+*.wav
+*.mp3
+*.aac
+*.m4a
+*.png
+*.jpg
+*.jpeg
+*.webp
+work/
+gen/
+clips/
+outputs/
+# python
+__pycache__/
+*.egg-info/
+.venv/
+venv/
+.env
+
+# gallery media: host on GitHub Releases (see README)
+docs/media/
+screens/
+build/
+dist/

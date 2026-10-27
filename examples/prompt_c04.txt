@@ -1,0 +1,3 @@
+[VISUAL]: Side profile camera angle of the same man, same outfit, same room and lighting, speaking naturally toward someone just off-camera, natural head movement and lip sync, small hand gestures, slight handheld camera sway, shallow depth of field, photorealistic, vertical smartphone video.
+[SPEECH]: If you're still coding the old way, you're leaving a lot of productivity behind.
+[SOUNDS]: Energetic male voice, close to the microphone, quiet room, no music.

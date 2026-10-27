@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "multicam"
+version = "0.1.0"
+description = "Multicam from one phone shot: auto-cut a selfie take with ComfyUI-generated B/C angles over the real audio"
+readme = "README.md"
+license = {text = "MIT"}
+authors = [{name = "Aleksandar Perisic"}]
+requires-python = ">=3.10"
+dependencies = ["faster-whisper>=1.0", "numpy", "requests"]
+
+[project.optional-dependencies]
+music = ["librosa", "opencv-python-headless<5"]
+web = ["fastapi>=0.110", "uvicorn>=0.29", "python-multipart>=0.0.9", "opencv-python-headless<5"]
+
+[project.scripts]
+multicam = "multicam.cli:main"
+
+[tool.setuptools]
+packages = ["multicam"]
+
+[tool.setuptools.package-data]
+multicam = ["web/*"]

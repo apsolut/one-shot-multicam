@@ -1,0 +1,334 @@
+{
+  "source": "selfie.mp4",
+  "duration": 17.571995,
+  "fps": 30.0,
+  "params": {
+    "max_chunk": 5.0,
+    "lead": 0.5,
+    "breath": 0.5,
+    "tail_guard": 0.1,
+    "min_insert": 1.0,
+    "max_insert": 2.0,
+    "target_insert": 1.5,
+    "min_a": 1.5,
+    "head_a": 1.0,
+    "tail_a": 1.0,
+    "cut_pad": 0.12,
+    "angles": [
+      "B",
+      "C"
+    ],
+    "fps": 30.0,
+    "all_chunks": false
+  },
+  "pins": {
+    "c04": "B"
+  },
+  "angle_names": {
+    "A": "real",
+    "B": "profile",
+    "C": "wide",
+    "D": "closeup"
+  },
+  "chunks": [
+    {
+      "id": "c01",
+      "start": 0.0,
+      "end": 5.0,
+      "speech_start": 0.0,
+      "speech_end": 2.98,
+      "w0": 0,
+      "w1": 8,
+      "words": "I used to lose hours debugging and rewriting code.",
+      "phrases": [
+        0
+      ],
+      "angle": "C",
+      "generate": true
+    },
+    {
+      "id": "c02",
+      "start": 3.24,
+      "end": 8.24,
+      "speech_start": 3.74,
+      "speech_end": 7.4,
+      "w0": 9,
+      "w1": 17,
+      "words": "Then I tried Claude Code. My workflow transformed overnight.",
+      "phrases": [
+        1,
+        2
+      ],
+      "angle": "B",
+      "generate": true
+    },
+    {
+      "id": "c03",
+      "start": 7.86,
+      "end": 12.86,
+      "speech_start": 8.36,
+      "speech_end": 12.16,
+      "w0": 18,
+      "w1": 29,
+      "words": "Now I ship features three times faster, with better quality than ever.",
+      "phrases": [
+        3,
+        4
+      ],
+      "angle": "C",
+      "generate": true
+    },
+    {
+      "id": "c04",
+      "start": 12.3,
+      "end": 17.3,
+      "speech_start": 12.8,
+      "speech_end": 17.12,
+      "w0": 30,
+      "w1": 43,
+      "words": "If you're still coding the old way, you're leaving a lot of productivity behind.",
+      "phrases": [
+        5,
+        6
+      ],
+      "angle": "B",
+      "generate": true
+    }
+  ],
+  "shots": [
+    {
+      "cam": "A",
+      "start": 0.0,
+      "end": 2.1667,
+      "i": 0,
+      "angle_name": "real",
+      "duration": 2.1667,
+      "words": "I used to lose hours debugging and"
+    },
+    {
+      "cam": "C",
+      "start": 2.1667,
+      "end": 3.5,
+      "chunk": "c01",
+      "offset": 1.289,
+      "words": "rewriting code.",
+      "enter": "mid-phrase",
+      "exit": "phrase-end",
+      "i": 1,
+      "angle_name": "wide",
+      "duration": 1.3333,
+      "align": {
+        "naive_clip_in": 2.167,
+        "insert_words": [
+          "rewriting",
+          "code."
+        ],
+        "matched": 2,
+        "exact": 2,
+        "of": 2,
+        "speed": 1.15,
+        "raw_speed": 1.1707,
+        "clip_in": 3.456,
+        "clip_out": 5.022,
+        "offset": 1.29,
+        "anchors": [
+          {
+            "word": "rewriting",
+            "real_start": 2.16,
+            "gen_start": 3.44
+          },
+          {
+            "word": "code.",
+            "real_end": 2.98,
+            "gen_end": 4.4
+          }
+        ],
+        "status": "ok",
+        "trimmed": {
+          "start": 2.167,
+          "end": 3.528
+        },
+        "notes": [
+          "end moved to 3.528"
+        ]
+      },
+      "speed": 1.15
+    },
+    {
+      "cam": "A",
+      "start": 3.5,
+      "end": 5.8333,
+      "i": 2,
+      "angle_name": "real",
+      "duration": 2.3333,
+      "words": "Then I tried Claude Code. My"
+    },
+    {
+      "cam": "B",
+      "start": 5.8333,
+      "end": 6.9,
+      "chunk": "c02",
+      "offset": -0.281,
+      "words": "workflow transformed",
+      "enter": "mid-phrase",
+      "exit": "word-boundary",
+      "i": 3,
+      "angle_name": "profile",
+      "duration": 1.0667,
+      "align": {
+        "naive_clip_in": 2.593,
+        "insert_words": [
+          "workflow",
+          "transformed"
+        ],
+        "matched": 2,
+        "exact": 2,
+        "of": 2,
+        "speed": 1.15,
+        "raw_speed": 1.1509,
+        "clip_in": 2.313,
+        "clip_out": 3.539,
+        "offset": -0.281,
+        "anchors": [
+          {
+            "word": "workflow",
+            "real_start": 5.84,
+            "gen_start": 2.32
+          },
+          {
+            "word": "transformed",
+            "real_end": 6.9,
+            "gen_end": 3.54
+          }
+        ],
+        "status": "ok"
+      },
+      "speed": 1.15
+    },
+    {
+      "cam": "A",
+      "start": 6.9,
+      "end": 11.1333,
+      "i": 4,
+      "angle_name": "real",
+      "duration": 4.2333,
+      "words": "overnight. Now I ship features three times faster, with better"
+    },
+    {
+      "cam": "C",
+      "start": 11.1333,
+      "end": 12.6667,
+      "chunk": "c03",
+      "offset": -0.048,
+      "words": "quality than ever.",
+      "enter": "mid-phrase",
+      "exit": "phrase-end",
+      "i": 5,
+      "angle_name": "wide",
+      "duration": 1.5334,
+      "align": {
+        "naive_clip_in": 3.273,
+        "insert_words": [
+          "quality",
+          "than",
+          "ever."
+        ],
+        "matched": 3,
+        "exact": 3,
+        "of": 3,
+        "speed": 1.15,
+        "raw_speed": 1.2157,
+        "clip_in": 3.226,
+        "clip_out": 4.989,
+        "offset": -0.048,
+        "anchors": [
+          {
+            "word": "quality",
+            "real_start": 11.14,
+            "gen_start": 3.2
+          },
+          {
+            "word": "ever.",
+            "real_end": 12.16,
+            "gen_end": 4.44
+          }
+        ],
+        "status": "ok"
+      },
+      "speed": 1.15
+    },
+    {
+      "cam": "A",
+      "start": 12.6667,
+      "end": 14.4333,
+      "i": 6,
+      "angle_name": "real",
+      "duration": 1.7666,
+      "words": "If you're still coding the old"
+    },
+    {
+      "cam": "B",
+      "start": 14.4333,
+      "end": 15.9333,
+      "chunk": "c04",
+      "offset": -0.66,
+      "words": "way, you're leaving a lot",
+      "enter": "mid-phrase",
+      "exit": "word-boundary",
+      "i": 7,
+      "angle_name": "profile",
+      "duration": 1.5,
+      "align": {
+        "naive_clip_in": 2.433,
+        "insert_words": [
+          "way,",
+          "you're",
+          "leaving",
+          "a",
+          "lot"
+        ],
+        "matched": 5,
+        "exact": 5,
+        "of": 5,
+        "speed": 1.0,
+        "raw_speed": 1.0267,
+        "clip_in": 1.773,
+        "clip_out": 3.273,
+        "offset": -0.66,
+        "anchors": [
+          {
+            "word": "way,",
+            "real_start": 14.42,
+            "gen_start": 1.76
+          },
+          {
+            "word": "lot",
+            "real_end": 15.92,
+            "gen_end": 3.3
+          }
+        ],
+        "status": "ok"
+      },
+      "speed": 1.0
+    },
+    {
+      "cam": "A",
+      "start": 15.9333,
+      "end": 17.5667,
+      "i": 8,
+      "angle_name": "real",
+      "duration": 1.6334,
+      "words": "of productivity behind."
+    }
+  ],
+  "cuts": [
+    2.1667,
+    3.5,
+    5.8333,
+    6.9,
+    11.1333,
+    12.6667,
+    14.4333,
+    15.9333
+  ]
+}

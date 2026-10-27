@@ -1,0 +1,125 @@
+{
+  "source": "selfie.mp4",
+  "plan": null,
+  "generation": {
+    "width": 720,
+    "height": 1280,
+    "fps": 24,
+    "seconds": 5,
+    "frames": 121
+  },
+  "jobs": [
+    {
+      "id": "c01_C",
+      "chunk": "c01",
+      "angle": "C",
+      "angle_name": "wide",
+      "start": 0.0,
+      "end": 5.0,
+      "duration": 5.0,
+      "speech": "I used to lose hours debugging and rewriting code.",
+      "prompt": "[VISUAL]: Wide shot from a few meters back of the same man, same outfit, same room and lighting, upper body and surroundings visible, talking energetically to camera, natural head movement and lip sync, slight handheld camera sway, photorealistic, vertical smartphone video.\n[SPEECH]: I used to lose hours debugging and rewriting code.\n[SOUNDS]: Energetic male voice, close to the microphone, quiet room, no music.\n",
+      "prompt_file": "work/gen/prompts/c01.txt",
+      "audio": "work/gen/audio/c01.wav",
+      "first_frame": "work/gen/frames/c01.png",
+      "angle_still": "work/gen/stills/c01_C.png",
+      "expected_clip": "work/gen/clips/c01_C.mp4",
+      "qwen": {
+        "template": "Qwen 1 Click Multiple Character Angles",
+        "angle": "wide"
+      },
+      "ltx": {
+        "template": "LTX-2.3: ID LoRA",
+        "width": 720,
+        "height": 1280,
+        "fps": 24,
+        "seconds": 5,
+        "frames": 121
+      }
+    },
+    {
+      "id": "c02_B",
+      "chunk": "c02",
+      "angle": "B",
+      "angle_name": "profile",
+      "start": 3.24,
+      "end": 8.24,
+      "duration": 5.0,
+      "speech": "Then I tried Claude Code. My workflow transformed overnight.",
+      "prompt": "[VISUAL]: Side profile camera angle of the same man, same outfit, same room and lighting, speaking naturally toward someone just off-camera, natural head movement and lip sync, small hand gestures, slight handheld camera sway, shallow depth of field, photorealistic, vertical smartphone video.\n[SPEECH]: Then I tried Claude Code. My workflow transformed overnight.\n[SOUNDS]: Energetic male voice, close to the microphone, quiet room, no music.\n",
+      "prompt_file": "work/gen/prompts/c02.txt",
+      "audio": "work/gen/audio/c02.wav",
+      "first_frame": "work/gen/frames/c02.png",
+      "angle_still": "work/gen/stills/c02_B.png",
+      "expected_clip": "work/gen/clips/c02_B.mp4",
+      "qwen": {
+        "template": "Qwen 1 Click Multiple Character Angles",
+        "angle": "profile"
+      },
+      "ltx": {
+        "template": "LTX-2.3: ID LoRA",
+        "width": 720,
+        "height": 1280,
+        "fps": 24,
+        "seconds": 5,
+        "frames": 121
+      }
+    },
+    {
+      "id": "c03_C",
+      "chunk": "c03",
+      "angle": "C",
+      "angle_name": "wide",
+      "start": 7.86,
+      "end": 12.86,
+      "duration": 5.0,
+      "speech": "Now I ship features three times faster, with better quality than ever.",
+      "prompt": "[VISUAL]: Wide shot from a few meters back of the same man, same outfit, same room and lighting, upper body and surroundings visible, talking energetically to camera, natural head movement and lip sync, slight handheld camera sway, photorealistic, vertical smartphone video.\n[SPEECH]: Now I ship features three times faster, with better quality than ever.\n[SOUNDS]: Energetic male voice, close to the microphone, quiet room, no music.\n",
+      "prompt_file": "work/gen/prompts/c03.txt",
+      "audio": "work/gen/audio/c03.wav",
+      "first_frame": "work/gen/frames/c03.png",
+      "angle_still": "work/gen/stills/c03_C.png",
+      "expected_clip": "work/gen/clips/c03_C.mp4",
+      "qwen": {
+        "template": "Qwen 1 Click Multiple Character Angles",
+        "angle": "wide"
+      },
+      "ltx": {
+        "template": "LTX-2.3: ID LoRA",
+        "width": 720,
+        "height": 1280,
+        "fps": 24,
+        "seconds": 5,
+        "frames": 121
+      }
+    },
+    {
+      "id": "c04_B",
+      "chunk": "c04",
+      "angle": "B",
+      "angle_name": "profile",
+      "start": 12.3,
+      "end": 17.3,
+      "duration": 5.0,
+      "speech": "If you're still coding the old way, you're leaving a lot of productivity behind.",
+      "prompt": "[VISUAL]: Side profile camera angle of the same man, same outfit, same room and lighting, speaking naturally toward someone just off-camera, natural head movement and lip sync, small hand gestures, slight handheld camera sway, shallow depth of field, photorealistic, vertical smartphone video.\n[SPEECH]: If you're still coding the old way, you're leaving a lot of productivity behind.\n[SOUNDS]: Energetic male voice, close to the microphone, quiet room, no music.\n",
+      "prompt_file": "work/gen/prompts/c04.txt",
+      "audio": "work/gen/audio/c04.wav",
+      "first_frame": "work/gen/frames/c04.png",
+      "angle_still": "work/gen/stills/c04_B.png",
+      "expected_clip": "work/gen/clips/c04_B.mp4",
+      "qwen": {
+        "template": "Qwen 1 Click Multiple Character Angles",
+        "angle": "profile"
+      },
+      "ltx": {
+        "template": "LTX-2.3: ID LoRA",
+        "width": 720,
+        "height": 1280,
+        "fps": 24,
+        "seconds": 5,
+        "frames": 121
+      }
+    }
+  ]
+}

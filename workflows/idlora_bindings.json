@@ -1,0 +1,11 @@
+{
+  "_comment": "Bindings for workflows/idlora_api.json (Comfy Cloud template 'LTX-2.3: ID LoRA'). Each key -> list of [node_id, input_name].",
+  "image":    [["269", "image"]],
+  "audio":    [["276", "audio"]],
+  "prompt":   [["340:319", "value"]],
+  "width":    [["340:330", "value"]],
+  "height":   [["340:324", "value"]],
+  "fps":      [["340:323", "value"]],
+  "duration": [["340:331", "value"]],
+  "seed":     [["340:286", "noise_seed"]]
+}

@@ -1,0 +1,93 @@
+{
+  "clip": "clips/run7_idlora_profile.mp4",
+  "size": 976709,
+  "mtime": 1793101923,
+  "model": "small",
+  "text": "If you're still coding the old way, you're leaving a lot of productivity behind.",
+  "words": [
+    {
+      "text": "If",
+      "start": 0.0,
+      "end": 0.36,
+      "prob": 0.74
+    },
+    {
+      "text": "you're",
+      "start": 0.36,
+      "end": 0.54,
+      "prob": 0.945
+    },
+    {
+      "text": "still",
+      "start": 0.54,
+      "end": 0.8,
+      "prob": 0.996
+    },
+    {
+      "text": "coding",
+      "start": 0.8,
+      "end": 1.3,
+      "prob": 0.991
+    },
+    {
+      "text": "the",
+      "start": 1.3,
+      "end": 1.54,
+      "prob": 0.994
+    },
+    {
+      "text": "old",
+      "start": 1.54,
+      "end": 1.76,
+      "prob": 0.995
+    },
+    {
+      "text": "way,",
+      "start": 1.76,
+      "end": 2.1,
+      "prob": 0.988
+    },
+    {
+      "text": "you're",
+      "start": 2.5,
+      "end": 2.74,
+      "prob": 0.982
+    },
+    {
+      "text": "leaving",
+      "start": 2.74,
+      "end": 2.98,
+      "prob": 0.981
+    },
+    {
+      "text": "a",
+      "start": 2.98,
+      "end": 3.16,
+      "prob": 0.995
+    },
+    {
+      "text": "lot",
+      "start": 3.16,
+      "end": 3.3,
+      "prob": 1.0
+    },
+    {
+      "text": "of",
+      "start": 3.3,
+      "end": 3.44,
+      "prob": 0.996
+    },
+    {
+      "text": "productivity",
+      "start": 3.44,
+      "end": 4.02,
+      "prob": 0.998
+    },
+    {
+      "text": "behind.",
+      "start": 4.02,
+      "end": 4.5,
+      "prob": 0.999
+    }
+  ]
+}

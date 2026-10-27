@@ -1,0 +1,63 @@
+{
+  "clip": "work/gen/clips/c02_B.mp4",
+  "size": 970392,
+  "mtime": 1793108906,
+  "model": "small",
+  "text": "Then I tried cloud code. My workflow transformed overnight.",
+  "words": [
+    {
+      "text": "Then",
+      "start": 0.0,
+      "end": 0.26,
+      "prob": 0.498
+    },
+    {
+      "text": "I",
+      "start": 0.26,
+      "end": 0.4,
+      "prob": 0.924
+    },
+    {
+      "text": "tried",
+      "start": 0.4,
+      "end": 0.66,
+      "prob": 0.988
+    },
+    {
+      "text": "cloud",
+      "start": 0.66,
+      "end": 0.96,
+      "prob": 0.116
+    },
+    {
+      "text": "code.",
+      "start": 0.96,
+      "end": 1.4,
+      "prob": 0.933
+    },
+    {
+      "text": "My",
+      "start": 2.0,
+      "end": 2.32,
+      "prob": 0.982
+    },
+    {
+      "text": "workflow",
+      "start": 2.32,
+      "end": 2.82,
+      "prob": 0.985
+    },
+    {
+      "text": "transformed",
+      "start": 2.82,
+      "end": 3.54,
+      "prob": 0.976
+    },
+    {
+      "text": "overnight.",
+      "start": 3.54,
+      "end": 4.38,
+      "prob": 0.927
+    }
+  ]
+}

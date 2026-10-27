@@ -1,0 +1,81 @@
+{
+  "clip": "work/gen/clips/c03_C.mp4",
+  "size": 1020700,
+  "mtime": 1793108996,
+  "model": "small",
+  "text": "Now our ship features three times faster with better quality than ever.",
+  "words": [
+    {
+      "text": "Now",
+      "start": 0.0,
+      "end": 0.44,
+      "prob": 0.844
+    },
+    {
+      "text": "our",
+      "start": 0.44,
+      "end": 0.6,
+      "prob": 0.469
+    },
+    {
+      "text": "ship",
+      "start": 0.6,
+      "end": 0.84,
+      "prob": 0.946
+    },
+    {
+      "text": "features",
+      "start": 0.84,
+      "end": 1.24,
+      "prob": 0.954
+    },
+    {
+      "text": "three",
+      "start": 1.24,
+      "end": 1.62,
+      "prob": 0.595
+    },
+    {
+      "text": "times",
+      "start": 1.62,
+      "end": 1.94,
+      "prob": 0.987
+    },
+    {
+      "text": "faster",
+      "start": 1.94,
+      "end": 2.5,
+      "prob": 0.996
+    },
+    {
+      "text": "with",
+      "start": 2.5,
+      "end": 2.92,
+      "prob": 0.821
+    },
+    {
+      "text": "better",
+      "start": 2.92,
+      "end": 3.2,
+      "prob": 0.994
+    },
+    {
+      "text": "quality",
+      "start": 3.2,
+      "end": 3.78,
+      "prob": 0.996
+    },
+    {
+      "text": "than",
+      "start": 3.78,
+      "end": 4.1,
+      "prob": 0.966
+    },
+    {
+      "text": "ever.",
+      "start": 4.1,
+      "end": 4.44,
+      "prob": 0.995
+    }
+  ]
+}

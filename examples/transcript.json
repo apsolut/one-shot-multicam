@@ -1,0 +1,471 @@
+{
+  "source": "selfie.mp4",
+  "duration": 17.571995,
+  "fps": 30.0,
+  "model": "faster-whisper/small/cpu-int8",
+  "language": "en",
+  "asr_text": "I used to lose hours debugging and rewriting code. Then I tried Claude Code. My workflow transformed overnight. Now I ship features three times faster, with better quality than ever. If you're still coding the old way, you're leaving a lot of productivity behind.",
+  "script_aligned": true,
+  "text": "I used to lose hours debugging and rewriting code. Then I tried Claude Code. My workflow transformed overnight. Now I ship features three times faster, with better quality than ever. If you're still coding the old way, you're leaving a lot of productivity behind.",
+  "words": [
+    {
+      "text": "I",
+      "start": 0.0,
+      "end": 0.34,
+      "prob": 0.907,
+      "aligned": "match",
+      "i": 0
+    },
+    {
+      "text": "used",
+      "start": 0.34,
+      "end": 0.48,
+      "prob": 0.974,
+      "aligned": "match",
+      "i": 1
+    },
+    {
+      "text": "to",
+      "start": 0.48,
+      "end": 0.64,
+      "prob": 0.995,
+      "aligned": "match",
+      "i": 2
+    },
+    {
+      "text": "lose",
+      "start": 0.64,
+      "end": 0.8,
+      "prob": 0.954,
+      "aligned": "match",
+      "i": 3
+    },
+    {
+      "text": "hours",
+      "start": 0.8,
+      "end": 1.04,
+      "prob": 0.991,
+      "aligned": "match",
+      "i": 4
+    },
+    {
+      "text": "debugging",
+      "start": 1.04,
+      "end": 1.6,
+      "prob": 0.98,
+      "aligned": "match",
+      "i": 5
+    },
+    {
+      "text": "and",
+      "start": 1.6,
+      "end": 2.16,
+      "prob": 0.966,
+      "aligned": "match",
+      "i": 6
+    },
+    {
+      "text": "rewriting",
+      "start": 2.16,
+      "end": 2.58,
+      "prob": 0.521,
+      "aligned": "match",
+      "i": 7
+    },
+    {
+      "text": "code.",
+      "start": 2.58,
+      "end": 2.98,
+      "prob": 0.991,
+      "aligned": "match",
+      "i": 8
+    },
+    {
+      "text": "Then",
+      "start": 3.74,
+      "end": 3.9,
+      "prob": 0.918,
+      "aligned": "match",
+      "i": 9
+    },
+    {
+      "text": "I",
+      "start": 3.9,
+      "end": 4.04,
+      "prob": 0.876,
+      "aligned": "match",
+      "i": 10
+    },
+    {
+      "text": "tried",
+      "start": 4.04,
+      "end": 4.26,
+      "prob": 0.323,
+      "aligned": "match",
+      "i": 11
+    },
+    {
+      "text": "Claude",
+      "start": 4.26,
+      "end": 4.68,
+      "prob": 0.527,
+      "aligned": "match",
+      "i": 12
+    },
+    {
+      "text": "Code.",
+      "start": 4.68,
+      "end": 4.96,
+      "prob": 0.301,
+      "aligned": "match",
+      "i": 13
+    },
+    {
+      "text": "My",
+      "start": 5.7,
+      "end": 5.84,
+      "prob": 0.971,
+      "aligned": "match",
+      "i": 14
+    },
+    {
+      "text": "workflow",
+      "start": 5.84,
+      "end": 6.12,
+      "prob": 0.96,
+      "aligned": "match",
+      "i": 15
+    },
+    {
+      "text": "transformed",
+      "start": 6.12,
+      "end": 6.9,
+      "prob": 0.331,
+      "aligned": "match",
+      "i": 16
+    },
+    {
+      "text": "overnight.",
+      "start": 6.9,
+      "end": 7.4,
+      "prob": 0.933,
+      "aligned": "match",
+      "i": 17
+    },
+    {
+      "text": "Now",
+      "start": 8.36,
+      "end": 8.6,
+      "prob": 0.978,
+      "aligned": "match",
+      "i": 18
+    },
+    {
+      "text": "I",
+      "start": 8.6,
+      "end": 8.78,
+      "prob": 0.176,
+      "aligned": "match",
+      "i": 19
+    },
+    {
+      "text": "ship",
+      "start": 8.78,
+      "end": 9.02,
+      "prob": 0.736,
+      "aligned": "match",
+      "i": 20
+    },
+    {
+      "text": "features",
+      "start": 9.02,
+      "end": 9.36,
+      "prob": 0.899,
+      "aligned": "match",
+      "i": 21
+    },
+    {
+      "text": "three",
+      "start": 9.36,
+      "end": 9.78,
+      "prob": 0.015,
+      "aligned": "match",
+      "i": 22
+    },
+    {
+      "text": "times",
+      "start": 9.78,
+      "end": 10.06,
+      "prob": 0.409,
+      "aligned": "match",
+      "i": 23
+    },
+    {
+      "text": "faster,",
+      "start": 10.06,
+      "end": 10.54,
+      "prob": 0.995,
+      "aligned": "match",
+      "i": 24
+    },
+    {
+      "text": "with",
+      "start": 10.76,
+      "end": 10.88,
+      "prob": 0.979,
+      "aligned": "match",
+      "i": 25
+    },
+    {
+      "text": "better",
+      "start": 10.88,
+      "end": 11.14,
+      "prob": 0.988,
+      "aligned": "match",
+      "i": 26
+    },
+    {
+      "text": "quality",
+      "start": 11.14,
+      "end": 11.54,
+      "prob": 0.876,
+      "aligned": "match",
+      "i": 27
+    },
+    {
+      "text": "than",
+      "start": 11.54,
+      "end": 11.9,
+      "prob": 0.332,
+      "aligned": "match",
+      "i": 28
+    },
+    {
+      "text": "ever.",
+      "start": 11.9,
+      "end": 12.16,
+      "prob": 0.992,
+      "aligned": "match",
+      "i": 29
+    },
+    {
+      "text": "If",
+      "start": 12.8,
+      "end": 12.92,
+      "prob": 0.961,
+      "aligned": "match",
+      "i": 30
+    },
+    {
+      "text": "you're",
+      "start": 12.92,
+      "end": 13.12,
+      "prob": 0.608,
+      "aligned": "match",
+      "i": 31
+    },
+    {
+      "text": "still",
+      "start": 13.12,
+      "end": 13.32,
+      "prob": 0.846,
+      "aligned": "match",
+      "i": 32
+    },
+    {
+      "text": "coding",
+      "start": 13.32,
+      "end": 13.92,
+      "prob": 0.932,
+      "aligned": "match",
+      "i": 33
+    },
+    {
+      "text": "the",
+      "start": 13.92,
+      "end": 14.2,
+      "prob": 0.431,
+      "aligned": "match",
+      "i": 34
+    },
+    {
+      "text": "old",
+      "start": 14.2,
+      "end": 14.42,
+      "prob": 0.988,
+      "aligned": "match",
+      "i": 35
+    },
+    {
+      "text": "way,",
+      "start": 14.42,
+      "end": 14.78,
+      "prob": 0.973,
+      "aligned": "match",
+      "i": 36
+    },
+    {
+      "text": "you're",
+      "start": 15.2,
+      "end": 15.42,
+      "prob": 0.945,
+      "aligned": "match",
+      "i": 37
+    },
+    {
+      "text": "leaving",
+      "start": 15.42,
+      "end": 15.58,
+      "prob": 0.786,
+      "aligned": "match",
+      "i": 38
+    },
+    {
+      "text": "a",
+      "start": 15.58,
+      "end": 15.78,
+      "prob": 0.908,
+      "aligned": "match",
+      "i": 39
+    },
+    {
+      "text": "lot",
+      "start": 15.78,
+      "end": 15.92,
+      "prob": 0.99,
+      "aligned": "match",
+      "i": 40
+    },
+    {
+      "text": "of",
+      "start": 15.92,
+      "end": 16.08,
+      "prob": 0.972,
+      "aligned": "match",
+      "i": 41
+    },
+    {
+      "text": "productivity",
+      "start": 16.08,
+      "end": 16.52,
+      "prob": 0.988,
+      "aligned": "match",
+      "i": 42
+    },
+    {
+      "text": "behind.",
+      "start": 16.52,
+      "end": 17.12,
+      "prob": 0.986,
+      "aligned": "match",
+      "i": 43
+    }
+  ],
+  "sentences": [
+    {
+      "w0": 0,
+      "w1": 8,
+      "i": 0,
+      "start": 0.0,
+      "end": 2.98,
+      "text": "I used to lose hours debugging and rewriting code."
+    },
+    {
+      "w0": 9,
+      "w1": 13,
+      "i": 1,
+      "start": 3.74,
+      "end": 4.96,
+      "text": "Then I tried Claude Code."
+    },
+    {
+      "w0": 14,
+      "w1": 17,
+      "i": 2,
+      "start": 5.7,
+      "end": 7.4,
+      "text": "My workflow transformed overnight."
+    },
+    {
+      "w0": 18,
+      "w1": 29,
+      "i": 3,
+      "start": 8.36,
+      "end": 12.16,
+      "text": "Now I ship features three times faster, with better quality than ever."
+    },
+    {
+      "w0": 30,
+      "w1": 43,
+      "i": 4,
+      "start": 12.8,
+      "end": 17.12,
+      "text": "If you're still coding the old way, you're leaving a lot of productivity behind."
+    }
+  ],
+  "phrases": [
+    {
+      "w0": 0,
+      "w1": 8,
+      "i": 0,
+      "start": 0.0,
+      "end": 2.98,
+      "text": "I used to lose hours debugging and rewriting code.",
+      "sentence": 0
+    },
+    {
+      "w0": 9,
+      "w1": 13,
+      "i": 1,
+      "start": 3.74,
+      "end": 4.96,
+      "text": "Then I tried Claude Code.",
+      "sentence": 1
+    },
+    {
+      "w0": 14,
+      "w1": 17,
+      "i": 2,
+      "start": 5.7,
+      "end": 7.4,
+      "text": "My workflow transformed overnight.",
+      "sentence": 2
+    },
+    {
+      "w0": 18,
+      "w1": 24,
+      "i": 3,
+      "start": 8.36,
+      "end": 10.54,
+      "text": "Now I ship features three times faster,",
+      "sentence": 3
+    },
+    {
+      "w0": 25,
+      "w1": 29,
+      "i": 4,
+      "start": 10.76,
+      "end": 12.16,
+      "text": "with better quality than ever.",
+      "sentence": 3
+    },
+    {
+      "w0": 30,
+      "w1": 36,
+      "i": 5,
+      "start": 12.8,
+      "end": 14.78,
+      "text": "If you're still coding the old way,",
+      "sentence": 4
+    },
+    {
+      "w0": 37,
+      "w1": 43,
+      "i": 6,
+      "start": 15.2,
+      "end": 17.12,
+      "text": "you're leaving a lot of productivity behind.",
+      "sentence": 4
+    }
+  ]
+}

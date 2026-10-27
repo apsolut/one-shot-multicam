@@ -1,0 +1,63 @@
+{
+  "clip": "work/gen/clips/c01_C.mp4",
+  "size": 943296,
+  "mtime": 1793108960,
+  "model": "small",
+  "text": "I used to lose hours debugging and rewriting code.",
+  "words": [
+    {
+      "text": "I",
+      "start": 0.0,
+      "end": 0.6,
+      "prob": 0.89
+    },
+    {
+      "text": "used",
+      "start": 0.6,
+      "end": 0.88,
+      "prob": 0.925
+    },
+    {
+      "text": "to",
+      "start": 0.88,
+      "end": 1.08,
+      "prob": 0.998
+    },
+    {
+      "text": "lose",
+      "start": 1.08,
+      "end": 1.42,
+      "prob": 0.943
+    },
+    {
+      "text": "hours",
+      "start": 1.42,
+      "end": 2.08,
+      "prob": 0.974
+    },
+    {
+      "text": "debugging",
+      "start": 2.08,
+      "end": 2.86,
+      "prob": 0.951
+    },
+    {
+      "text": "and",
+      "start": 2.86,
+      "end": 3.44,
+      "prob": 0.988
+    },
+    {
+      "text": "rewriting",
+      "start": 3.44,
+      "end": 3.96,
+      "prob": 0.98
+    },
+    {
+      "text": "code.",
+      "start": 3.96,
+      "end": 4.4,
+      "prob": 0.995
+    }
+  ]
+}

@@ -1,0 +1,44 @@
+[
+  {
+    "job": "c02_B",
+    "chunk": "c02",
+    "angle": "B",
+    "prompt_id": "dcc432f8-a1c9-4693-9325-ea154cd29597",
+    "seed": 2751402483591,
+    "image": "cam_profile.png",
+    "audio": "work/gen/audio/c02.wav",
+    "submitted_at": "2026-10-27T14:47:33+0100",
+    "status": "success",
+    "elapsed_s": 52.5,
+    "output": "work/gen/clips/c02_B.mp4",
+    "remote_file": "bf8c3a6962e162e8f45d20a556d184ee76ffaf6d59006871d1daf54b9ad20cef.mp4"
+  },
+  {
+    "job": "c01_C",
+    "chunk": "c01",
+    "angle": "C",
+    "prompt_id": "3a13fdbc-a3d7-4370-90a8-422c1fea7570",
+    "seed": 275019539847166,
+    "image": "cam_wide.png",
+    "audio": "work/gen/audio/c01.wav",
+    "submitted_at": "2026-10-27T14:48:48+0100",
+    "status": "success",
+    "elapsed_s": 31.9,
+    "output": "work/gen/clips/c01_C.mp4",
+    "remote_file": "c3f016a2b26af124f566f1cc7bca81fb222344fafcf2a6b6a573d7bedd327699.mp4"
+  },
+  {
+    "job": "c03_C",
+    "chunk": "c03",
+    "angle": "C",
+    "prompt_id": "9c3aa36f-bcd1-4cea-83b0-5eaf0b481453",
+    "seed": 269967900621233,
+    "image": "cam_wide.png",
+    "audio": "work/gen/audio/c03.wav",
+    "submitted_at": "2026-10-27T14:49:22+0100",
+    "status": "success",
+    "elapsed_s": 32.9,
+    "output": "work/gen/clips/c03_C.mp4",
+    "remote_file": "c0b56447468284bf8a7e5b1b16c6ebc45e820797f9d2b22fa539300b7e45e45c.mp4"
+  }
+]

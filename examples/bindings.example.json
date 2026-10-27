@@ -1,0 +1,7 @@
+{
+  "_comment": "Node ids are placeholders. Open your Export (API) workflow json and point each key at [node_id, input_name].",
+  "prompt": ["NODE_ID_OF_TEXT_ENCODE", "text"],
+  "image": ["NODE_ID_OF_LOAD_IMAGE", "image"],
+  "audio": ["NODE_ID_OF_LOAD_AUDIO", "audio"],
+  "seed": ["NODE_ID_OF_SAMPLER", "seed"]
+}

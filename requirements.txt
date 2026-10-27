@@ -1,0 +1,10 @@
+faster-whisper>=1.0
+numpy
+requests
+# music mode (plan --music)
+librosa
+opencv-python-headless<5
+# web app (multicam serve)
+fastapi>=0.110
+uvicorn>=0.29
+python-multipart>=0.0.9

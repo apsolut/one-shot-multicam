@@ -1,0 +1,165 @@
+{
+  "c01": {
+    "path": "work/gen/clips/c01_C.mp4",
+    "angle": "C",
+    "src_start": 0.0,
+    "words": "I used to lose hours debugging and rewriting code.",
+    "align": {
+      "shot": 1,
+      "chunk": "c01",
+      "cam": "C",
+      "clip": "c01_C.mp4",
+      "naive_clip_in": 2.167,
+      "insert_words": [
+        "rewriting",
+        "code."
+      ],
+      "matched": 2,
+      "exact": 2,
+      "of": 2,
+      "speed": 1.15,
+      "raw_speed": 1.1707,
+      "clip_in": 3.456,
+      "clip_out": 5.022,
+      "offset": 1.29,
+      "anchors": [
+        {
+          "word": "rewriting",
+          "real_start": 2.16,
+          "gen_start": 3.44
+        },
+        {
+          "word": "code.",
+          "real_end": 2.98,
+          "gen_end": 4.4
+        }
+      ],
+      "status": "ok",
+      "trimmed": {
+        "start": 2.167,
+        "end": 3.528
+      },
+      "notes": [
+        "end moved to 3.528"
+      ]
+    }
+  },
+  "c02": {
+    "path": "work/gen/clips/c02_B.mp4",
+    "angle": "B",
+    "src_start": 3.24,
+    "words": "Then I tried cloud code. My workflow transformed overnight.",
+    "align": {
+      "shot": 3,
+      "chunk": "c02",
+      "cam": "B",
+      "clip": "c02_B.mp4",
+      "naive_clip_in": 2.593,
+      "insert_words": [
+        "workflow",
+        "transformed"
+      ],
+      "matched": 2,
+      "exact": 2,
+      "of": 2,
+      "speed": 1.15,
+      "raw_speed": 1.1509,
+      "clip_in": 2.313,
+      "clip_out": 3.539,
+      "offset": -0.281,
+      "anchors": [
+        {
+          "word": "workflow",
+          "real_start": 5.84,
+          "gen_start": 2.32
+        },
+        {
+          "word": "transformed",
+          "real_end": 6.9,
+          "gen_end": 3.54
+        }
+      ],
+      "status": "ok"
+    }
+  },
+  "c03": {
+    "path": "work/gen/clips/c03_C.mp4",
+    "angle": "C",
+    "src_start": 7.86,
+    "words": "Now our ship features three times faster with better quality than ever.",
+    "align": {
+      "shot": 5,
+      "chunk": "c03",
+      "cam": "C",
+      "clip": "c03_C.mp4",
+      "naive_clip_in": 3.273,
+      "insert_words": [
+        "quality",
+        "than",
+        "ever."
+      ],
+      "matched": 3,
+      "exact": 3,
+      "of": 3,
+      "speed": 1.15,
+      "raw_speed": 1.2157,
+      "clip_in": 3.226,
+      "clip_out": 4.989,
+      "offset": -0.048,
+      "anchors": [
+        {
+          "word": "quality",
+          "real_start": 11.14,
+          "gen_start": 3.2
+        },
+        {
+          "word": "ever.",
+          "real_end": 12.16,
+          "gen_end": 4.44
+        }
+      ],
+      "status": "ok"
+    }
+  },
+  "c04": {
+    "path": "clips/run7_idlora_profile.mp4",
+    "angle": "B",
+    "src_start": 12.0,
+    "words": "If you're still coding the old way, you're leaving a lot of productivity behind.",
+    "align": {
+      "shot": 7,
+      "chunk": "c04",
+      "cam": "B",
+      "clip": "run7_idlora_profile.mp4",
+      "naive_clip_in": 2.433,
+      "insert_words": [
+        "way,",
+        "you're",
+        "leaving",
+        "a",
+        "lot"
+      ],
+      "matched": 5,
+      "exact": 5,
+      "of": 5,
+      "speed": 1.0,
+      "raw_speed": 1.0267,
+      "clip_in": 1.773,
+      "clip_out": 3.273,
+      "offset": -0.66,
+      "anchors": [
+        {
+          "word": "way,",
+          "real_start": 14.42,
+          "gen_start": 1.76
+        },
+        {
+          "word": "lot",
+          "real_end": 15.92,
+          "gen_end": 3.3
+        }
+      ],
+      "status": "ok"
+    }
+  }
+}

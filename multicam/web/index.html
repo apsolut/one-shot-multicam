@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Multicam · one phone shot → multicam edit</title>
+<meta name="theme-color" content="#0b0b12">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%237c5cff'/><circle cx='11' cy='16' r='5' fill='white'/><circle cx='21' cy='16' r='5' fill='white' opacity='.6'/></svg>">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="/"><span class="logo"><i></i><i></i><i></i></span>Multicam</a>
+  <nav>
+    <a href="#" id="newProject" hidden>＋ New</a>
+    <a href="/gallery/">Gallery</a>
+    <a id="repoLink" href="#" target="_blank" rel="noopener">GitHub</a>
+  </nav>
+</header>
+<div class="banner" id="banner" hidden></div>
+
+<main>
+  <section class="hero">
+    <h1>One phone shot. <span class="grad">A multicam edit.</span></h1>
+    <p>Your real take is <b>CAM A</b>. ComfyUI generates <b>CAM B/C</b> angles of you, speaking your own words in your own voice, then cuts between them on word boundaries over your <b>real</b> audio.</p>
+    <div class="pills"><span>Qwen-Image-Edit 2511 angles</span><span>LTX-2.3 ID LoRA</span><span>whisper lip-sync align</span><span>open weights</span></div>
+  </section>
+
+  <section class="card" id="keyCard">
+    <div class="card-h">
+      <h2><span class="n">1</span>Comfy Cloud key</h2>
+      <span class="badge" id="keyBadge">not set</span>
+    </div>
+    <div class="row">
+      <input id="key" type="password" autocomplete="off" spellcheck="false" placeholder="comfyui-…  (platform.comfy.org → API keys)">
+      <button class="ghost" id="keyToggle" title="Show / hide">👁</button>
+      <button id="keyCheck">Check</button>
+    </div>
+    <p class="note">🔒 Saved only in <b>this browser</b> (localStorage). It's sent per request to your local Multicam server, which forwards it to Comfy Cloud and <b>never stores or logs it</b>. Free steps (transcribe, plan, align, render, edit) don't need it. <a href="#" id="keyForget">Forget key</a></p>
+  </section>
+
+  <section class="card" id="uploadCard">
+    <div class="card-h"><h2><span class="n">2</span>Your take</h2></div>
+    <label class="drop" id="drop">
+      <input type="file" id="file" accept="video/*" hidden>
+      <div class="drop-in">
+        <div class="drop-ic">⬆</div>
+        <div><b>Drop a vertical selfie video</b><br><small id="dropHint">10–60 s, you talking to camera (or performing). Your own face, or someone who consented.</small></div>
+      </div>
+      <div class="drop-file" id="dropFile" hidden></div>
+    </label>
+    <div class="seg" id="mode">
+      <button data-mode="talk" class="on">🎙 Talk <small>default</small></button>
+      <button data-mode="music">🎵 Music <small>beta</small></button>
+    </div>
+    <details class="adv" id="scriptBox">
+      <summary>Exact script (optional, makes cuts word-perfect)</summary>
+      <textarea id="script" rows="3" placeholder="Paste what you say. Whisper timings get snapped to it."></textarea>
+    </details>
+    <details class="adv" id="lyricsBox" hidden>
+      <summary>Lyrics with times (recommended for music)</summary>
+      <textarea id="lyrics" rows="3" placeholder="3.2-5.0=never gonna give you up&#10;9.1-11.0=never gonna let you down"></textarea>
+    </details>
+    <label class="consent"><input type="checkbox" id="consent"><span>This is <b>my own face</b>, or I have the person's <b>explicit permission</b> to generate video of them.</span></label>
+    <button class="primary wide" id="start" disabled>Analyze — free</button>
+  </section>
+
+  <section class="card" id="progressCard" hidden>
+    <div class="card-h"><h2><span class="n">3</span>Pipeline</h2><span class="badge" id="busyBadge"></span></div>
+    <ol class="steps" id="steps"></ol>
+    <div class="jobs" id="jobs"></div>
+    <div class="err" id="err" hidden></div>
+  </section>
+
+  <section class="card" id="planCard" hidden>
+    <div class="card-h"><h2><span class="n">4</span>Cameras & cost</h2></div>
+    <div class="cams" id="cams"></div>
+    <div class="row gap wrap"><button class="ghost" id="anglesBtn">✨ Generate 8 angle stills of me · ~$0.03</button><span class="muted small">Qwen-Image-Edit 2511 + Multiple-Angles LoRA, from your sharpest front-facing frame</span></div>
+    <div class="estimate" id="estimate"></div>
+    <div class="row gap">
+      <button class="primary" id="generate">Generate</button>
+      <button class="ghost" id="renderFree">Render with what I have — free</button>
+    </div>
+    <details class="adv">
+      <summary>Bring your own stills / clips (manual ComfyUI mode)</summary>
+      <p class="note">Ran the workflows in the ComfyUI app yourself? Import the results here and render for free.</p>
+      <div class="row gap wrap">
+        <select id="impCam"><option>B</option><option>C</option></select>
+        <label class="filebtn">Still image<input type="file" id="impStill" accept="image/*" hidden></label>
+        <select id="impChunk"></select>
+        <input id="impSrc" type="number" step="0.01" placeholder="src start (s)" style="max-width:130px">
+        <label class="filebtn">Clip mp4<input type="file" id="impClip" accept="video/mp4" hidden></label>
+      </div>
+    </details>
+  </section>
+
+  <section class="card" id="resultCard" hidden>
+    <div class="card-h"><h2><span class="n">5</span>Your multicam</h2><span class="badge ok" id="verBadge"></span></div>
+    <div class="result">
+      <div class="player">
+        <video id="player" controls playsinline preload="metadata"></video>
+        <div class="toggles">
+          <label class="switch"><input type="checkbox" id="labels"><span></span>CAM labels</label>
+          <label class="switch"><input type="checkbox" id="compare"><span></span>Original</label>
+        </div>
+        <div class="row gap">
+          <a class="btn" id="download" download>⬇ Download</a>
+          <button class="btn" id="shareBtn">↗ Share</button>
+        </div>
+        <div class="share" id="share" hidden></div>
+      </div>
+      <div class="editor">
+        <h3>Cut list <small>click a shot</small></h3>
+        <div class="timeline" id="timeline"></div>
+        <div class="playhead-wrap"><div class="ruler" id="ruler"></div></div>
+        <div class="shot-panel" id="shotPanel"><p class="muted">Pick a shot on the timeline to switch its camera, drop it, or re-roll it.</p></div>
+        <div class="row gap">
+          <button class="primary" id="rerender" disabled>Re-render — free</button>
+          <span class="muted small" id="editInfo"></span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="card" id="recentCard" hidden>
+    <div class="card-h"><h2>Recent projects</h2></div>
+    <div class="recent" id="recent"></div>
+  </section>
+</main>
+
+<footer class="foot">
+  MIT · built on ComfyUI, LTX-2.3 ID LoRA & Qwen-Image-Edit · #OpenSourceHiggsfield<br>
+  <small>Only use your own face, or someone's who explicitly agreed. Generated cameras are labeled "AI" in the labeled export.</small>
+</footer>
+<div class="toast" id="toast"></div>
+<dialog id="confirm">
+  <form method="dialog">
+    <h3 id="cTitle">Confirm</h3>
+    <div id="cBody"></div>
+    <div class="row gap end"><button value="no" class="ghost">Cancel</button><button value="yes" class="primary" id="cYes">Confirm</button></div>
+  </form>
+</dialog>
+<script src="app.js"></script>
+</body>
+</html>

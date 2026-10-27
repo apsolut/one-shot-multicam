@@ -1,0 +1,53 @@
+{
+  "_comment": "Bindings for workflows/qwen_angles_api.json (Comfy Cloud template 'Qwen 1 Click Multiple Character Angles'). One input image feeds 8 angle branches (close-up, 2x wide, 2x aerial, low angle, 90 left, 45 left); each branch has its own KSampler seed. Leave seeds at template defaults unless you pass --set seed=N.",
+  "image": [
+    [
+      "25",
+      "image"
+    ]
+  ],
+  "seed": [
+    [
+      "427:221:169",
+      "seed"
+    ],
+    [
+      "427:246:242",
+      "seed"
+    ],
+    [
+      "427:271:267",
+      "seed"
+    ],
+    [
+      "427:296:292",
+      "seed"
+    ],
+    [
+      "427:321:317",
+      "seed"
+    ],
+    [
+      "427:346:342",
+      "seed"
+    ],
+    [
+      "427:371:367",
+      "seed"
+    ],
+    [
+      "427:423:419",
+      "seed"
+    ]
+  ],
+  "_outputs": {
+    "373": "closeup",
+    "374": "right45",
+    "376": "aerial",
+    "377": "lowangle",
+    "379": "wide",
+    "380": "right90",
+    "381": "left90",
+    "424": "left45"
+  }
+}

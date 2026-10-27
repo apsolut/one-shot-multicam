@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Multicam · gallery — one phone shot → multicam edit</title>
+<meta name="description" content="Open-source: your real selfie is CAM A, ComfyUI generates CAM B/C of you saying the same words, auto-cut on word boundaries over the real audio.">
+<meta property="og:title" content="Multicam — one phone shot → a multicam edit">
+<meta property="og:image" content="media/poster.jpg">
+<meta name="theme-color" content="#0b0b12">
+<style>
+:root{color-scheme:dark;--bg:#0b0b12;--line:#262538;--text:#ecebf5;--muted:#9a98b3;--dim:#6d6b86;--acc:#7c5cff;--acc2:#2bd2ff;--A:#8d8aa8;--B:#7c5cff;--C:#2bd2ff}
+*{box-sizing:border-box}body{margin:0;color:var(--text);font:15px/1.55 Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+background:radial-gradient(1100px 520px at 10% -12%,rgba(124,92,255,.22),transparent 60%),radial-gradient(900px 480px at 105% 0%,rgba(43,210,255,.12),transparent 55%),var(--bg);background-attachment:fixed}
+a{color:#b9a9ff}
+header{display:flex;justify-content:space-between;align-items:center;padding:14px clamp(16px,4vw,40px);border-bottom:1px solid rgba(255,255,255,.05);backdrop-filter:blur(14px);position:sticky;top:0;background:rgba(11,11,18,.72);z-index:3}
+.brand{display:flex;gap:10px;align-items:center;font-weight:750;font-size:17px;color:var(--text);text-decoration:none}
+.logo{display:inline-flex;gap:3px}.logo i{width:8px;height:18px;border-radius:3px;background:var(--A)}.logo i:nth-child(2){background:var(--B)}.logo i:nth-child(3){background:var(--C)}
+header nav a{color:var(--muted);text-decoration:none;font-weight:550;margin-left:18px}
+main{width:min(1040px,100%);margin:0 auto;padding:0 clamp(14px,3vw,28px) 50px}
+.hero{padding:40px 0 10px}.hero h1{font-size:clamp(30px,5.4vw,52px);line-height:1.05;letter-spacing:-.03em;margin:0 0 14px}
+.grad{background:linear-gradient(100deg,var(--acc),var(--acc2));-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero p{color:var(--muted);max-width:700px;font-size:16.5px;margin:0}.hero b{color:var(--text)}
+.cta{display:flex;gap:10px;margin-top:18px;flex-wrap:wrap}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:11px 16px;border-radius:12px;border:1px solid var(--line);background:#191927;color:var(--text);text-decoration:none;font-weight:600;cursor:pointer;font:inherit;font-weight:600}
+.btn.p{border:0;background:linear-gradient(135deg,var(--acc),#5b7cff 55%,var(--acc2));color:#fff;box-shadow:0 6px 24px rgba(124,92,255,.35)}
+.item{margin:28px 0;padding:clamp(16px,2.6vw,26px);border-radius:18px;border:1px solid var(--line);background:linear-gradient(180deg,#13131d,#11111a)}
+.item h2{margin:0;font-size:20px;letter-spacing:-.01em}.item .sub{color:var(--muted);margin:4px 0 18px;font-size:14px}
+.ba{display:grid;grid-template-columns:1fr 1fr;gap:16px;max-width:760px;margin:0 auto}
+.ba figure{margin:0}.ba figcaption{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;font-weight:650;font-size:14px}
+.ba video{width:100%;aspect-ratio:9/16;border-radius:16px;background:#000;display:block;box-shadow:0 18px 50px rgba(0,0,0,.5)}
+.tag{font-size:11.5px;font-weight:750;padding:3px 8px;border-radius:7px;color:#0b0b12;background:var(--A)}.tag.B{background:var(--B);color:#fff}.tag.C{background:var(--C)}
+.ctrl{display:flex;gap:12px;align-items:center;margin-top:16px;flex-wrap:wrap}
+.switch{display:flex;align-items:center;gap:9px;cursor:pointer;color:var(--muted);font-size:13.5px;user-select:none}.switch input{display:none}
+.switch span{width:36px;height:20px;border-radius:99px;background:#2a2940;position:relative}.switch span:after{content:"";position:absolute;width:16px;height:16px;border-radius:50%;background:#cfcde3;top:2px;left:2px;transition:.15s}
+.switch input:checked+span{background:var(--acc)}.switch input:checked+span:after{left:18px;background:#fff}
+.tl{display:flex;height:34px;border-radius:10px;overflow:hidden;margin-top:16px;border:1px solid var(--line);position:relative}
+.tl div{font-size:11px;font-weight:700;display:flex;align-items:center;padding-left:6px;border-right:1px solid rgba(0,0,0,.35);color:#0b0b12}
+.tl .A{background:repeating-linear-gradient(135deg,#2a2940 0 6px,#26253a 6px 12px);color:var(--muted)}.tl .B{background:var(--B);color:#fff}.tl .C{background:var(--C)}
+.tl .ph{position:absolute;top:0;bottom:0;width:2px;background:#fff;box-shadow:0 0 8px #fff;padding:0;border:0}
+.meta{color:var(--dim);font-size:13px;margin-top:8px}
+details{margin-top:16px}summary{cursor:pointer;color:var(--muted)}details video{width:100%;max-width:560px;border-radius:12px;margin-top:10px;display:block}
+.how{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:10px}
+.how div{padding:16px;border-radius:14px;border:1px solid var(--line);background:#0f0f18}.how b{display:block;margin-bottom:4px}.how span{color:var(--muted);font-size:13.5px}
+.missing{display:grid;place-items:center;aspect-ratio:9/16;border-radius:16px;border:1px dashed var(--line);color:var(--dim);font-size:13px;text-align:center;padding:20px}
+footer{text-align:center;color:var(--dim);font-size:12.5px;padding:10px 16px 40px}
+@media (max-width:720px){.how{grid-template-columns:1fr 1fr}.ba{gap:10px}}
+</style>
+</head>
+<body>
+<header><a class="brand" href="./"><span class="logo"><i></i><i></i><i></i></span>Multicam</a>
+<nav><a href="#how">How</a><a id="repo" href="#">GitHub</a></nav></header>
+<main>
+  <section class="hero">
+    <h1>One phone shot.<br><span class="grad">A multicam edit.</span></h1>
+    <p>Left: the <b>real</b> selfie take. Right: the same take, cut between the real camera and <b>AI cameras</b> that say the same words in the same voice, generated with ComfyUI (Qwen-Image-Edit angles + LTX-2.3 ID LoRA), lip-synced to the real audio, which is never altered.</p>
+    <div class="cta"><a class="btn p" id="repo2" href="#">Run it yourself · open source</a><a class="btn" href="#how">How it works</a></div>
+  </section>
+  <div id="items"></div>
+  <section id="how" class="item">
+    <h2>How it works</h2>
+    <div class="how">
+      <div><b>1 · Transcribe</b><span>faster-whisper word timings (snapped to your script).</span></div>
+      <div><b>2 · Plan</b><span>Insert shots on phrase boundaries, B/C alternation, 5 s generation chunks.</span></div>
+      <div><b>3 · Generate</b><span>Comfy Cloud: 8 angle stills, then LTX-2.3 ID LoRA speaks each chunk in your voice.</span></div>
+      <div><b>4 · Align + cut</b><span>Whisper on the generated clips → offset + retime to your words; ffmpeg cuts over the real audio.</span></div>
+    </div>
+    <p class="meta">Only your own face, or someone who explicitly consented. The labeled export marks AI cameras.</p>
+  </section>
+</main>
+<footer>MIT · #OpenSourceHiggsfield · built on ComfyUI, LTX-2.3 & Qwen-Image-Edit</footer>
+<script src="config.js"></script>
+<script>
+const G = window.MULTICAM_GALLERY || {items: []};
+for (const id of ["repo", "repo2"]) document.getElementById(id).href = G.repo;
+const vid = (src, poster) => `<video src="${src}" ${poster ? `poster="${poster}"` : ""} playsinline preload="metadata" controls onerror="this.outerHTML='<div class=missing>video not found:<br>${src}<br><br>see docs/config.js</div>'"></video>`;
+document.getElementById("items").innerHTML = G.items.map((it, k) => {
+  const D = it.cuts.length ? it.cuts[it.cuts.length - 1][2] : 1;
+  return `<section class="item" data-k="${k}"><h2>${it.title}</h2><div class="sub">${it.subtitle}</div>
+  <div class="ba">
+    <figure><figcaption><span>Before · real take</span><span class="tag">CAM A only</span></figcaption>${vid(it.original, it.poster)}</figure>
+    <figure><figcaption><span>After · multicam</span><span><span class="tag">A</span> <span class="tag B">B</span> <span class="tag C">C</span></span></figcaption><div class="mc">${vid(it.multicam, it.poster)}</div></figure>
+  </div>
+  <div class="ctrl"><button class="btn p sync">▶ Play both in sync</button><label class="switch"><input type="checkbox" class="lab"><span></span>CAM labels</label>
+  <a class="btn dl" href="${it.multicam}" download>⬇ Download</a></div>
+  <div class="tl">${it.cuts.map(([c, s, e]) => `<div class="${c}" style="flex:${e - s}">${c}</div>`).join("")}<div class="ph"></div></div>
+  <div class="meta">${it.cost}. Grey = real camera, color = AI camera.</div>
+  ${it.sync ? `<details><summary>Lip-sync check: real (left) vs aligned AI insert (right)</summary>${vid(it.sync)}</details>` : ""}
+  </section>`; }).join("");
+document.querySelectorAll(".item[data-k]").forEach(el => {
+  const it = G.items[+el.dataset.k], vs = el.querySelectorAll(".ba video"), [a, b] = vs, ph = el.querySelector(".ph");
+  const D = it.cuts[it.cuts.length - 1][2];
+  el.querySelector(".sync").onclick = () => { if (!a || !b) return; a.currentTime = b.currentTime = 0; a.muted = true; a.play(); b.play(); };
+  el.querySelector(".lab").onchange = e => { const v = el.querySelector(".mc video"); if (!v) return; const t = v.currentTime, p = !v.paused;
+    v.src = e.target.checked ? it.labeled : it.multicam; v.currentTime = t; if (p) v.play();
+    el.querySelector(".dl").href = v.src; };
+  if (b) b.addEventListener("timeupdate", () => ph.style.left = (b.currentTime / D * 100) + "%");
+});
+</script>
+</body>
+</html>

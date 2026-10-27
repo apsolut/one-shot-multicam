@@ -1,0 +1,9 @@
+{
+  "_comment": "Bindings for workflows/dub_api.json (build_v2v.py dub: LTX-2.3 22B dev fp8 + distilled LoRA 0.5 + Lightricks LipDub IC-LoRA 1.0, reference downscale 1; the real take is the IC reference, its audio only conditions the voice; new speech is generated from the prompt; 2 stages 352x640 -> 704x1280 @ 24 fps, frames = 8k+1).",
+  "video": [["7", "file"]],
+  "prompt": [["11", "text"]],
+  "seed": [["24", "noise_seed"], ["50", "noise_seed"]],
+  "lat_w": [["14", "width"]],
+  "lat_h": [["14", "height"]],
+  "frames": [["14", "length"], ["31", "frames_number"]]
+}

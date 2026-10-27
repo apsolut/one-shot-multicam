@@ -15,7 +15,12 @@ SIG3 = "0.909375, 0.725, 0.421875, 0.0"
 
 def build(ic="crossview", ic_strength=1.5, dist_strength=0.6, first_frame=False, ff_strength=1.0,
           id_lora=False, two_stage=False, width=544, height=960, frames=121, fps=24, guide_strength=1.0,
-          sampler="euler_ancestral_cfg_pp", control="video", ff_mode="condonly"):
+          sampler="euler_ancestral_cfg_pp", control="video", ff_mode="condonly", audio="frozen",
+          ref_downscale=None):
+    """audio="frozen": the real audio is locked into the clip (re-shoot: frame t = source frame t).
+    audio="generate": new speech is generated (LipDub/Dub-It): the real audio only conditions the voice
+    (reference tokens); stage 2 then freezes the stage-1 speech and refines the video.
+    ref_downscale: fixed IC reference downscale (LipDub was trained at 1); None = the LoRA's own factor."""
     W = {}
     def n(i, cls, **inp):
         W[str(i)] = {"class_type": cls, "inputs": inp}
@@ -51,13 +56,18 @@ def build(ic="crossview", ic_strength=1.5, dist_strength=0.6, first_frame=False,
         else:
             lat = n(18, "LTXVImgToVideoConditionOnly", vae=[ck, 2], image=[pre, 0], latent=[lat, 0], strength=ff_strength, bypass=False)
     guide = n(20, "LTXAddVideoICLoRAGuide", positive=[cond, 0], negative=[cond, 1], vae=[ck, 2], latent=[lat, 0],
-              image=[ctl_c, 0], frame_idx=0, strength=guide_strength, latent_downscale_factor=[ic_l, 1], crop="center",
+              image=[ctl_c, 0], frame_idx=0, strength=guide_strength,
+              latent_downscale_factor=[ic_l, 1] if ref_downscale is None else float(ref_downscale), crop="center",
               use_tiled_encode=False, tile_size=256, tile_overlap=64)
     aenc = n(21, "LTXVAudioVAEEncode", audio=[comp, 1], audio_vae=[avae, 0])
     art = n(22, "LTXVSetAudioRefTokens", positive=[guide, 0], negative=[guide, 1], audio_latent=[aenc, 0])
     model = [ic_l, 0]
     p_, n_ = [art, 0], [art, 1]
-    av = n(23, "LTXVConcatAVLatent", video_latent=[guide, 2], audio_latent=[art, 2])
+    if audio == "generate":
+        a_lat = n(31, "LTXVEmptyLatentAudio", frames_number=frames, frame_rate=float(fps), batch_size=1, audio_vae=[avae, 0])
+        av = n(23, "LTXVConcatAVLatent", video_latent=[guide, 2], audio_latent=[a_lat, 0])
+    else:
+        av = n(23, "LTXVConcatAVLatent", video_latent=[guide, 2], audio_latent=[art, 2])
     noise = n(24, "RandomNoise", noise_seed=42)
     smp = n(25, "KSamplerSelect", sampler_name=sampler)
     sig = n(26, "ManualSigmas", sigmas=SIG8)
@@ -77,7 +87,8 @@ def build(ic="crossview", ic_strength=1.5, dist_strength=0.6, first_frame=False,
             lat2 = [n(44, "LTXVImgToVideoInplace", strength=1.0, bypass=False, vae=[ck, 2], image=[pre2, 0], latent=lat2), 0]
         art2 = n(45, "LTXVSetAudioRefTokens", positive=[crop, 0], negative=[crop, 1], audio_latent=[sep, 1])
         guide2 = n(46, "LTXAddVideoICLoRAGuide", positive=[art2, 0], negative=[art2, 1], vae=[ck, 2], latent=lat2,
-                   image=[ctl_c, 0], frame_idx=0, strength=guide_strength, latent_downscale_factor=[ic_l, 1], crop="center",
+                   image=[ctl_c, 0], frame_idx=0, strength=guide_strength,
+                   latent_downscale_factor=[ic_l, 1] if ref_downscale is None else float(ref_downscale), crop="center",
                    use_tiled_encode=True, tile_size=256, tile_overlap=64)
         av2 = n(47, "LTXVConcatAVLatent", video_latent=[guide2, 2], audio_latent=[art2, 2])
         g2 = n(48, "CFGGuider", cfg=1, model=model, positive=[guide2, 0], negative=[guide2, 1])
@@ -99,6 +110,16 @@ def build(ic="crossview", ic_strength=1.5, dist_strength=0.6, first_frame=False,
     return W, bindings
 
 
-if __name__ == "__main__":  # print the crossview workflow (the one Multicam ships)
-    w, _ = build(ic="crossview", ic_strength=1.5, dist_strength=0.6, two_stage=True, width=704, height=1280)
+def dub_workflow(width=704, height=1280, frames=121, fps=24):
+    """Dub mode: LTX-2.3 LipDub IC-LoRA (Lightricks' official Dub-It settings: IC 1.0, distilled 0.5, ref downscale 1)."""
+    return build(ic="lipdub", ic_strength=1.0, dist_strength=0.5, two_stage=True, width=width, height=height,
+                 frames=frames, fps=fps, audio="generate", ref_downscale=1, sampler="euler")
+
+
+if __name__ == "__main__":  # print a shipped workflow: crossview (default) or dub
+    import sys
+    if sys.argv[1:] == ["dub"]:
+        w, _ = dub_workflow()
+    else:
+        w, _ = build(ic="crossview", ic_strength=1.5, dist_strength=0.6, two_stage=True, width=704, height=1280)
     print(json.dumps(w, indent=1))

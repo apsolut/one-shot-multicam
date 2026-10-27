@@ -31,7 +31,7 @@ def cmd_analyze(a):
     from .transcribe import analyze
     script = Path(a.script_file).read_text() if a.script_file else a.script
     out = Path(a.workdir) / a.out
-    doc = analyze(a.video, out, model=a.model, script=script, initial_prompt=a.initial_prompt)
+    doc = analyze(a.video, out, model=a.model, script=script, initial_prompt=a.initial_prompt, language=a.language)
     print(f"wrote {out}: {len(doc['words'])} words, {len(doc['sentences'])} sentences, {len(doc['phrases'])} phrases")
     for s in doc["sentences"]:
         print(f"  [{s['start']:6.2f}-{s['end']:6.2f}] {s['text']}")
@@ -190,6 +190,61 @@ def cmd_demo(a):
         print_shot(s)
 
 
+def cmd_dub(a):
+    """Dub mode: translate (Gemma 3 12B), review, then LipDub each sentence window -> dub_<lang>.mp4."""
+    from .comfy import load_bindings
+    from .dub import LANGS, fit_report, plan_windows, run_dub_job, stitch, translate
+    from .server import workflows_dir
+    from .transcribe import analyze
+    from .util import probe
+    work = Path(a.workdir)
+    work.mkdir(parents=True, exist_ok=True)
+    video = Path(a.video)
+    if a.lang not in LANGS:
+        raise SystemExit(f"--lang: pick one of {', '.join(LANGS)}")
+    tr_path = work / "transcript.json"
+    tr = load_json(tr_path) if tr_path.exists() else analyze(video, tr_path)
+    dp_path = work / f"dub_{a.lang}.json"
+    dp = load_json(dp_path) if dp_path.exists() else {}
+    wins = dp.get("windows") or plan_windows(tr, probe(video)["duration"], a.max_window)
+    if not all(w.get("translation") for w in wins):
+        if a.dry_run:
+            print("(dry run: would translate with Gemma 3 12B on Comfy Cloud)")
+        else:
+            for w, t in zip(wins, translate([w["text"] for w in wins], a.lang)):
+                w.setdefault("translation", t)
+    for w in wins:
+        if w.get("translation"):
+            w["fit"] = fit_report(w["text"], w["translation"])
+    dp.update({"lang": a.lang, "source": str(video.resolve()), "windows": wins})
+    save_json(dp, dp_path)
+    for w in wins:
+        warn = "" if (w.get("fit") or {}).get("ok", True) else f"  ⚠ {w['fit']['hint']} (x{w['fit']['ratio']})"
+        print(f"{w['id']} {w['start']:6.2f}-{w['end']:6.2f}s  EN: {w['text']}\n{'':20}{a.lang.upper()}: "
+              f"{w.get('translation', '?')}{warn}")
+    if a.translate_only or a.dry_run:
+        print(f"review/edit the translations in {dp_path}, then run again without --translate-only")
+        return
+    wfd = workflows_dir()
+    wf = json.loads((wfd / "dub_api.json").read_text())
+    b = load_bindings(wfd / "dub_bindings.json")
+    out = work / f"dub_{a.lang}"
+    out.mkdir(exist_ok=True)
+    clips = dp.setdefault("clips", {})
+    for w in wins:
+        if (a.only and w["id"] not in a.only) or (w["id"] in clips and not a.only):
+            continue
+        rec = run_dub_job(video, w, w["translation"], a.lang, out / f"{w['id']}.mp4", wf, b, seed=a.seed,
+                          speaker=a.speaker, on_status=lambda r: print(f"  {r['window']} {r['status']}", flush=True))
+        if rec.get("output"):
+            clips[w["id"]] = str(Path(rec["output"]).relative_to(work))
+        print(f"{w['id']}: {rec['status']} {rec.get('elapsed_s')}s {rec.get('error') or ''}")
+        save_json(dp, dp_path)
+    final = work / f"dub_{a.lang}.mp4"
+    stitch(video, wins, {k: str(work / v) for k, v in clips.items()}, final)
+    print(f"wrote {final}  (now run the multicam pipeline on it: analyze/plan/reshoot/assemble with --video {final})")
+
+
 def cmd_reshoot(a):
     """Re-shoot engine: one CrossView job per insert chunk; writes <out>/clips.json for `assemble --clips`."""
     from .reshoot import ANGLES, DEFAULT_CAMS, angle_prompt, insert_ordinals, run_reshoot_job
@@ -297,6 +352,7 @@ def main(argv=None):
     p.add_argument("video"); p.add_argument("--model", default="small", help="faster-whisper model (tiny/base/small)")
     p.add_argument("--script", help="known exact script to align onto the timings")
     p.add_argument("--script-file"); p.add_argument("--initial-prompt"); p.add_argument("--out", default="transcript.json")
+    p.add_argument("--language", default="en", help="spoken language (e.g. de for a Dub-mode take)")
     p.set_defaults(fn=cmd_analyze)
 
     p = sub.add_parser("plan", help="generation chunks + A/B/C cut list -> plan.json")
@@ -348,6 +404,18 @@ def main(argv=None):
     p.add_argument("--no-shake", action="store_true"); p.add_argument("--cut-lead-frames", type=int, default=0)
     p.add_argument("--no-align", action="store_true"); p.add_argument("--name", default="demo_v5", help="output basename")
     _add_plan_args(p); p.set_defaults(fn=cmd_demo)
+
+    p = sub.add_parser("dub", help="Dub mode: the same take in another language with your face + voice "
+                                   "(Gemma 3 translation, LTX-2.3 LipDub IC-LoRA)")
+    p.add_argument("--video", required=True)
+    p.add_argument("--lang", default="de", help="de, es, fr, ru, hr (experimental), it, pt, en")
+    p.add_argument("--translate-only", action="store_true", help="stop after translating, to review dub_<lang>.json")
+    p.add_argument("--max-window", type=float, default=10.0, help="longest dub window in seconds")
+    p.add_argument("--speaker", default="A man", help='how the prompt describes the speaker, e.g. "A woman"')
+    p.add_argument("--only", nargs="*", help="re-dub only these windows (w01 ...)")
+    p.add_argument("--seed", type=int)
+    p.add_argument("--dry-run", action="store_true")
+    p.set_defaults(fn=cmd_dub)
 
     p = sub.add_parser("reshoot", help="re-shoot each insert from a new virtual camera (LTX-2.3 CrossView IC-LoRA, "
                                        "follows your real motion + lips; needs $COMFY_API_KEY)")

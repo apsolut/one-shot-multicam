@@ -22,8 +22,8 @@
 <main>
   <section class="hero">
     <h1>One phone shot. <span class="grad">A multicam edit.</span></h1>
-    <p>Your real take is <b>CAM A</b>. ComfyUI generates <b>CAM B/C</b> angles of you, speaking your own words in your own voice, then cuts between them on word boundaries over your <b>real</b> audio.</p>
-    <div class="pills"><span>Qwen-Image-Edit 2511 angles</span><span>LTX-2.3 ID LoRA</span><span>whisper lip-sync align</span><span>open weights</span></div>
+    <p>Your real take is <b>CAM A</b>. ComfyUI <b>re-shoots</b> it from new virtual cameras (<b>CAM B/C</b>) — same head moves, same mouth shapes, frame for frame — then cuts between them on word boundaries over your <b>real</b> audio.</p>
+    <div class="pills"><span>LTX-2.3 CrossView IC-LoRA re-shoot</span><span>real audio locked in</span><span>whisper word cuts</span><span>classic: Qwen angles + ID LoRA</span><span>open weights</span></div>
   </section>
 
   <section class="card" id="keyCard">
@@ -74,8 +74,9 @@
 
   <section class="card" id="planCard" hidden>
     <div class="card-h"><h2><span class="n">4</span>Cameras & cost</h2></div>
+    <div id="engine"></div>
     <div class="cams" id="cams"></div>
-    <div class="row gap wrap"><button class="ghost" id="anglesBtn">✨ Generate 8 angle stills of me · ~$0.03</button><span class="muted small">Qwen-Image-Edit 2511 + Multiple-Angles LoRA, from your sharpest front-facing frame</span></div>
+    <div class="row gap wrap" id="anglesRow"><button class="ghost" id="anglesBtn">✨ Generate 8 angle stills of me · ~$0.03</button><span class="muted small">Qwen-Image-Edit 2511 + Multiple-Angles LoRA, from your sharpest front-facing frame</span></div>
     <div class="estimate" id="estimate"></div>
     <div class="row gap">
       <button class="primary" id="generate">Generate</button>
@@ -129,7 +130,7 @@
 </main>
 
 <footer class="foot">
-  MIT · built on ComfyUI, LTX-2.3 ID LoRA & Qwen-Image-Edit · #OpenSourceHiggsfield<br>
+  MIT · built on ComfyUI, LTX-2.3 (CrossView IC-LoRA re-shoot, ID LoRA) & Qwen-Image-Edit · #OpenSourceHiggsfield<br>
   <small>Only use your own face, or someone's who explicitly agreed. Generated cameras are labeled "AI" in the labeled export.</small>
 </footer>
 <div class="toast" id="toast"></div>

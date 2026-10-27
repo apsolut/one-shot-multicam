@@ -159,3 +159,13 @@ dialog ul{padding-left:18px;color:var(--muted);margin:8px 0}
 .banner .meter i{display:block;height:100%;background:linear-gradient(90deg,var(--warn),var(--acc))}
 .consent{display:flex;gap:10px;align-items:flex-start;margin-top:14px;font-size:13.5px;color:var(--muted);cursor:pointer}
 .consent input{margin-top:3px;accent-color:var(--acc);width:16px;height:16px;flex:none}.consent b{color:var(--text)}
+
+/* re-shoot engine + demo budget */
+.seg.engine{margin:0 0 12px}.seg.engine small{display:block;margin:2px 0 0;font-weight:400}
+.presets{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
+.preset{padding:6px 10px;border-radius:99px;border:1px solid var(--line);background:var(--panel2);color:var(--text);font-size:12.5px;cursor:pointer}
+.preset.on{border-color:var(--acc);box-shadow:0 0 0 1px var(--acc) inset}
+.banner.out{border-color:rgba(255,92,122,.6)!important;background:rgba(255,92,122,.12)!important;font-size:14.5px}
+.banner.out a{color:#fff}
+#keyCard.attention{box-shadow:0 0 0 2px var(--warn),0 0 24px rgba(255,181,71,.35);animation:pulse 1.6s ease-in-out 3}
+@keyframes pulse{50%{box-shadow:0 0 0 3px var(--warn),0 0 36px rgba(255,181,71,.55)}}

@@ -29,10 +29,12 @@ STILL_TO_PROMPT = {"closeup": "closeup", "wide": "wide", "right45": "side", "lef
                    "right90": "profile", "left90": "profile", "lowangle": "lowangle", "aerial": "wide"}
 # Qwen's 45/90-degree side views on a vertical frame often come back rolled 90 degrees, so default to the safe ones
 DEFAULT_STILLS = {"talk": {"B": "closeup", "C": "wide"}, "music": {"B": "closeup", "C": "wide"}}
+RESHOOT_CAMS = {"B": "right90", "C": "wide"}  # CrossView handles real side angles (no Qwen roll problem)
 STILL_LABELS = {"closeup": "Close-up", "wide": "Wide", "right45": "45° right", "left45": "45° left",
                 "right90": "Profile right", "left90": "Profile left", "lowangle": "Low angle", "aerial": "Aerial"}
 BURN_NAMES = {"closeup": "close-up", "wide": "wide", "right45": "side", "left45": "side", "right90": "profile",
               "left90": "profile", "lowangle": "low angle", "aerial": "aerial"}  # burned-in label text
+ENGINES = ("reshoot", "idlora")  # reshoot = CrossView IC-LoRA on the real take; idlora = classic Qwen still + ID LoRA
 REPO_ROOT = Path(__file__).resolve().parent.parent
 WEB_DIR = Path(__file__).resolve().parent / "web"
 
@@ -112,7 +114,8 @@ class App:
                  max_jobs_per_run: int = 8, repo_url: str = "https://github.com/apsolut/one-shot-multicam",
                  whisper_model: str = "small", max_upload_mb: float = 500.0, max_upload_s: float | None = None,
                  ttl_minutes: float | None = None, ip_jobs_per_day: int | None = None,
-                 ip_projects_per_hour: int | None = None, proxy_hops: int = 0, hosted_floor_usd: float | None = None):
+                 ip_projects_per_hour: int | None = None, proxy_hops: int = 0, hosted_floor_usd: float | None = None,
+                 engine: str = "reshoot"):
         """Hosted (public) mode = hosted_key_env is set AND that env var holds a key. Its guards:
         max_jobs (global, persisted), ip_jobs_per_day / ip_projects_per_hour (per client IP, persisted),
         max_upload_s / max_upload_mb, ttl_minutes (projects auto-deleted), no project listing."""
@@ -123,6 +126,7 @@ class App:
         self.budget_lock = threading.Lock()
         self.hosted_floor_usd = hosted_floor_usd  # restart-proof stop: refuse when the real balance nears this
         self.hosted_key_env = hosted_key_env
+        self.engine = engine if engine in ENGINES else "reshoot"  # default for new projects
         self.max_jobs = max_jobs
         self.max_jobs_per_run = max_jobs_per_run
         self.repo_url = repo_url
@@ -312,7 +316,8 @@ class App:
                    "created": time.time(), "source": src.name, "info": info,
                    "script": (script or "").strip() or None, "lyrics": (lyrics or "").strip() or None,
                    "steps": {s: {"status": "pending", "msg": ""} for s in STEPS},
-                   "jobs": [], "clips": {}, "stills": {}, "cam_stills": dict(DEFAULT_STILLS[mode]),
+                   "jobs": [], "clips": {}, "stills": {}, "engine": self.engine,
+                   "cam_stills": dict(RESHOOT_CAMS if self.engine == "reshoot" else DEFAULT_STILLS[mode]),
                    "edits": {}, "renders": [], "busy": None, "error": None}
         p.save()
         self.projects[pid] = p
@@ -380,11 +385,15 @@ class App:
                 continue
             if not p.state["clips"].get(s["chunk"], {}).get(s["cam"]):
                 need.append({"chunk": s["chunk"], "cam": s["cam"], "shot": s["i"]})
-        angles = 0 if all(p.state["stills"].get(p.state["cam_stills"][c]) for c in ("B", "C")) else 1
-        from .comfy import COST_PER_JOB_USD
-        n = len(need) + angles
-        return {"angle_jobs": angles, "camera_jobs": need, "jobs": n,
-                "usd": round(n * COST_PER_JOB_USD, 2), "per_job_usd": COST_PER_JOB_USD}
+        engine = self.engine_of(p)
+        angles = 0 if engine == "reshoot" or all(p.state["stills"].get(p.state["cam_stills"][c]) for c in ("B", "C")) else 1
+        from .comfy import job_cost
+        usd = len(need) * job_cost(engine) + angles * job_cost("angles")
+        return {"engine": engine, "angle_jobs": angles, "camera_jobs": need, "jobs": len(need) + angles,
+                "usd": round(usd, 2), "per_job_usd": job_cost(engine)}
+
+    def engine_of(self, p: Project) -> str:
+        return p.state.get("engine") or "idlora"  # projects created before the re-shoot engine
 
     def _still_path(self, p: Project, cam: str) -> Path | None:
         name = p.state["cam_stills"].get(cam)
@@ -415,7 +424,39 @@ class App:
             p.state["stills_frame_t"] = t
         p.set_step("angles", "done", f"{len(rec['outputs'])} stills from frame @ {t:.2f}s")
 
+    def _reshoot_job(self, p: Project, chunk_id: str, cam: str, key: str):
+        from .comfy import load_bindings
+        from .reshoot import ANGLES, insert_ordinals, run_reshoot_job
+        wfd = workflows_dir()
+        plan = p.edited_plan()
+        ch = next(c for c in plan["chunks"] if c["id"] == chunk_id)
+        preset = p.state["cam_stills"].get(cam)
+        if preset not in ANGLES:
+            preset = RESHOOT_CAMS.get(cam, "right90")
+        hist = p.state["clips"].get(chunk_id, {}).get(cam, {}).get("history", [])
+        variant = insert_ordinals(plan).get((chunk_id, cam), 0) + len(hist)
+        version = len(hist) + 1
+        out = p.work / "gen" / "clips" / f"{chunk_id}_{cam}_v{version}.mp4"
+        uid = f"{chunk_id}_{cam}_v{version}"
+        label = f"CAM {cam} · {ANGLES[preset][0]} re-shoot · {chunk_id}"
+        p.set_job({"uid": uid, "kind": "camera", "label": label, "chunk": chunk_id, "cam": cam, "status": "queued"})
+        rec = run_reshoot_job(p.root / p.state["source"], ch["start"], preset, variant, out,
+                              json.loads((wfd / "crossview_api.json").read_text()),
+                              load_bindings(wfd / "crossview_bindings.json"), key=key, work_dir=p.work / "gen" / "refs",
+                              on_status=lambda r: p.set_job({"uid": uid, "status": r["status"],
+                                                             "prompt_id": r.get("prompt_id"), "label": f"{label} · {r['camera']}",
+                                                             "elapsed_s": round(time.time() - r["started"], 1),
+                                                             "started": r["started"]}))
+        p.set_job({"uid": uid, "status": rec["status"], "elapsed_s": rec.get("elapsed_s"), "error": rec.get("error")})
+        if rec["status"] != "success":
+            raise RuntimeError(f"{label} failed: {rec.get('error')}")
+        self.register_clip(p, chunk_id, cam, out, ch["start"], seed=rec["seed"], still=preset,
+                           extra={"synced": True, "engine": "reshoot", "camera": rec["camera"]})
+        return rec
+
     def _camera_job(self, p: Project, chunk_id: str, cam: str, key: str):
+        if self.engine_of(p) == "reshoot":
+            return self._reshoot_job(p, chunk_id, cam, key)
         from .comfy import load_bindings, run_ltx_job
         from .prep import build_music_prompt, build_prompt
         wfd = workflows_dir()
@@ -453,11 +494,12 @@ class App:
         self.register_clip(p, chunk_id, cam, out, ch["start"], seed=rec["seed"], still=still_name)
         return rec
 
-    def register_clip(self, p: Project, chunk_id, cam, path: Path, src_start: float, seed=None, still=None):
+    def register_clip(self, p: Project, chunk_id, cam, path: Path, src_start: float, seed=None, still=None,
+                      extra: dict | None = None):
         with p.lock:
             slot = p.state["clips"].setdefault(chunk_id, {}).setdefault(cam, {"history": []})
             entry = {"file": p.rel(path), "src_start": float(src_start), "seed": seed, "still": still,
-                     "t": time.time()}
+                     "synced": False, "engine": None, "camera": None, "t": time.time(), **(extra or {})}
             slot["history"].append(entry)
             slot.update(entry)
             p.save()
@@ -468,8 +510,9 @@ class App:
         if est["angle_jobs"] and only is None:
             self._gen_angles(p, key)
         elif only is None:
-            p.set_step("angles", "done", "using existing stills")
-        p.set_step("cameras", "running", f"{len(todo)} ID LoRA job(s)")
+            p.set_step("angles", "skipped" if self.engine_of(p) == "reshoot" else "done",
+                       "not needed: re-shoot uses your real take" if self.engine_of(p) == "reshoot" else "using existing stills")
+        p.set_step("cameras", "running", f"{len(todo)} {'re-shoot (CrossView)' if self.engine_of(p) == 'reshoot' else 'ID LoRA'} job(s)")
         futures = [self.pool.submit(self._camera_job, p, j["chunk"], j["cam"], key) for j in todo]
         errors = []
         for f in futures:
@@ -498,7 +541,8 @@ class App:
             if c:
                 if c.get("still") in BURN_NAMES:
                     s["label_name"] = BURN_NAMES[c["still"]]
-                cj[s["chunk"]] = {"path": str(p.root / c["file"]), "angle": s["cam"], "src_start": c["src_start"]}
+                cj[s["chunk"]] = {"path": str(p.root / c["file"]), "angle": s["cam"], "src_start": c["src_start"],
+                                  "synced": bool(c.get("synced"))}
             else:
                 s["align"] = {"status": "missing", "reason": f"no CAM {s['cam']} clip for {s['chunk']} yet"}
         save_json(cj, p.work / "clips.json")
@@ -638,6 +682,14 @@ def create_app(app_state: App):
         except KeyError:
             raise HTTPException(404, "project not found")
 
+    def need_plan(p):
+        """Plan-dependent endpoints: 409 (not 500) while the upload is still being analyzed."""
+        if not (p.work / "plan_base.json").exists():
+            st = p.state["steps"].get("plan", {}).get("status")
+            raise HTTPException(409, "analysis failed; upload the video again" if st == "error" or p.state.get("error")
+                                else "still analyzing your video (transcribe + plan); try again in a few seconds")
+        return p
+
     def key_or_403(k):
         try:
             return A.resolve_key(k)
@@ -658,12 +710,15 @@ def create_app(app_state: App):
     @api.get("/api/config")
     def config():
         hosted = A.hosted
-        from .comfy import COST_PER_JOB_USD
+        from .comfy import job_cost
+        from .reshoot import ANGLES
         return {"version": __version__, "hosted": hosted, "hosted_jobs_left": max(0, A.max_jobs - A.hosted_used())
                 if hosted and A.max_jobs is not None else None, "hosted_jobs_total": A.max_jobs if hosted else None,
                 "ip_jobs_per_day": A.ip_jobs_per_day if hosted else None,
                 "max_upload_s": A.max_upload_s, "max_upload_mb": A.max_upload_mb, "ttl_minutes": A.ttl_minutes,
-                "cost_per_job_usd": COST_PER_JOB_USD, "repo_url": A.repo_url, "max_jobs_per_run": A.max_jobs_per_run}
+                "cost_per_job_usd": job_cost(A.engine), "repo_url": A.repo_url, "max_jobs_per_run": A.max_jobs_per_run,
+                "engine": A.engine, "cost_usd": {e: job_cost(e) for e in (*ENGINES, "angles")},
+                "reshoot_angles": {k: {"label": v[0], "variants": v[1]} for k, v in ANGLES.items()}}
 
     @api.post("/api/check-key")
     def check_key(x_comfy_key: str | None = Header(default=None)):
@@ -715,7 +770,12 @@ def create_app(app_state: App):
     async def cams(pid: str, request: Request):
         p = proj(pid)
         body = await request.json()
+        from .reshoot import ANGLES
         with p.lock:
+            if body.get("engine") in ENGINES and body["engine"] != A.engine_of(p):
+                p.state["engine"] = body["engine"]
+                if body["engine"] == "reshoot":  # stills names double as camera presets
+                    p.state["cam_stills"] = {c: (v if v in ANGLES else RESHOOT_CAMS[c]) for c, v in p.state["cam_stills"].items()}
             for cam in ("B", "C"):
                 if body.get(cam):
                     p.state["cam_stills"][cam] = body[cam]
@@ -764,11 +824,11 @@ def create_app(app_state: App):
 
     @api.get("/api/projects/{pid}/estimate")
     def estimate(pid: str):
-        return A.estimate(proj(pid))
+        return A.estimate(need_plan(proj(pid)))
 
     @api.post("/api/projects/{pid}/generate")
     async def generate(pid: str, request: Request, x_comfy_key: str | None = Header(default=None)):
-        p = proj(pid)
+        p = need_plan(proj(pid))
         body = await request.json()
         est = A.estimate(p)
         if not body.get("confirm"):
@@ -791,8 +851,8 @@ def create_app(app_state: App):
         p = proj(pid)
         body = await request.json() if (await request.body()) else {}
         if not body.get("confirm"):
-            from .comfy import COST_PER_JOB_USD
-            raise HTTPException(400, {"needs_confirm": True, "jobs": 1, "usd": COST_PER_JOB_USD})
+            from .comfy import job_cost
+            raise HTTPException(400, {"needs_confirm": True, "jobs": 1, "usd": job_cost("angles")})
         key, hosted = key_or_403(x_comfy_key)
         if p.state.get("busy"):
             raise HTTPException(409, f"busy: {p.state['busy']}")
@@ -805,7 +865,7 @@ def create_app(app_state: App):
 
     @api.post("/api/projects/{pid}/reroll")
     async def reroll(pid: str, request: Request, x_comfy_key: str | None = Header(default=None)):
-        p = proj(pid)
+        p = need_plan(proj(pid))
         body = await request.json()
         plan = p.edited_plan()
         s = next((x for x in plan["shots"] if x["i"] == int(body["shot"])), None)
@@ -815,11 +875,15 @@ def create_app(app_state: App):
         if cam not in ("B", "C"):
             raise HTTPException(400, "cam must be B or C")
         if not body.get("confirm"):
-            from .comfy import COST_PER_JOB_USD
-            raise HTTPException(400, {"needs_confirm": True, "jobs": 1, "usd": COST_PER_JOB_USD})
+            from .comfy import job_cost
+            raise HTTPException(400, {"needs_confirm": True, "jobs": 1, "usd": job_cost(A.engine_of(p))})
         key, hosted = key_or_403(x_comfy_key)
         still = body.get("still") or p.state["cam_stills"].get(cam)
-        if still not in p.state["stills"]:
+        from .reshoot import ANGLES
+        if A.engine_of(p) == "reshoot":
+            if still not in ANGLES:
+                raise HTTPException(400, f"unknown camera preset {still}")
+        elif still not in p.state["stills"]:
             raise HTTPException(400, f"no still for CAM {cam}; generate angles first")
         if p.state.get("busy"):
             raise HTTPException(409, f"busy: {p.state['busy']}")
@@ -836,7 +900,7 @@ def create_app(app_state: App):
 
     @api.patch("/api/projects/{pid}/shots")
     async def edit_shots(pid: str, request: Request):
-        p = proj(pid)
+        p = need_plan(proj(pid))
         body = await request.json()
         base = {s["i"]: s for s in p.base_plan()["shots"]}
         with p.lock:
@@ -854,7 +918,7 @@ def create_app(app_state: App):
 
     @api.post("/api/projects/{pid}/render")
     async def render(pid: str, request: Request):
-        p = proj(pid)
+        p = need_plan(proj(pid))
         body = await request.json() if (await request.body()) else {}
         try:
             A.run_bg(p, "render", lambda: A.render(p, shake=body.get("shake", True)))

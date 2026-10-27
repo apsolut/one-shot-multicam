@@ -23,7 +23,13 @@ BASE_URL = os.environ.get("COMFY_CLOUD_BASE_URL", "https://cloud.comfy.org")
 TERMINAL = {"success", "error", "non_retryable_error", "lost", "cancelled"}
 VIDEO_EXT = (".mp4", ".webm", ".mov", ".mkv")
 IMAGE_EXT = (".png", ".jpg", ".jpeg", ".webp")
-COST_PER_JOB_USD = 0.033  # measured on Comfy Cloud, Oct 2026 (LTX-2.3 ID LoRA 5 s, Qwen 8-angle)
+# Measured on Comfy Cloud, Oct 2026 (balance delta / jobs). reshoot = CrossView IC-LoRA two-stage 704x1280 x 121 f.
+JOB_COST_USD = {"idlora": 0.033, "angles": 0.033, "reshoot": 0.055}
+COST_PER_JOB_USD = max(JOB_COST_USD.values())  # conservative figure for budget guards
+
+
+def job_cost(kind: str) -> float:
+    return JOB_COST_USD.get(kind, COST_PER_JOB_USD)
 
 
 class ComfyError(RuntimeError):

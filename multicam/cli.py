@@ -189,6 +189,56 @@ def cmd_demo(a):
         print_shot(s)
 
 
+def cmd_reshoot(a):
+    """Re-shoot engine: one CrossView job per insert chunk; writes <out>/clips.json for `assemble --clips`."""
+    from .reshoot import ANGLES, DEFAULT_CAMS, angle_prompt, insert_ordinals, run_reshoot_job
+    from .comfy import ComfyError, load_bindings
+    from .server import workflows_dir
+    work = Path(a.workdir)
+    plan = load_json(work / a.plan)
+    video = Path(a.video or plan["source"])
+    cams = dict(DEFAULT_CAMS)
+    for item in a.cam or []:
+        k, v = item.split("=", 1)
+        if v not in ANGLES:
+            raise SystemExit(f"--cam {item}: unknown preset; pick one of {', '.join(ANGLES)}")
+        cams[k.upper()] = v
+    out = work / a.out
+    out.mkdir(parents=True, exist_ok=True)
+    clips_path = out / "clips.json"
+    clips = load_json(clips_path) if clips_path.exists() else {}
+    ords = insert_ordinals(plan)
+    chunks = {c["id"]: c for c in plan["chunks"]}
+    todo = [(cid, cam) for (cid, cam) in ords if not a.only or cid in a.only]
+    wfd = workflows_dir()
+    wf = json.loads((wfd / "crossview_api.json").read_text())
+    b = load_bindings(wfd / "crossview_bindings.json")
+    for n, (cid, cam) in enumerate(todo):
+        if a.max_submissions is not None and n >= a.max_submissions:
+            print("max submissions reached; stopping"); break
+        preset = cams.get(cam, "right90")
+        variant = ords[(cid, cam)] + a.variant_shift
+        prompt, phrase = angle_prompt(preset, variant)
+        ch = chunks[cid]
+        dest = out / f"{cid}_{cam}.mp4"
+        if a.dry_run:
+            print(f"{cid} CAM {cam} [{ch['start']:.2f}s +5.04s] {ANGLES[preset][0]}: {prompt}")
+            continue
+        try:
+            rec = run_reshoot_job(video, ch["start"], preset, variant, dest, wf, b, seed=a.seed,
+                                  on_status=lambda r: print(f"  {cid}_{cam}: {r['status']}", flush=True))
+        except ComfyError as e:
+            raise SystemExit(str(e))
+        print(f"{cid}_{cam}: {rec['status']} ({rec.get('elapsed_s')}s, '{phrase}') -> {rec.get('output') or rec.get('error')}")
+        if rec["status"] != "success":
+            print("stopping after a failed job (cost guard)"); break
+        clips[cid] = {"path": dest.name, "angle": cam, "src_start": ch["start"], "synced": True,
+                      "preset": preset, "camera": phrase, "seed": rec["seed"]}
+        save_json(clips, clips_path)
+    if not a.dry_run:
+        print(f"wrote {clips_path}; next: multicam -C {a.workdir} assemble --clips {clips_path} --video {video}")
+
+
 def cmd_comfy_submit(a):
     from .comfy import cmd_submit
     override = {}
@@ -209,7 +259,7 @@ def _float(v):
 
 def cmd_serve(a):
     if a.public:  # sane defaults for a public URL; explicit flags/env win
-        a.max_jobs = 30 if a.max_jobs is None else a.max_jobs
+        a.max_jobs = 15 if a.max_jobs is None else a.max_jobs
         a.ip_jobs_per_day = 6 if a.ip_jobs_per_day is None else a.ip_jobs_per_day
         a.ip_projects_per_hour = 4 if a.ip_projects_per_hour is None else a.ip_projects_per_hour
         a.max_upload_s = 30.0 if a.max_upload_s is None else a.max_upload_s
@@ -223,7 +273,7 @@ def cmd_serve(a):
           max_jobs_per_run=a.max_jobs_per_run, repo_url=a.repo_url, whisper_model=a.model,
           max_upload_mb=a.max_upload_mb, max_upload_s=a.max_upload_s, ttl_minutes=a.ttl_minutes,
           ip_jobs_per_day=a.ip_jobs_per_day, ip_projects_per_hour=a.ip_projects_per_hour, proxy_hops=a.proxy_hops,
-          hosted_floor_usd=a.hosted_floor_usd)
+          hosted_floor_usd=a.hosted_floor_usd, engine=a.engine)
 
 
 def _add_plan_args(p):
@@ -295,6 +345,16 @@ def main(argv=None):
     p.add_argument("--no-align", action="store_true"); p.add_argument("--name", default="demo_v5", help="output basename")
     _add_plan_args(p); p.set_defaults(fn=cmd_demo)
 
+    p = sub.add_parser("reshoot", help="re-shoot each insert from a new virtual camera (LTX-2.3 CrossView IC-LoRA, "
+                                       "follows your real motion + lips; needs $COMFY_API_KEY)")
+    p.add_argument("--plan", default="plan.json"); p.add_argument("--video"); p.add_argument("--out", default="gen/reshoot")
+    p.add_argument("--cam", action="append", help="camera preset per angle, e.g. B=right90 C=wide "
+                   "(right90 left90 right45 left45 wide closeup lowangle aerial)")
+    p.add_argument("--only", nargs="*", help="chunk ids"); p.add_argument("--seed", type=int)
+    p.add_argument("--variant-shift", type=int, default=0, help="pick the next camera variant (like a re-roll)")
+    p.add_argument("--max-submissions", type=int); p.add_argument("--dry-run", action="store_true")
+    p.set_defaults(fn=cmd_reshoot)
+
     p = sub.add_parser("serve", help="run the local web app (FastAPI + UI) on http://127.0.0.1:8787")
     E = os.environ.get
     p.add_argument("--host", default=E("MULTICAM_HOST", "127.0.0.1"))
@@ -315,8 +375,10 @@ def main(argv=None):
                    help="trusted reverse proxies in front (for X-Forwarded-For)")
     g.add_argument("--hosted-floor-usd", type=float, default=_float(E("MULTICAM_HOSTED_FLOOR_USD")),
                    help="also stop when the hosted key's real Comfy balance would drop below this (restart-proof)")
+    p.add_argument("--engine", choices=("reshoot", "idlora"), default=E("MULTICAM_ENGINE", "reshoot"),
+                   help="default engine for new projects: reshoot (CrossView, follows your real motion) or idlora (classic)")
     g.add_argument("--public", action="store_true", default=E("MULTICAM_PUBLIC") == "1",
-                   help="public-demo defaults: 30 jobs, 6 jobs/IP/day, 4 uploads/IP/hour, 30 s / 60 MB uploads, 60 min TTL")
+                   help="public-demo defaults: 15 jobs, 6 jobs/IP/day, 4 uploads/IP/hour, 30 s / 60 MB uploads, 60 min TTL")
     p.add_argument("--max-jobs-per-run", type=int, default=int(E("MULTICAM_MAX_JOBS_PER_RUN", "8")))
     p.set_defaults(fn=cmd_serve)
 

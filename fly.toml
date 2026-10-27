@@ -13,9 +13,9 @@ primary_region = "fra"
   MULTICAM_DATA_DIR = "/data"          # job-cap ledger (hosted_jobs.json) + uploads live on the volume
   MULTICAM_PUBLIC = "1"
   MULTICAM_HOSTED_KEY_ENV = "COMFY_API_KEY"
-  MULTICAM_MAX_JOBS = "30"
+  MULTICAM_MAX_JOBS = "15"
   MULTICAM_PROXY_HOPS = "1"            # Fly's edge proxy appends the client IP to X-Forwarded-For
-  MULTICAM_HOSTED_FLOOR_USD = "33.25"  # refuse hosted jobs once the real Comfy balance would drop below this
+  MULTICAM_HOSTED_FLOOR_USD = "32.49"  # refuse hosted jobs once the real Comfy balance would drop below this
 
 [mounts]
   source = "multicam_data"

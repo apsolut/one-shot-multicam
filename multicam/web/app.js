@@ -28,11 +28,27 @@ function confirmBox(title, html, yes = "Confirm") {
   return new Promise(res => d.addEventListener("close", () => res(d.returnValue === "yes"), {once: true}));
 }
 
+// ---------- engine / demo budget helpers
+const reshoot = () => (S?.engine || cfg.engine) === "reshoot";
+const jobUsd = () => (cfg.cost_usd?.[S?.engine || cfg.engine] ?? cfg.cost_per_job_usd ?? 0.05);
+const demoOut = (n = 1) => cfg.hosted && !key() && (cfg.hosted_jobs_left ?? 0) < n;  // free demo jobs can't cover n
+const camLabel = k => reshoot() ? (cfg.reshoot_angles?.[k]?.label || k) : (S.stills?.[k]?.label || k);
+async function needOwnKey(n) {
+  await confirmBox("Free demo runs are used up — use your own key",
+    `<p>The public demo's free Comfy Cloud credits ${cfg.hosted_jobs_left ? `only cover <b>${cfg.hosted_jobs_left}</b> more job(s); this needs <b>${n}</b>` : "are gone"}.</p>
+    <p><b>Paste your own Comfy Cloud API key</b> in step 1 (platform.comfy.org → API keys). It stays in your browser and is never stored on this server.
+    A re-shoot clip costs about <b>$${(cfg.cost_usd?.reshoot ?? 0.05).toFixed(2)}</b>, a whole video about <b>$${(4 * (cfg.cost_usd?.reshoot ?? 0.05)).toFixed(2)}</b>.</p>
+    <p class="note">Or <a href="${cfg.repo_url}" target="_blank" rel="noopener">run Multicam yourself</a> — it's open source.</p>`, "Paste my key");
+  $("#keyCard").classList.add("attention"); $("#keyCard").scrollIntoView({behavior: "smooth", block: "center"}); $("#key").focus();
+}
+
 // ---------- key
 function renderKey() {
   const k = key(), b = $("#keyBadge");
   $("#key").value = k;
-  if (cfg.hosted && !k) { b.textContent = `demo key · ${cfg.hosted_jobs_left ?? "∞"} jobs left`; b.className = "badge warn"; }
+  $("#keyCard").classList.toggle("attention", !!(cfg.hosted && !k && !(cfg.hosted_jobs_left > 0)));
+  if (cfg.hosted && !k && !(cfg.hosted_jobs_left > 0)) { b.textContent = "free demo used up · paste your key"; b.className = "badge bad"; }
+  else if (cfg.hosted && !k) { b.textContent = `demo key · ${cfg.hosted_jobs_left ?? "∞"} jobs left`; b.className = "badge warn"; }
   else if (k) { b.textContent = "saved in this browser"; b.className = "badge ok"; }
   else { b.textContent = "not set"; b.className = "badge"; }
 }
@@ -104,15 +120,32 @@ function render() {
 }
 
 function renderCams() {
+  $("#anglesRow").hidden = reshoot();
+  const eng = `<div class="seg engine" id="engineSel">
+      <button data-engine="reshoot" class="${reshoot() ? "on" : ""}">🎥 Re-shoot <small>follows your real motion & lips · recommended</small></button>
+      <button data-engine="idlora" class="${reshoot() ? "" : "on"}">🖼 Classic <small>Qwen still + ID LoRA</small></button></div>`;
+  if (reshoot()) {
+    const presets = Object.entries(cfg.reshoot_angles || {});
+    $("#engine").innerHTML = eng;
+    $("#cams").innerHTML = ["B", "C"].map(cam => { const cur = S.cam_stills[cam];
+      return `<div class="cam"><div class="cam-h"><span class="tag ${cam}">CAM ${cam}</span>${esc(camLabel(cur))}</div>
+        <div class="presets">${presets.map(([k, v]) => `<button class="preset ${k === cur ? "on" : ""}" data-cam="${cam}" data-still="${k}" title="${esc(v.variants.join(" · "))}">${esc(v.label)}</button>`).join("")}</div>
+        <div class="muted small">Each insert on CAM ${cam} gets its own camera move (${esc((cfg.reshoot_angles?.[cur]?.variants || []).join(" → "))}).</div></div>`; }).join("");
+  } else {
   const stills = Object.entries(S.stills || {});
   $("#cams").innerHTML = ["B", "C"].map(cam => { const cur = S.cam_stills[cam];
     const grid = stills.length ? `<div class="stills">${stills.map(([k, v]) =>
       `<button class="still ${k === cur ? "on" : ""}" data-cam="${cam}" data-still="${k}" title="${esc(v.label)}"><img src="${v.url}" loading="lazy"><span>${esc(v.label)}</span></button>`).join("")}</div>`
       : `<div class="empty">Angle stills come from 1 Qwen job (8 views of you).<br>Default for CAM ${cam}: <b>${esc(cur)}</b></div>`;
     return `<div class="cam"><div class="cam-h"><span class="tag ${cam}">CAM ${cam}</span>${esc(S.stills?.[cur]?.label || cur)}</div>${grid}</div>`; }).join("");
-  $$("#cams .still").forEach(b => b.onclick = async () => {
+  $("#engine").innerHTML = eng;
+  }
+  $$("#engineSel button").forEach(b => b.onclick = async () => {
+    S = await api(`/api/projects/${S.id}/cams`, {json: {engine: b.dataset.engine}}); render();
+    toast(b.dataset.engine === "reshoot" ? "Re-shoot: AI re-films your real take from new angles (motion + lips follow you)" : "Classic: Qwen angle still + LTX-2.3 ID LoRA"); });
+  $$("#cams .still, #cams .preset").forEach(b => b.onclick = async () => {
     S = await api(`/api/projects/${S.id}/cams`, {json: {[b.dataset.cam]: b.dataset.still}}); render();
-    toast(`CAM ${b.dataset.cam} → ${b.title}. Applies to new generations / re-rolls.`); });
+    toast(`CAM ${b.dataset.cam} → ${b.classList.contains("preset") ? b.textContent : b.title}. Applies to new generations / re-rolls.`); });
   $("#impChunk").innerHTML = S.plan.chunks.map(c => `<option value="${c.id}">${c.id} · ${fmt(c.start)} “${esc(c.words.slice(0, 28))}…”</option>`).join("");
 }
 
@@ -120,19 +153,20 @@ function renderEstimate() {
   const e = S.estimate; if (!e) return;
   const has = e.jobs > 0;
   $("#estimate").innerHTML = `<div><div class="big">${has ? `≈ $${e.usd.toFixed(2)}` : "$0.00"}</div>
-    <small>${has ? `${e.jobs} Comfy Cloud job${e.jobs > 1 ? "s" : ""} × ~$${e.per_job_usd.toFixed(3)} · ${e.angle_jobs ? "1 angle job + " : ""}${e.camera_jobs.length} camera clip${e.camera_jobs.length === 1 ? "" : "s"}` : "every insert already has a clip — rendering is free"}</small></div>
+    <small>${has ? `${e.jobs} Comfy Cloud job${e.jobs > 1 ? "s" : ""} × ~$${e.per_job_usd.toFixed(3)} · ${e.angle_jobs ? "1 angle job + " : ""}${e.camera_jobs.length} ${e.engine === "reshoot" ? "re-shoot" : "camera"} clip${e.camera_jobs.length === 1 ? "" : "s"}` : "every insert already has a clip — rendering is free"}</small></div>
     <small>${S.plan.shots.filter(s => s.chunk && s.cam !== "A").length} AI inserts · ${S.plan.duration.toFixed(1)}s</small>`;
-  $("#generate").textContent = has ? `Generate · $${e.usd.toFixed(2)}` : "Generate (nothing to do)";
+  $("#generate").textContent = !has ? "Generate (nothing to do)" : demoOut(e.jobs) ? "🔑 Paste your Comfy key to generate" : `Generate · $${e.usd.toFixed(2)}`;
   $("#generate").style.display = has ? "" : "none";
 }
 
 $("#generate").onclick = async () => {
   const e = S.estimate;
   if (!key() && !cfg.hosted) { toast("Paste your Comfy Cloud key first (step 1)", 3500); $("#key").focus(); return; }
+  if (demoOut(e.jobs)) return needOwnKey(e.jobs);
   const ok = await confirmBox("Spend on Comfy Cloud?",
     `<p>This submits <b>${e.jobs}</b> job(s) to Comfy Cloud with your key — about <b>$${e.usd.toFixed(2)}</b>.</p><ul>
     ${e.angle_jobs ? "<li>Qwen-Image-Edit: 8 angle stills from your best frame</li>" : ""}
-    ${e.camera_jobs.map(j => `<li>LTX-2.3 ID LoRA · CAM ${j.cam} · ${j.chunk}</li>`).join("")}</ul>
+    ${e.camera_jobs.map(j => `<li>${e.engine === "reshoot" ? `LTX-2.3 CrossView re-shoot · CAM ${j.cam} (${esc(camLabel(S.cam_stills[j.cam]))})` : `LTX-2.3 ID LoRA · CAM ${j.cam}`} · ${j.chunk}</li>`).join("")}</ul>
     <p class="note">Typical wait: 1–3 min per job (they run in parallel).</p>`, `Confirm · $${e.usd.toFixed(2)}`);
   if (!ok) return;
   try { S = await api(`/api/projects/${S.id}/generate`, {json: {confirm: true}, withKey: true}); render(); poll(); }
@@ -209,8 +243,8 @@ function renderShotPanel() {
     <div class="meta">${al ? (al.status === "ok" ? `lip-sync: ${al.method || "words"} · offset ${al.offset >= 0 ? "+" : ""}${(+al.offset).toFixed(2)}s · speed ×${(+al.speed).toFixed(2)}` : `align: ${esc(al.status)} — ${esc(al.reason || "")}`) : "not aligned yet"}</div>
     <div class="camsel">${["B", "C", "A"].map(c => `<button data-cam="${c}" class="${s.cam === c ? "on" : ""}">${c === "A" ? "Drop (use A)" : `CAM ${c}`}${c !== "A" && !clips[c] ? " · needs clip" : ""}</button>`).join("")}</div>
     <div class="camsel">
-      <button data-act="reroll" ${s.cam === "A" ? "disabled" : ""}>🎲 Re-roll CAM ${s.cam === "A" ? s.planned_cam : s.cam} · $${(cfg.cost_per_job_usd || 0.03).toFixed(2)}</button>
-      <select id="rerollStill" ${s.cam === "A" ? "disabled" : ""}>${Object.entries(S.stills || {}).map(([k, v]) =>
+      <button data-act="reroll" ${s.cam === "A" ? "disabled" : ""}>🎲 Re-roll CAM ${s.cam === "A" ? s.planned_cam : s.cam} · $${jobUsd().toFixed(2)}</button>
+      <select id="rerollStill" ${s.cam === "A" ? "disabled" : ""}>${(reshoot() ? Object.entries(cfg.reshoot_angles || {}) : Object.entries(S.stills || {})).map(([k, v]) =>
         `<option value="${k}" ${k === S.cam_stills[s.cam] ? "selected" : ""}>angle: ${esc(v.label)}</option>`).join("")}</select>
       ${s.planned_cam !== s.cam ? `<button data-cam="${s.planned_cam}">↺ Reset</button>` : ""}
     </div>`;
@@ -220,8 +254,9 @@ function renderShotPanel() {
   const rb = $('button[data-act="reroll"]', el);
   if (rb) rb.onclick = async () => {
     if (!key() && !cfg.hosted) { toast("Paste your Comfy Cloud key first (step 1)", 3500); return; }
+    if (demoOut(1)) return needOwnKey(1);
     const still = $("#rerollStill")?.value; const cam = s.cam;
-    const ok = await confirmBox("Re-roll this shot?", `<p>1 LTX-2.3 ID LoRA job for <b>CAM ${cam}</b> on “${esc(s.words)}” with a new seed${still && still !== S.cam_stills[cam] ? ` and the <b>${esc(S.stills[still]?.label)}</b> angle` : ""}. About <b>$${(cfg.cost_per_job_usd || 0.03).toFixed(2)}</b>. The old version is kept.</p>`, "Re-roll");
+    const ok = await confirmBox("Re-roll this shot?", `<p>1 ${reshoot() ? "LTX-2.3 CrossView re-shoot (next camera move)" : "LTX-2.3 ID LoRA"} job for <b>CAM ${cam}</b> on “${esc(s.words)}” with a new seed${still && still !== S.cam_stills[cam] ? ` and the <b>${esc(camLabel(still))}</b> angle` : ""}. About <b>$${jobUsd().toFixed(2)}</b>. The old version is kept.</p>`, "Re-roll");
     if (!ok) return;
     try { S = await api(`/api/projects/${S.id}/reroll`, {json: {shot: s.i, cam, still, confirm: true}, withKey: true}); render(); poll(); }
     catch (e) { toast(e.message, 4500); }
@@ -243,16 +278,25 @@ $("#shareBtn").onclick = async () => {
 
 function renderBanner() {
   const b = $("#banner");
-  if (cfg.hosted) $("#keyCard .note").innerHTML = `🔒 Optional here: leave it empty to use the capped demo credits. If you paste your own key it's saved only in <b>this browser</b> (localStorage) and sent per request to this server, which forwards it to Comfy Cloud and <b>never stores or logs it</b>. <a href="#" id="keyForget">Forget key</a>`,
+  if (cfg.hosted) $("#keyCard .note").innerHTML = `${(cfg.hosted_jobs_left ?? 0) > 0 ? "🔒 Optional here: leave it empty to use the capped demo credits." : "🔑 <b>Required now</b>: the free demo credits are used up — get a key at <a href=\"https://platform.comfy.org/profile/api-keys\" target=\"_blank\" rel=\"noopener\">platform.comfy.org → API keys</a>."} If you paste your own key it's saved only in <b>this browser</b> (localStorage) and sent per request to this server, which forwards it to Comfy Cloud and <b>never stores or logs it</b>. <a href="#" id="keyForget">Forget key</a>`,
     $("#keyForget").onclick = e => { e.preventDefault(); localStorage.removeItem(KEY_LS); renderKey(); toast("Key removed from this browser"); };
   if (cfg.max_upload_s) $("#dropHint").textContent = `Up to ${cfg.max_upload_s} s, you talking to camera (or performing). Your own face, or someone who consented.`;
   if (!cfg.hosted) { b.hidden = true; return; }
   const left = cfg.hosted_jobs_left ?? 0, tot = cfg.hosted_jobs_total || 1;
   b.hidden = false;
+  b.classList.toggle("out", left <= 0);
+  const per = (cfg.cost_usd?.[cfg.engine] ?? cfg.cost_per_job_usd ?? 0.05);
+  if (left <= 0) {
+    b.innerHTML = `<b>Free demo runs are used up.</b> 🔑 <a href="#keyCard" id="bannerKey"><b>Paste your own Comfy Cloud key</b></a> to keep going
+      (≈ $${per.toFixed(2)} per clip, ≈ $${(4 * per).toFixed(2)} per video, billed to you by Comfy; the key stays in your browser) —
+      or <a href="${cfg.repo_url}" target="_blank" rel="noopener">run Multicam yourself</a>. Free steps (analyze, plan, edit, render) still work.`;
+    $("#bannerKey").onclick = e => { e.preventDefault(); $("#keyCard").classList.add("attention"); $("#keyCard").scrollIntoView({behavior: "smooth", block: "center"}); $("#key").focus(); };
+    return;
+  }
   b.innerHTML = `<b>Public demo</b> · generation runs on the maintainer's Comfy Cloud credits, capped at <b>${tot} jobs total</b>
     <span class="meter"><i style="width:${Math.round(100 * left / tot)}%"></i></span><b>${left} left</b>
     ${cfg.ip_jobs_per_day ? ` · ${cfg.ip_jobs_per_day} jobs per visitor per day` : ""}${cfg.max_upload_s ? ` · uploads ≤ ${cfg.max_upload_s}s` : ""}${cfg.ttl_minutes ? ` · deleted after ${cfg.ttl_minutes} min` : ""}.
-    A full video ≈ 5 jobs. <b>Paste your own key</b> for unlimited runs, or <a href="${cfg.repo_url}" target="_blank" rel="noopener">run it yourself</a>.`;
+    A full video ≈ 4 jobs, so that's only a few free videos — <b>please paste your own Comfy key</b> if you can (≈ $${(4 * per).toFixed(2)} per video), or <a href="${cfg.repo_url}" target="_blank" rel="noopener">run it yourself</a>.`;
 }
 async function refreshCfg() { cfg = await api("/api/config").catch(() => cfg); renderBanner(); renderKey(); }
 

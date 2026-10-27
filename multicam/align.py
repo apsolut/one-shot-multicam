@@ -1,5 +1,7 @@
 """`multicam align`: lip-sync alignment of generated inserts to the real audio.
 
+Re-shoot clips (clips.json "synced": true) are already time-locked to the source and skip this.
+
 The generated clip speaks the chunk's words at its own pace, so the naive mapping
 clip_time = source_time - src_start puts the wrong mouth shapes on screen. We transcribe the
 clip's own audio (faster-whisper word timestamps), match its words to the real words of the
@@ -116,7 +118,12 @@ def align_plan(plan: dict, tr: dict, clips: dict, cache_dir: Path, model="small"
             continue
         c = clips[s["chunk"]]
         ch = chunks[s["chunk"]]
-        if plan.get("mode") == "music":
+        if c.get("synced"):
+            # re-shoot clips are time-locked to the source (real audio frozen in): identity mapping
+            r = {"status": "ok", "method": "synced", "offset": 0.0, "speed": 1.0, "raw_speed": 1.0,
+                 "naive_clip_in": round(s["start"] - c["src_start"], 3), "clip_in": round(s["start"] - c["src_start"], 3),
+                 "matched": 0, "exact": 0, "of": 0}
+        elif plan.get("mode") == "music":
             # words only where lyrics exist AND the generated clip demonstrably sings them; else onsets
             r = None
             if s.get("words") and ch.get("w0") is not None:

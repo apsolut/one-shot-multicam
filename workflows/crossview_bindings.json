@@ -1,0 +1,37 @@
+{
+  "_comment": "Bindings for workflows/crossview_api.json (built by build_v2v.py: LTX-2.3 22B dev fp8 + distilled LoRA 0.6 + Cseti CrossView IC-LoRA 1.5, reference video = the real take, its audio frozen; 2 stages 352x640 -> 704x1280, 121 frames @ 24 fps).",
+  "video": [
+    [
+      "7",
+      "file"
+    ]
+  ],
+  "prompt": [
+    [
+      "11",
+      "text"
+    ]
+  ],
+  "seed": [
+    [
+      "24",
+      "noise_seed"
+    ],
+    [
+      "50",
+      "noise_seed"
+    ]
+  ],
+  "lat_w": [
+    [
+      "14",
+      "width"
+    ]
+  ],
+  "lat_h": [
+    [
+      "14",
+      "height"
+    ]
+  ]
+}

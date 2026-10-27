@@ -1,15 +1,17 @@
 # Multicam from one phone shot
 
-**One selfie take → a multicam edit.** Your real footage is **CAM A**. ComfyUI generates
-**CAM B/C** angles of you (close-up, wide, profile…) **saying the same words in your own
-voice**, then Multicam cuts A/B/C on word boundaries over your **real, untouched audio**.
+**One selfie take → a multicam edit.** Your real footage is **CAM A**. ComfyUI **re-shoots that
+same take from new virtual cameras** (side, 3/4, wide, low…) as **CAM B/C**: same head moves,
+same mouth shapes, frame for frame. Then Multicam cuts A/B/C on word boundaries over your
+**real, untouched audio**.
 
 A VFX "re-shoot from any angle" app for the Comfy *Open Source Higgsfield* challenge
-(#OpenSourceHiggsfield). It's open weights end to end: Qwen-Image-Edit 2511 angles, LTX-2.3 ID
-LoRA video, and faster-whisper for sync. MIT licensed.
+(#OpenSourceHiggsfield). It's open weights end to end: LTX-2.3 with the CrossView IC-LoRA
+(video-to-video re-shoot), plus the classic Qwen-Image-Edit 2511 angles + LTX-2.3 ID LoRA path,
+and faster-whisper for the word cuts. MIT licensed.
 
 - **Live gallery (no key needed, before/after):** <https://apsolut.github.io/one-shot-multicam/>
-- **Try it (hosted demo, capped):** <https://one-shot-multicam.fly.dev/> (30 demo jobs on my credits, or paste your own Comfy Cloud key; or run it locally in 2 commands, below)
+- **Try it (hosted demo, capped):** <https://one-shot-multicam.fly.dev/> (15 free demo jobs on my credits ≈ 3 videos; after that, paste your own Comfy Cloud key, or run it locally in 2 commands, below)
 - **Demo video (< 2 min):** _TODO_
 - **Release / media:** <https://github.com/apsolut/one-shot-multicam/releases/tag/v0.1.0>
 
@@ -23,13 +25,41 @@ LoRA video, and faster-whisper for sync. MIT licensed.
 <td><sub>8 angle stills from one Qwen job, a pick per camera, and the cost estimate you confirm before anything is spent.</sub></td>
 </tr></table>
 
-<!-- TODO: add a short GIF of the app: docs/img/demo.gif -->
+## v0.2: the re-shoot engine (default)
+
+The first version animated a Qwen angle **still** with the LTX-2.3 ID LoRA. That kept the face,
+but the body was rigid, the motion had nothing to do with the real performance, two wide inserts
+reused the same still, and the generated lips had to be retimed onto the real words (0.85–1.15×).
+
+Now each insert is a **video-to-video re-shoot** of the matching 5 s of the real take:
+
+- **LTX-2.3 22B + [CrossView IC-LoRA](https://huggingface.co/Cseti/LTX2.3-22B_IC-LoRA-CrossView-Prompt)**
+  (Apache-2.0, on Comfy Cloud). The real segment is the in-context reference video; the prompt is
+  only a camera move, e.g. `crossview. new camera angle: far to the right, same height, closer.`
+- **The real audio is frozen into the audio latent** (`LTXVSetAudioRefTokens`), so the clip is
+  time-locked to the source: generated frame *t* = source frame *t*. Measured on 8 test clips the
+  motion lag is 0–1 frames; alignment becomes the identity (offset 0, speed 1), no retime.
+- **Identity comes from your real face in every frame**, not from one still, so it holds at
+  side and 3/4 angles too.
+- **A fresh camera per insert:** each camera preset has several CrossView moves; the n-th insert
+  on a camera uses move n, and a re-roll uses the next one. The new background is generated, so
+  no two inserts look alike.
+- No Qwen still is needed (one job fewer per video). The classic path is still there: toggle
+  **Classic** in *Cameras & cost*, or `multicam serve --engine idlora`.
+
+| | v5 (ID LoRA + still) | v6 (CrossView re-shoot) |
+|---|---|---|
+| Body / head motion | invented, often rigid | your real motion, frame for frame |
+| Lip sync | generated lips, retimed 0.85–1.15× | your real mouth shapes (0–1 frame lag) |
+| Identity | 9/10 on the best (profile) angle | from the real frames at every angle |
+| Two inserts on one camera | same still → look alike | different camera move + background |
+| Jobs for a 4-insert video | 1 Qwen + 4 LTX ≈ $0.17 | 4 LTX ≈ $0.22 |
 
 ## What you get
 
 | | |
 |---|---|
-| **Talk mode** (default) | Whisper word timings, inserts that enter mid-phrase and exit on a phrase end, B/C alternation, and lip-sync auto-align (offset + 0.85–1.15× retime) of every AI shot to your real words |
+| **Talk mode** (default) | Whisper word timings, inserts that enter mid-phrase and exit on a phrase end, B/C alternation. Re-shoot inserts are time-locked to your real take; classic (ID LoRA) inserts are auto-aligned (offset + 0.85–1.15× retime) to your real words |
 | **Music mode** (beta) | Beat-synced inserts placed where your real face is turned away. You supply the lyrics; alignment is by onsets |
 | **Web app** | Upload, transcribe, plan cuts, see a **cost estimate → confirm**, then live per-job progress, player with CAM-label toggle and before/after, download |
 | **Remix** | Click any shot on the cut-list timeline: switch B↔C, drop it (back to A), or **re-roll** just that insert (1 job, new seed or another angle). Re-rendering is free |
@@ -78,7 +108,7 @@ websites can't drive your local instance with your key.
 
 ```bash
 export COMFY_API_KEY=...        # the operator's key: a server-side secret, never sent to browsers
-multicam serve --host 0.0.0.0 --public --hosted-key-env COMFY_API_KEY --max-jobs 30 --proxy-hops 1
+multicam serve --host 0.0.0.0 --public --hosted-key-env COMFY_API_KEY --max-jobs 15 --proxy-hops 1
 ```
 
 The live demo runs on Fly.io from the repo's `fly.toml` (Dockerfile build, 1 GB volume at `/data`):
@@ -89,7 +119,7 @@ Visitors who paste no key use the operator's credits. `--public` turns on all th
 
 | Guard | Flag / env | `--public` default |
 |---|---|---|
-| Global job cap, persisted in `<data>/hosted_jobs.json` (reserved atomically before submit, refunded if the job never reached Comfy) | `--max-jobs` / `MULTICAM_MAX_JOBS` | 30 (≈ $1) |
+| Global job cap, persisted in `<data>/hosted_jobs.json` (reserved atomically before submit, refunded if the job never reached Comfy) | `--max-jobs` / `MULTICAM_MAX_JOBS` | 15 (≈ $0.80 of re-shoot jobs) |
 | Paid jobs per visitor IP per 24 h (IPs stored only as salted hashes) | `--ip-jobs-per-day` / `MULTICAM_IP_JOBS_PER_DAY` | 6 |
 | Uploads per visitor IP per hour | `--ip-projects-per-hour` / `MULTICAM_IP_PROJECTS_PER_HOUR` | 4 |
 | Max video length / size (checked while streaming and with ffprobe) | `--max-upload-s`, `--max-upload-mb` | 30 s / 60 MB |
@@ -99,21 +129,25 @@ Visitors who paste no key use the operator's credits. `--public` turns on all th
 | Behind a reverse proxy: which `X-Forwarded-For` hop to trust | `--proxy-hops` / `MULTICAM_PROXY_HOPS` | 0 |
 
 The other `MULTICAM_*` env vars are `MULTICAM_HOSTED_KEY_ENV`, `MULTICAM_PUBLIC=1`,
-`MULTICAM_DATA_DIR`, `MULTICAM_REPO_URL` and `PORT`. In hosted mode the UI shows a banner
-with the remaining budget, the project list is disabled, project ids are 64-bit random, and
+`MULTICAM_DATA_DIR`, `MULTICAM_REPO_URL`, `MULTICAM_ENGINE` (`reshoot` | `idlora`) and `PORT`. In hosted mode the UI shows a banner
+with the remaining budget (when it hits zero the banner, the key card and the Generate button all
+switch to "paste your own Comfy key"), the project list is disabled, project ids are 64-bit random, and
 every upload (in any mode) requires the *"this is my face or I have permission"* checkbox.
 
 ## Costs (measured on Comfy Cloud, Oct 2026)
 
 | Job | Workflow | Cost | Time |
 |---|---|---|---|
-| 8 angle stills | Qwen-Image-Edit 2511 + Multiple-Angles LoRA | ~$0.03–0.05 | ~1 min |
-| 1 camera clip (5 s, 720×1280, 24 fps) | LTX-2.3 ID LoRA | ~$0.033 | 25–50 s |
-| A 17 s talk video with 4 AI inserts | 1 + 4 jobs | **≈ $0.17** | ~2–3 min (clips run in parallel) |
-| Re-roll one insert | 1 LTX job | ~$0.03 | <1 min |
+| **1 re-shoot clip** (5.04 s, 704×1280, 24 fps, two-stage) | LTX-2.3 + CrossView IC-LoRA (`workflows/crossview_api.json`) | **~$0.055** | 40–60 s (up to ~2 min when queued) |
+| **A 17 s talk video with 4 AI inserts (re-shoot)** | 4 jobs | **≈ $0.22** | ~1–2 min (clips run in parallel) |
+| 8 angle stills (classic only) | Qwen-Image-Edit 2511 + Multiple-Angles LoRA | ~$0.03–0.05 | ~1 min |
+| 1 camera clip (5 s, 720×1280, 24 fps, classic) | LTX-2.3 ID LoRA | ~$0.033 | 25–50 s |
+| A 17 s talk video with 4 AI inserts (classic) | 1 + 4 jobs | ≈ $0.17 | ~2–3 min |
+| Re-roll one insert | 1 LTX job | $0.055 / $0.033 | <1 min |
 | Transcribe, plan, align, render, edit | local CPU | free | ~10–40 s |
 
-The app shows `jobs × $0.033` and requires a **Confirm** click before it spends anything.
+Re-shoot cost was measured as the Comfy balance delta over 4 sequential jobs ($0.2198). The app
+shows `jobs × per-job cost` and requires a **Confirm** click before it spends anything.
 
 ## Workflows, models and licenses
 
@@ -124,6 +158,7 @@ Generation uses two official Comfy Cloud templates, exported in API format to `w
 |---|---|---|---|
 | **Qwen 1 Click Multiple Character Angles** | `workflows/qwen_angles_api.json` (+ `_ui.json` to open in ComfyUI) | [Qwen-Image-Edit-2511](https://huggingface.co/Qwen/Qwen-Image-Edit-2511) + [fal Multiple-Angles LoRA](https://huggingface.co/fal/Qwen-Image-Edit-2511-Multiple-Angles-LoRA) | Apache-2.0 / Apache-2.0 |
 | **LTX-2.3: ID LoRA** | `workflows/idlora_api.json` (+ `_ui.json`) | [LTX-2.3](https://huggingface.co/Lightricks/LTX-2.3) + [ID-LoRA](https://github.com/ID-LoRA/ID-LoRA) (TalkVid), Gemma 3 text encoder | [LTX-2 Community License](https://github.com/ID-LoRA/ID-LoRA/blob/main/LICENSE) (open weights; free under $10M revenue) / Gemma Terms |
+| **CrossView re-shoot** (built from the LTX IC-LoRA example graphs; `workflows/build_v2v.py` regenerates it) | `workflows/crossview_api.json` + `crossview_bindings.json` | [LTX-2.3](https://huggingface.co/Lightricks/LTX-2.3) 22B dev fp8 + distilled LoRA (0.6) + [CrossView IC-LoRA v0.9](https://huggingface.co/Cseti/LTX2.3-22B_IC-LoRA-CrossView-Prompt) (1.5), Gemma 3 text encoder, x2 spatial upscaler | LTX-2 Community License / Apache-2.0 / Gemma Terms |
 | (local) speech timings | — | [faster-whisper](https://github.com/SYSTRAN/faster-whisper) `small` | MIT |
 
 There are no partner or closed API nodes; every model is open weights. LTX-2.3 is the core
@@ -232,6 +267,24 @@ Prompt format (one per chunk, `prompts/cNN.txt`):
 ```
 
 ## CLI usage
+
+Re-shoot (default engine):
+
+```bash
+export COMFY_API_KEY=...            # never commit this
+multicam -C work analyze selfie.mp4 --script "I used to lose hours ..."
+multicam -C work plan --pin @14.5=B
+multicam -C work reshoot --video selfie.mp4 --dry-run          # prints one camera move per insert
+multicam -C work reshoot --video selfie.mp4 --cam B=right90 --cam C=wide   # 1 job per insert
+multicam -C work reshoot --video selfie.mp4 --only c04 --variant-shift 1   # re-roll one insert, next move
+multicam -C work assemble --clips work/gen/reshoot/clips.json --video selfie.mp4 --shake --out final.mp4
+```
+
+Presets: `right90` (side right), `left90`, `right45` (3/4), `left45`, `wide`, `closeup`,
+`lowangle`, `aerial` (high angle). The clips.json it writes marks every clip `"synced": true`, so
+`assemble`/`align` use offset 0 and speed 1.
+
+Classic path:
 
 ```bash
 multicam -C work analyze selfie.mp4 --model small --script "I used to lose hours ..."
@@ -378,7 +431,11 @@ multicam -C work assemble --clips-dir work/gen/clips --shake --out final.mp4
 
 - Generated clips are 5 s windows. A sentence longer than about 4.5 s gets split at phrase or
   word boundaries.
-- Lip sync on generated angles is approximate. Auto-align corrects in-point and pace from
+- Re-shoot: CrossView v0.9 is a proof-of-concept LoRA trained on a ±60° frontal sector, so it
+  can't show you from behind. The background is re-imagined each time, and "further" moves can
+  invent a desk or a pose for the hidden body (it only sees what the selfie saw). Framing can come
+  out off-center on some seeds; re-roll that insert. Output is 704×1280 and upscaled.
+- Classic path: lip sync on generated angles is approximate. Auto-align corrects in-point and pace from
   Whisper word timings, which are only accurate to about ±50–100 ms. It assumes the generated
   lips follow the generated audio. Inserts stay short, and you can still nudge `offset` and
   `speed` by hand in `plan.json`.
@@ -391,7 +448,7 @@ multicam -C work assemble --clips-dir work/gen/clips --shake --out final.mp4
   detector. Close-up ID LoRA clips can come out almost static.
 - Only one speaker and one take. No face tracking: inserts are center-cropped to fill.
 - The Comfy Cloud client has been tested only with the LTX-2.3 ID LoRA export. Other workflows need their own bindings file.
-- Reusing one wide still for several chunks makes those inserts look alike, since the framing and background are identical.
+- Classic path: reusing one wide still for several chunks makes those inserts look alike (the re-shoot engine avoids this).
 - Qwen's ±45°/±90° side views on a **vertical** frame often come back rolled 90° (tested twice). The
   app defaults to close-up (B) and wide (C); pick other stills in the UI, or bring your own.
 - The web app runs one pipeline action per project at a time, and keeps projects on local disk

@@ -1,7 +1,6 @@
 .git
 .venv
 work
-docs/media
 screens
 **/__pycache__
 *.mp4

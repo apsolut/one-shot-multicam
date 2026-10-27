@@ -8,13 +8,22 @@ A VFX "re-shoot from any angle" app for the Comfy *Open Source Higgsfield* chall
 (#OpenSourceHiggsfield). It's open weights end to end: Qwen-Image-Edit 2511 angles, LTX-2.3 ID
 LoRA video, and faster-whisper for sync. MIT licensed.
 
-<!-- TODO: replace with a GIF of the app: docs/assets/demo.gif -->
-<!-- ![Multicam web app](docs/assets/app.png) -->
-<!-- ![Before / after](docs/assets/before_after.png) -->
+- **Live gallery (no key needed, before/after):** <https://apsolut.github.io/one-shot-multicam/>
+- **Try it (hosted demo, capped):** _coming soon: public URL with a capped demo budget_ (or run it locally in 2 commands, below)
+- **Demo video (< 2 min):** _TODO_
+- **Release / media:** <https://github.com/apsolut/one-shot-multicam/releases/tag/v0.1.0>
 
-- **Live gallery (no key needed):** <https://apsolut.github.io/one-shot-multicam/> (`docs/`, see
-  [Gallery](#gallery-github-pages))
-- **Demo video (< 2 min):** TODO link
+![Gallery: the real take (left) vs the multicam edit (right), with the cut timeline](docs/img/gallery-before-after.jpg)
+
+<table><tr>
+<td width="50%"><img src="docs/img/app-result-timeline.jpg" alt="Result player and cut-list editor: click a shot to switch camera, drop it, or re-roll it"></td>
+<td width="50%"><img src="docs/img/app-angles-cost.jpg" alt="8 angle stills from one Qwen job, per-camera pick, and the cost estimate before you confirm"></td>
+</tr><tr>
+<td><sub>Result + cut-list editor: click a shot to switch B/C, drop it, or re-roll just that insert. Re-render is free.</sub></td>
+<td><sub>8 angle stills from one Qwen job, a pick per camera, and the cost estimate you confirm before anything is spent.</sub></td>
+</tr></table>
+
+<!-- TODO: add a short GIF of the app: docs/img/demo.gif -->
 
 ## What you get
 
@@ -144,14 +153,13 @@ analyze), `GET /api/projects/{id}`, `POST …/generate {confirm}`, `POST …/ang
 CAM-label toggle, the cut timeline, and the lip-sync check. Enable **Settings → Pages →
 Deploy from branch → `main` / `docs`**. `multicam serve` also serves it at `/gallery/`.
 
-Videos are **not in git** (`docs/media/` is gitignored). To publish them:
-
-1. Create a GitHub Release (e.g. `v0.1.0`) and attach `demo_v5.mp4`, `demo_v5_labeled.mp4`,
-   `selfie.mp4`, `sync_check_v5.mp4` and `poster.jpg` (720p, about 2 MB each).
-2. In `docs/config.js`, point each path at
-   `https://github.com/<you>/multicam/releases/download/v0.1.0/<file>`.
-   If a browser won't stream a release asset inline, put the files on any static host (or a
-   `gh-pages`-only commit) and use those URLs instead.
+The gallery plays small 720p web copies committed in `docs/media/` (about 6.5 MB total). Pages
+serves them as `video/mp4`, so they play inline everywhere. The same files are attached to the
+[v0.1.0 release](https://github.com/apsolut/one-shot-multicam/releases/tag/v0.1.0), and the
+Download button uses those links. Release asset URLs come back as `application/octet-stream` +
+`attachment`: Chrome plays them inline, but Safari/iOS may not, so they aren't used for
+playback. Full-resolution masters are never committed. To add your own example, append an item
+to `docs/config.js`.
 
 ## How it works (pipeline)
 

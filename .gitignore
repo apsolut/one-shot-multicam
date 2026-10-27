@@ -22,8 +22,10 @@ __pycache__/
 venv/
 .env
 
-# gallery media: host on GitHub Releases (see README)
-docs/media/
+# gallery: only the small 720p web copies + README images are committed (masters stay out)
+!docs/media/*.mp4
+!docs/media/poster.jpg
+!docs/img/*.jpg
 screens/
 build/
 dist/

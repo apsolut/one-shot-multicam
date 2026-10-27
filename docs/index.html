@@ -82,7 +82,7 @@ document.getElementById("items").innerHTML = G.items.map((it, k) => {
     <figure><figcaption><span>After · multicam</span><span><span class="tag">A</span> <span class="tag B">B</span> <span class="tag C">C</span></span></figcaption><div class="mc">${vid(it.multicam, it.poster)}</div></figure>
   </div>
   <div class="ctrl"><button class="btn p sync">▶ Play both in sync</button><label class="switch"><input type="checkbox" class="lab"><span></span>CAM labels</label>
-  <a class="btn dl" href="${it.multicam}" download>⬇ Download</a></div>
+  <a class="btn dl" href="${it.download || it.multicam}" download>⬇ Download</a></div>
   <div class="tl">${it.cuts.map(([c, s, e]) => `<div class="${c}" style="flex:${e - s}">${c}</div>`).join("")}<div class="ph"></div></div>
   <div class="meta">${it.cost}. Grey = real camera, color = AI camera.</div>
   ${it.sync ? `<details><summary>Lip-sync check: real (left) vs aligned AI insert (right)</summary>${vid(it.sync)}</details>` : ""}
@@ -93,7 +93,7 @@ document.querySelectorAll(".item[data-k]").forEach(el => {
   el.querySelector(".sync").onclick = () => { if (!a || !b) return; a.currentTime = b.currentTime = 0; a.muted = true; a.play(); b.play(); };
   el.querySelector(".lab").onchange = e => { const v = el.querySelector(".mc video"); if (!v) return; const t = v.currentTime, p = !v.paused;
     v.src = e.target.checked ? it.labeled : it.multicam; v.currentTime = t; if (p) v.play();
-    el.querySelector(".dl").href = v.src; };
+    if (!it.download) el.querySelector(".dl").href = v.src; };
   if (b) b.addEventListener("timeupdate", () => ph.style.left = (b.currentTime / D * 100) + "%");
 });
 </script>

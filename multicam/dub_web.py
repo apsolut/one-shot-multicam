@@ -101,6 +101,15 @@ def mount(api, A, key_or_403, charge_or_403):
                 set_web(did, busy=None)
         A.pool.submit(go)
 
+    def ready(did) -> Path:
+        d = wpath(did)
+        w = web(did)
+        if w.get("busy"):
+            raise HTTPException(409, f"busy: {w['busy']} — wait for it to finish")
+        if not (d / "dub.json").exists():
+            raise HTTPException(409, w.get("error") or "still transcribing your take — try again in a moment")
+        return d
+
     def n_inserts(d: Path) -> int:
         from .plan import PlanParams, build_plan
         from .reshoot import insert_ordinals
@@ -180,7 +189,7 @@ def mount(api, A, key_or_403, charge_or_403):
     @api.post("/api/dub/{did}/translate")
     def translate(did: str, request: Request, x_comfy_key: str | None = Header(default=None),
                   x_judge_code: str | None = Header(default=None)):
-        d = wpath(did)
+        d = ready(did)
         dp = load_json(d / "dub.json")
         key, hosted = key_or_403(x_comfy_key, x_judge_code)
 
@@ -200,9 +209,7 @@ def mount(api, A, key_or_403, charge_or_403):
 
     @api.post("/api/dub/{did}/lines")
     async def lines(did: str, request: Request):
-        d = wpath(did)
-        if web(did).get("busy"):
-            raise HTTPException(409, "busy — wait for it to finish")
+        d = ready(did)
         body = await request.json()
         dp = load_json(d / "dub.json")
         if body.get("lang") and body["lang"] != dp["lang"]:
@@ -223,7 +230,7 @@ def mount(api, A, key_or_403, charge_or_403):
     @api.post("/api/dub/{did}/generate")
     async def generate(did: str, request: Request, x_comfy_key: str | None = Header(default=None),
                        x_judge_code: str | None = Header(default=None)):
-        d = wpath(did)
+        d = ready(did)
         body = await request.json() if (await request.body()) else {}
         dp = load_json(d / "dub.json")
         if not all(w.get("translation") for w in dp["windows"]):

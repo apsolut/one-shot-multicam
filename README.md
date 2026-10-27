@@ -12,7 +12,7 @@ and faster-whisper for the word cuts. MIT licensed.
 
 - **Live gallery (no key needed, before/after):** <https://apsolut.github.io/one-shot-multicam/>
 - **Try it (hosted demo, capped):** <https://one-shot-multicam.fly.dev/> (15 free demo jobs on my credits ≈ 3 videos; after that, paste your own Comfy Cloud key, or run it locally in 2 commands, below)
-- **Demo video (< 2 min):** _TODO_
+- **Demo video (1:43):** <https://apsolut.github.io/one-shot-multicam/media/submission_demo.mp4> (the app in action, the ComfyUI workflow, v0.1 vs v0.2)
 - **Release / media:** <https://github.com/apsolut/one-shot-multicam/releases/tag/v0.1.0>
 
 <p align="center"><img src="docs/img/demo.gif" width="252" alt="v0.2 demo: real CAM A, then a wide CAM C and a profile CAM B re-shot from the same take, labeled"></p>

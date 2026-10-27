@@ -6,8 +6,22 @@ window.MULTICAM_GALLERY = {
   repo: "https://github.com/apsolut/one-shot-multicam",
   items: [
     {
-      title: "“I used to lose hours debugging…”",
-      subtitle: "17.6 s selfie · 4 AI inserts (2× CAM B profile, 2× CAM C wide) · talk mode",
+      title: "v0.2 · re-shoot engine · “I used to lose hours debugging…”",
+      subtitle: "Same 17.6 s selfie · 4 inserts re-shot from the real take (LTX-2.3 + CrossView IC-LoRA): CAM B profile ×2, CAM C wide ×2, each from a different angle",
+      original: "media/selfie.mp4",
+      multicam: "media/demo_v6.mp4",
+      labeled: "media/demo_v6_labeled.mp4",
+      compare: "media/compare_v6_vs_v5.mp4",
+      poster: "media/poster_v6.jpg",
+      cuts: [ // [cam, start, end] from the v6 render
+        ["A", 0, 2.167], ["C", 2.167, 3.633], ["A", 3.633, 5.833], ["B", 5.833, 6.9], ["A", 6.9, 11.133],
+        ["C", 11.133, 12.667], ["A", 12.667, 14.433], ["B", 14.433, 15.933], ["A", 15.933, 17.567]
+      ],
+      cost: "4 Comfy Cloud re-shoot jobs ≈ $0.22 · inserts are frame-locked to the real take (no retiming)"
+    },
+    {
+      title: "v0.1 · animated stills · same take",
+      subtitle: "Qwen-Image-Edit angle stills animated by the LTX-2.3 ID LoRA · 4 AI inserts (2× CAM B profile, 2× CAM C wide) · talk mode",
       original: "media/selfie.mp4",
       multicam: "media/demo_v5.mp4",
       labeled: "media/demo_v5_labeled.mp4",

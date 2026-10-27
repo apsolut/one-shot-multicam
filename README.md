@@ -15,6 +15,8 @@ and faster-whisper for the word cuts. MIT licensed.
 - **Demo video (< 2 min):** _TODO_
 - **Release / media:** <https://github.com/apsolut/one-shot-multicam/releases/tag/v0.1.0>
 
+<p align="center"><img src="docs/img/demo.gif" width="252" alt="v0.2 demo: real CAM A, then a wide CAM C and a profile CAM B re-shot from the same take, labeled"></p>
+
 ![Gallery: the real take (left) vs the multicam edit (right), with the cut timeline](docs/img/gallery-before-after.jpg)
 
 <table><tr>
@@ -191,7 +193,7 @@ analyze), `GET /api/projects/{id}`, `POST …/generate {confirm}`, `POST …/ang
 CAM-label toggle, the cut timeline, and the lip-sync check. Enable **Settings → Pages →
 Deploy from branch → `main` / `docs`**. `multicam serve` also serves it at `/gallery/`.
 
-The gallery plays small 720p web copies committed in `docs/media/` (about 6.5 MB total). Pages
+The gallery plays small 720p web copies committed in `docs/media/` (about 12 MB total: v0.2 re-shoot, v0.1, and a v0.1-vs-v0.2 side-by-side). Pages
 serves them as `video/mp4`, so they play inline everywhere. The same files are attached to the
 [v0.1.0 release](https://github.com/apsolut/one-shot-multicam/releases/tag/v0.1.0), and the
 Download button uses those links. Release asset URLs come back as `application/octet-stream` +

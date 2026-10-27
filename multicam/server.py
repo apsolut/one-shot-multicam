@@ -1019,6 +1019,8 @@ def create_app(app_state: App):
 
     from .scene_web import mount as mount_scene  # Scene mode: /api/scene/...
     mount_scene(api, A, key_or_403, charge_or_403)
+    from .dub_web import mount as mount_dub  # Dub mode: /api/dub/...
+    mount_dub(api, A, key_or_403, charge_or_403)
 
     docs = REPO_ROOT / "docs"
     if docs.is_dir():  # the static gallery (same files GitHub Pages serves)

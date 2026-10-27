@@ -58,6 +58,11 @@
       <button data-mode="talk" class="on">🎙 Talk <small>default</small></button>
       <button data-mode="music">🎵 Music <small>beta</small></button>
       <button data-mode="scene">🎭 Scene <small>new</small></button>
+      <button data-mode="dub">🌍 Dub <small>new</small></button>
+    </div>
+    <div id="dubOpts" class="scene-opts" hidden>
+      <p class="note">🌍 <b>Same take, another language.</b> Your face, your voice, new lip motion (LTX-2.3 LipDub IC-LoRA), then a multicam edit of the dubbed take. Open weights only. Speak English in the take.</p>
+      <div class="row gap wrap"><label class="muted small">Dub into</label><select id="dubLang"></select></div>
     </div>
     <div id="sceneOpts" class="scene-opts" hidden>
       <p class="note">🎭 <b>Talk to your other self.</b> Your take becomes a two-person scene: you (real take + your side angle) and a partner who answers between your sentences, cut shot / reverse-shot.</p>
@@ -113,6 +118,23 @@
       <video id="scPlayer" controls playsinline preload="metadata"></video>
       <div class="row gap"><label class="switch"><input type="checkbox" id="scLabels"><span></span>Speaker / camera labels</label>
       <a class="btn" id="scDownload" download>⬇ Download</a></div>
+    </div>
+  </section>
+
+  <section class="card" id="dubCard" hidden>
+    <div class="card-h"><h2><span class="n">🌍</span>Dub · <span id="dbLangName">…</span></h2><span class="badge" id="dbBusy"></span></div>
+    <p class="note" id="dbWarn" hidden></p>
+    <h3>Lines <small>one LipDub job per window; keep each about as long as the original</small></h3>
+    <div id="dbLines" class="db-lines"></div>
+    <div class="row gap wrap"><button class="ghost" id="dbTranslate">🔤 Translate (Gemma 3 12B, ≈$0.01)</button><button class="ghost" id="dbSave">Save lines</button></div>
+    <div class="estimate" id="dbEst"></div>
+    <button class="primary" id="dbGen">Dub + multicam</button>
+    <pre class="sc-log" id="dbLog"></pre>
+    <div class="err" id="dbErr" hidden></div>
+    <div id="dbResult" hidden>
+      <video id="dbPlayer" controls playsinline preload="metadata"></video>
+      <div class="row gap"><label class="switch"><input type="checkbox" id="dbLabels"><span></span>Camera labels</label>
+      <a class="btn" id="dbDownload" download>⬇ Download</a><a class="btn ghost" id="dbTake" download>Dubbed take only</a></div>
     </div>
   </section>
 
@@ -194,5 +216,6 @@
 </dialog>
 <script src="app.js"></script>
 <script src="scene.js"></script>
+<script src="dub.js"></script>
 </body>
 </html>

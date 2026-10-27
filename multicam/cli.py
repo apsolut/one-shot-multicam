@@ -242,7 +242,13 @@ def cmd_dub(a):
         save_json(dp, dp_path)
     final = work / f"dub_{a.lang}.mp4"
     stitch(video, wins, {k: str(work / v) for k, v in clips.items()}, final)
-    print(f"wrote {final}  (now run the multicam pipeline on it: analyze/plan/reshoot/assemble with --video {final})")
+    if not a.multicam:
+        print(f"wrote {final}  (add --multicam, or run analyze/plan/reshoot/assemble with --video {final})")
+        return
+    from .dub import multicam_from_dub
+    script = " ".join(w["translation"] for w in wins)
+    outs = multicam_from_dub(final, work / f"mc_{a.lang}", a.lang, script, seed=a.seed)
+    print(f"wrote {final} and " + ", ".join(str(p) for p in outs.values()))
 
 
 def cmd_reshoot(a):
@@ -415,6 +421,7 @@ def main(argv=None):
     p.add_argument("--only", nargs="*", help="re-dub only these windows (w01 ...)")
     p.add_argument("--seed", type=int)
     p.add_argument("--dry-run", action="store_true")
+    p.add_argument("--multicam", action="store_true", help="then build the multicam edit of the dubbed take (CrossView B/C)")
     p.set_defaults(fn=cmd_dub)
 
     p = sub.add_parser("reshoot", help="re-shoot each insert from a new virtual camera (LTX-2.3 CrossView IC-LoRA, "

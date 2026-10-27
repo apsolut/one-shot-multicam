@@ -156,6 +156,9 @@ every upload (in any mode) requires the *"this is my face or I have permission"*
 | 1 camera clip (5 s, 720×1280, 24 fps, classic) | LTX-2.3 ID LoRA | ~$0.033 | 25–50 s |
 | A 17 s talk video with 4 AI inserts (classic) | 1 + 4 jobs | ≈ $0.17 | ~2–3 min |
 | Re-roll one insert | 1 LTX job | $0.055 / $0.033 | <1 min |
+| Dub: translate a take | Gemma 3 12B (`TextGenerate`) | ~$0.01 | 10–20 s |
+| Dub: 1 LipDub window (8–10 s) | LTX-2.3 + LipDub IC-LoRA | ~$0.09–0.11 (est.) | 55–90 s |
+| **A 17 s take dubbed + multicam** | 1 + 2 LipDub + 4 re-shoots | **≈ $0.42** | ~4–6 min |
 | Transcribe, plan, align, render, edit | local CPU | free | ~10–40 s |
 
 Re-shoot cost was measured as the Comfy balance delta over 4 sequential jobs ($0.2198). The app
@@ -171,6 +174,8 @@ Generation uses two official Comfy Cloud templates, exported in API format to `w
 | **Qwen 1 Click Multiple Character Angles** | `workflows/qwen_angles_api.json` (+ `_ui.json` to open in ComfyUI) | [Qwen-Image-Edit-2511](https://huggingface.co/Qwen/Qwen-Image-Edit-2511) + [fal Multiple-Angles LoRA](https://huggingface.co/fal/Qwen-Image-Edit-2511-Multiple-Angles-LoRA) | Apache-2.0 / Apache-2.0 |
 | **LTX-2.3: ID LoRA** | `workflows/idlora_api.json` (+ `_ui.json`) | [LTX-2.3](https://huggingface.co/Lightricks/LTX-2.3) + [ID-LoRA](https://github.com/ID-LoRA/ID-LoRA) (TalkVid), Gemma 3 text encoder | [LTX-2 Community License](https://github.com/ID-LoRA/ID-LoRA/blob/main/LICENSE) (open weights; free under $10M revenue) / Gemma Terms |
 | **CrossView re-shoot** (built from the LTX IC-LoRA example graphs; `workflows/build_v2v.py` regenerates it) | `workflows/crossview_api.json` + `crossview_bindings.json` (+ annotated `crossview_ui.json`) | [LTX-2.3](https://huggingface.co/Lightricks/LTX-2.3) 22B dev fp8 + distilled LoRA (0.6) + [CrossView IC-LoRA v0.9](https://huggingface.co/Cseti/LTX2.3-22B_IC-LoRA-CrossView-Prompt) (1.5), Gemma 3 text encoder, x2 spatial upscaler | LTX-2 Community License / Apache-2.0 / Gemma Terms |
+| **Dub: LipDub** (`workflows/build_v2v.py dub` regenerates it) | `workflows/dub_api.json` + `dub_bindings.json` | [LTX-2.3](https://huggingface.co/Lightricks/LTX-2.3) 22B dev fp8 + distilled LoRA (0.5) + [LipDub IC-LoRA 0.9](https://huggingface.co/Lightricks/LTX-2.3-22b-IC-LoRA-LipDub) (1.0), Gemma 3 text encoder, x2 spatial upscaler | LTX-2 Community License / Gemma Terms |
+| **Dub: translation** | built in `multicam/dub.py` (core `TextGenerate` node) | [Gemma 3 12B it](https://huggingface.co/google/gemma-3-12b-it) (bf16) | Gemma Terms |
 | (local) speech timings | — | [faster-whisper](https://github.com/SYSTRAN/faster-whisper) `small` | MIT |
 
 There are no partner or closed API nodes; every model is open weights. LTX-2.3 is the core
@@ -471,6 +476,43 @@ prompts now ask for articulated mouth shapes, natural skin and a held eyeline; t
 so a negative prompt has no effect). Re-roll a weak line with a new seed rather than keeping it. Your real take looks into the lens, so its eyeline isn't matched
 to B; the side re-shoots are. B's voice clone is the ID-LoRA reference (pitch close to yours,
 measured ~120–160 Hz vs 113 Hz), not a dedicated TTS clone.
+
+## Dub mode: the same take in another language
+
+**One take in, the same take in German / Spanish / Croatian out, with your face and your own voice, then cut
+as a multicam edit.** Open weights only, all on Comfy Cloud:
+
+1. **Transcribe** (local whisper, free) and split the take into sentence windows of ≤10 s.
+2. **Translate** with Gemma 3 12B (the LTX-2.3 text encoder, through ComfyUI's core `TextGenerate` node,
+   ≈ $0.01). You review and edit every line: a 12B model still makes the odd mistake (its Croatian was
+   poor, its German needed small fixes), and each line should be about as long as the original. The app
+   flags a line that is more than 1.3× longer, because LipDub cuts the end of a line that doesn't fit.
+3. **Dub CAM A**: LTX-2.3 + Lightricks' [LipDub IC-LoRA](https://huggingface.co/Lightricks/LTX-2.3-22b-IC-LoRA-LipDub)
+   re-renders each window of your real take with new lip motion **and new speech generated from the
+   translated text**. Your real audio is only the voice reference, so the new speech is in your voice. Head
+   moves, framing and identity come from the real frames, and only the mouth changes.
+4. **Multicam**: the dubbed take becomes the source of a normal edit. It is transcribed in the target
+   language (aligned to your reviewed lines), the cuts are planned, and the CrossView re-shoots give the
+   B/C angles. The re-shoots freeze the dubbed audio, so the side angles speak the new language too.
+
+[EN original | DE | ES | HR side by side (17 s)](docs/media/dub_4lang.mp4)
+
+**Measured on the 17.6 s demo take** (2 windows, 4 inserts): every translated word was spoken. A
+whisper transcript of each dub matched the reviewed text apart from ASR slips such as "Cloud Code".
+LipDub took 55–92 s per window. German and Spanish sound natural. **Croatian is not one of LipDub's
+validated languages** (EN/FR/ES/DE/RU). It works and stays intelligible, but has an audible accent, so
+the app labels it experimental. Cost ≈ **$0.41** per 17 s take (≈ $0.19 LipDub + $0.22 re-shoots). The
+LipDub figure is estimated from GPU time; a clean balance delta was not possible with other jobs running.
+After an edit, only the changed lines are re-dubbed.
+
+```bash
+multicam -C work_de dub --video take.mp4 --lang de --translate-only   # 1 cheap job -> work_de/dub_de.json
+# fix the lines in work_de/dub_de.json ("translation"), then:
+multicam -C work_de dub --video take.mp4 --lang de --multicam          # LipDub + CrossView -> work_de/mc_de/multicam.mp4
+```
+
+In the web app, pick **🌍 Dub**, choose the language, upload, then **Translate** → edit → **Dub + multicam**.
+Only dub your own face and voice.
 
 ## Music mode (dance / lip-sync clips)
 

@@ -105,7 +105,8 @@ def resolve_shots(plan: dict, clips: dict, fps: float) -> list[dict]:
 def assemble(plan: dict, out: str | Path, clips_json=None, clips_dir=None, video=None,
              labels=False, shake=False, shake_px=10.0, cut_lead_frames=0,
              width=None, height=None, fps=None, crf=18, align=True, transcript=None,
-             align_cache=None, clips=None, max_long: int | None = None, preset: str = "medium") -> list[dict]:
+             align_cache=None, clips=None, max_long: int | None = None, preset: str = "medium",
+             a_label: str = "real") -> list[dict]:
     need("ffmpeg")
     video = str(Path(video or plan["source"]).resolve())
     vinfo = probe(video)
@@ -184,7 +185,7 @@ def assemble(plan: dict, out: str | Path, clips_json=None, clips_dir=None, video
         chain += f",setsar=1,format=yuv420p,tpad=stop_mode=clone:stop={n},trim=end_frame={n},setpts=PTS-STARTPTS"
         if labels and font:
             name = s.get("label_name") or plan.get("angle_names", {}).get(s["cam"], "")
-            tag = f"CAM {s['cam']}" + (f"  {name} (AI)" if s["src"] == "generated" else "  real")
+            tag = f"CAM {s['cam']}" + (f"  {name} (AI)" if s["src"] == "generated" else f"  {a_label}")
             fs = max(24, int(height * 56 / 1920))
             chain += (f",drawtext=fontfile='{font}':text='{tag}':x={fs}:y={int(fs * 1.7)}:fontsize={fs}:fontcolor=white:"
                       f"box=1:boxcolor=black@0.55:boxborderw={fs // 3}")

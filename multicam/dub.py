@@ -28,6 +28,8 @@ LANGS = {  # code -> (name used in prompts, LipDub validated by Lightricks)
 TRANSLATOR = "gemma_3_12B_it.safetensors"  # bf16: the fp4 build made spelling mistakes in tests
 MAX_WINDOW_S = 10.0   # longest LipDub window (cost and memory grow with length)
 EXPANSION_WARN = 1.3  # translation/original syllable ratio above which the line may not fit
+LIPDUB_USD_PER_S = 0.011  # measured: an 8-10 s LipDub window ~ $0.09-0.11 (two-stage 704x1280)
+TRANSLATE_USD = 0.01
 
 
 def window_frames(dur: float, fps: int = GEN["fps"]) -> int:
@@ -180,3 +182,87 @@ def stitch(video: str | Path, wins: list[dict], clips: dict[str, str], out: str 
          "-c:v", "libx264", "-preset", "medium", "-crf", "18", "-pix_fmt", "yuv420p", "-r", f"{fps:g}",
          "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart", str(out)])
     return Path(out)
+
+
+def estimate(wins: list[dict], n_inserts: int, reshoot_usd: float = 0.055) -> dict:
+    """Cost of a full Dub run: one LipDub job per window + one CrossView re-shoot per insert.
+    `jobs` counts LipDub windows as ceil(seconds/5) re-shoot-sized jobs for the hosted job caps."""
+    import math
+    secs = sum(w["end"] - w["start"] for w in wins)
+    lip = round(secs * LIPDUB_USD_PER_S, 3)
+    return {"windows": len(wins), "inserts": n_inserts, "lipdub_usd": lip,
+            "reshoot_usd": round(n_inserts * reshoot_usd, 3), "usd": round(lip + n_inserts * reshoot_usd, 2),
+            "jobs": sum(math.ceil((w["end"] - w["start"]) / 5.0) for w in wins) + n_inserts}
+
+
+def make_dubbed_take(video: str | Path, work: Path, dp: dict, key=None, seed=None, speaker: str = "A man",
+                     log: Callable[[str], None] = print) -> Path:
+    """LipDub every window that has no clip yet, then stitch the dubbed CAM A -> <work>/dub_<lang>.mp4.
+    `dp` is the dub_<lang>.json dict (lang + windows with translations); clips are recorded in it."""
+    from .comfy import load_bindings
+    from .server import workflows_dir
+    wfd = workflows_dir()
+    wf = json.loads((wfd / "dub_api.json").read_text())
+    b = load_bindings(wfd / "dub_bindings.json")
+    lang = dp["lang"]
+    out = work / f"dub_{lang}"
+    out.mkdir(parents=True, exist_ok=True)
+    clips = dp.setdefault("clips", {})
+    for w in dp["windows"]:
+        if w["id"] in clips and (work / clips[w["id"]]).exists():
+            continue
+        log(f"{w['id']}: dubbing {w['start']:.1f}-{w['end']:.1f}s into {LANGS[lang][0]} (LipDub)")
+        rec = run_dub_job(video, w, w["translation"], lang, out / f"{w['id']}.mp4", wf, b, key=key, seed=seed,
+                          speaker=speaker)
+        if not rec.get("output"):
+            raise RuntimeError(f"{w['id']}: {rec['status']} {(rec.get('error') or '')[:300]}")
+        clips[w["id"]] = str(Path(rec["output"]).relative_to(work))
+        log(f"{w['id']}: done in {rec.get('elapsed_s')}s")
+    final = work / f"dub_{lang}.mp4"
+    stitch(video, dp["windows"], {k: str(work / v) for k, v in clips.items()}, final)
+    return final
+
+
+def multicam_from_dub(dubbed: Path, mc: Path, lang: str, script: str, key=None, seed=None,
+                      log: Callable[[str], None] = print, preset: str = "medium", model: str = "small") -> dict:
+    """The dubbed take becomes a normal multicam source: transcribe in the target language (aligned to the
+    reviewed script), plan cuts, CrossView re-shoots for B/C, assemble -> <mc>/multicam(_labeled).mp4."""
+    from .assemble import assemble
+    from .comfy import load_bindings
+    from .plan import PlanParams, plan
+    from .reshoot import DEFAULT_CAMS, angle_prompt, insert_ordinals, run_reshoot_job
+    from .server import workflows_dir
+    from .transcribe import analyze
+    from .util import load_json, save_json
+    mc.mkdir(parents=True, exist_ok=True)
+    log(f"transcribing the dubbed take ({LANGS[lang][0]}, free)")
+    tr = analyze(dubbed, mc / "transcript.json", model=model, script=script, language=lang)
+    pl = plan(tr, mc / "plan.json", PlanParams())
+    gen = mc / "gen" / "reshoot"
+    gen.mkdir(parents=True, exist_ok=True)
+    clips_path = gen / "clips.json"
+    clips = load_json(clips_path) if clips_path.exists() else {}
+    wfd = workflows_dir()
+    wf = json.loads((wfd / "crossview_api.json").read_text())
+    b = load_bindings(wfd / "crossview_bindings.json")
+    chunks = {c["id"]: c for c in pl["chunks"]}
+    for (cid, cam), variant in insert_ordinals(pl).items():
+        if cid in clips and (gen / clips[cid]["path"]).exists() and clips[cid]["src_start"] == chunks[cid]["start"]:
+            continue
+        preset_name = DEFAULT_CAMS.get(cam, "right90")
+        _, phrase = angle_prompt(preset_name, variant)
+        log(f"{cid}: re-shooting CAM {cam} ({phrase})")
+        rec = run_reshoot_job(dubbed, chunks[cid]["start"], preset_name, variant, gen / f"{cid}_{cam}.mp4", wf, b,
+                              key=key, seed=seed)
+        if rec["status"] != "success":
+            raise RuntimeError(f"{cid}: {rec['status']} {(rec.get('error') or '')[:300]}")
+        clips[cid] = {"path": f"{cid}_{cam}.mp4", "angle": cam, "src_start": chunks[cid]["start"], "synced": True,
+                      "preset": preset_name, "camera": phrase, "seed": rec["seed"]}
+        save_json(clips, clips_path)
+    log("assembling the multicam edit (free)")
+    out = {}
+    for lab, name in ((False, "multicam.mp4"), (True, "multicam_labeled.mp4")):
+        assemble(pl, mc / name, clips_json=clips_path, video=dubbed, labels=lab, shake=True, transcript=tr,
+                 align_cache=mc / "align_cache", preset=preset, a_label="lip-dub (AI)")
+        out[name] = mc / name
+    return out

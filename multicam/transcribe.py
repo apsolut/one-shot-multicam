@@ -116,6 +116,10 @@ def analyze(video: str | Path, out: str | Path, model: str = "small", script: st
     if initial_prompt is None and script:
         initial_prompt = script  # biases spelling of names like "Claude Code"
     raw = whisper_words(video, model=model, language=language, initial_prompt=initial_prompt)
+    if info["duration"] > 6 and len(raw) / info["duration"] < 0.8:
+        # far too few words for the speech span: whisper occasionally truncates under heavy CPU load
+        again = whisper_words(video, model=model, language=language, initial_prompt=initial_prompt)
+        raw = again if len(again) > len(raw) else raw
     words = align_script(raw, script) if script else [dict(w, aligned="asr") for w in raw]
     for i, w in enumerate(words):
         w["i"] = i

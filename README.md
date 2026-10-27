@@ -9,7 +9,7 @@ A VFX "re-shoot from any angle" app for the Comfy *Open Source Higgsfield* chall
 LoRA video, and faster-whisper for sync. MIT licensed.
 
 - **Live gallery (no key needed, before/after):** <https://apsolut.github.io/one-shot-multicam/>
-- **Try it (hosted demo, capped):** _coming soon: public URL with a capped demo budget_ (or run it locally in 2 commands, below)
+- **Try it (hosted demo, capped):** <https://one-shot-multicam.fly.dev/> (30 demo jobs on my credits, or paste your own Comfy Cloud key; or run it locally in 2 commands, below)
 - **Demo video (< 2 min):** _TODO_
 - **Release / media:** <https://github.com/apsolut/one-shot-multicam/releases/tag/v0.1.0>
 
@@ -80,6 +80,9 @@ websites can't drive your local instance with your key.
 export COMFY_API_KEY=...        # the operator's key: a server-side secret, never sent to browsers
 multicam serve --host 0.0.0.0 --public --hosted-key-env COMFY_API_KEY --max-jobs 30 --proxy-hops 1
 ```
+
+The live demo runs on Fly.io from the repo's `fly.toml` (Dockerfile build, 1 GB volume at `/data`):
+`fly secrets set COMFY_API_KEY=... && fly deploy --remote-only --ha=false`.
 
 Visitors who paste no key use the operator's credits. `--public` turns on all the guards
 (each can also be set by env var, so a container only needs env):

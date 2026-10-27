@@ -1,0 +1,273 @@
+{
+  "_comment": "Bindings for workflows/scene_edit_api.json: the Qwen-Image-Edit-2511 'Multiple Character Angles' template with all 8 branch prompts exposed, so one job = 8 free-form edits of one input image (Scene mode: restyle the 'other self', make a fictional partner, reverse-shot / over-the-shoulder framings). angle_lora sets the Multiple-Angles LoRA strength on every branch (0 = plain Qwen-Image-Edit). image sets all 8 inputs; img1..img8 override one branch each (8 different images in one job).",
+  "image": [
+    [
+      "25",
+      "image"
+    ],
+    [
+      "252",
+      "image"
+    ],
+    [
+      "253",
+      "image"
+    ],
+    [
+      "254",
+      "image"
+    ],
+    [
+      "255",
+      "image"
+    ],
+    [
+      "256",
+      "image"
+    ],
+    [
+      "257",
+      "image"
+    ],
+    [
+      "258",
+      "image"
+    ]
+  ],
+  "img1": [
+    [
+      "25",
+      "image"
+    ]
+  ],
+  "img2": [
+    [
+      "252",
+      "image"
+    ]
+  ],
+  "img3": [
+    [
+      "253",
+      "image"
+    ]
+  ],
+  "img4": [
+    [
+      "254",
+      "image"
+    ]
+  ],
+  "img5": [
+    [
+      "255",
+      "image"
+    ]
+  ],
+  "img6": [
+    [
+      "256",
+      "image"
+    ]
+  ],
+  "img7": [
+    [
+      "257",
+      "image"
+    ]
+  ],
+  "img8": [
+    [
+      "258",
+      "image"
+    ]
+  ],
+  "angle_lora": [
+    [
+      "427:221:220",
+      "strength_model"
+    ],
+    [
+      "427:246:245",
+      "strength_model"
+    ],
+    [
+      "427:271:270",
+      "strength_model"
+    ],
+    [
+      "427:296:295",
+      "strength_model"
+    ],
+    [
+      "427:321:320",
+      "strength_model"
+    ],
+    [
+      "427:346:345",
+      "strength_model"
+    ],
+    [
+      "427:371:370",
+      "strength_model"
+    ],
+    [
+      "427:423:422",
+      "strength_model"
+    ]
+  ],
+  "p1": [
+    [
+      "427:221:151",
+      "prompt"
+    ]
+  ],
+  "s1": [
+    [
+      "427:221:169",
+      "seed"
+    ]
+  ],
+  "p2": [
+    [
+      "427:246:228",
+      "prompt"
+    ]
+  ],
+  "s2": [
+    [
+      "427:246:242",
+      "seed"
+    ]
+  ],
+  "p3": [
+    [
+      "427:271:253",
+      "prompt"
+    ]
+  ],
+  "s3": [
+    [
+      "427:271:267",
+      "seed"
+    ]
+  ],
+  "p4": [
+    [
+      "427:296:278",
+      "prompt"
+    ]
+  ],
+  "s4": [
+    [
+      "427:296:292",
+      "seed"
+    ]
+  ],
+  "p5": [
+    [
+      "427:321:303",
+      "prompt"
+    ]
+  ],
+  "s5": [
+    [
+      "427:321:317",
+      "seed"
+    ]
+  ],
+  "p6": [
+    [
+      "427:346:328",
+      "prompt"
+    ]
+  ],
+  "s6": [
+    [
+      "427:346:342",
+      "seed"
+    ]
+  ],
+  "p7": [
+    [
+      "427:371:353",
+      "prompt"
+    ]
+  ],
+  "s7": [
+    [
+      "427:371:367",
+      "seed"
+    ]
+  ],
+  "p8": [
+    [
+      "427:423:405",
+      "prompt"
+    ]
+  ],
+  "s8": [
+    [
+      "427:423:419",
+      "seed"
+    ]
+  ],
+  "_outputs": {
+    "373": "e1",
+    "374": "e2",
+    "376": "e3",
+    "379": "e4",
+    "380": "e5",
+    "377": "e6",
+    "381": "e7",
+    "424": "e8"
+  },
+  "l1": [
+    [
+      "427:221:220",
+      "strength_model"
+    ]
+  ],
+  "l2": [
+    [
+      "427:246:245",
+      "strength_model"
+    ]
+  ],
+  "l3": [
+    [
+      "427:271:270",
+      "strength_model"
+    ]
+  ],
+  "l4": [
+    [
+      "427:296:295",
+      "strength_model"
+    ]
+  ],
+  "l5": [
+    [
+      "427:321:320",
+      "strength_model"
+    ]
+  ],
+  "l6": [
+    [
+      "427:346:345",
+      "strength_model"
+    ]
+  ],
+  "l7": [
+    [
+      "427:371:370",
+      "strength_model"
+    ]
+  ],
+  "l8": [
+    [
+      "427:423:422",
+      "strength_model"
+    ]
+  ]
+}

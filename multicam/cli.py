@@ -478,6 +478,9 @@ def main(argv=None):
     r.set_defaults(fn=lambda a: __import__("multicam.comfy", fromlist=["cmd_run"]).cmd_run(
         a.workflow, a.bindings, a.set, a.out_dir, dry_run=a.dry_run, log_path=a.log))
 
+    from .scene_cli import add_parser as add_scene_parser
+    add_scene_parser(sub)
+
     a = ap.parse_args(argv)
     a.fn(a)
 

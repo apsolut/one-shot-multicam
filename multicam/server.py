@@ -115,7 +115,8 @@ class App:
                  whisper_model: str = "small", max_upload_mb: float = 500.0, max_upload_s: float | None = None,
                  ttl_minutes: float | None = None, ip_jobs_per_day: int | None = None,
                  ip_projects_per_hour: int | None = None, proxy_hops: int = 0, hosted_floor_usd: float | None = None,
-                 engine: str = "reshoot"):
+                 engine: str = "reshoot", public: bool = False, hosted_access: str = "open",
+                 judge_max_jobs: int = 10):
         """Hosted (public) mode = hosted_key_env is set AND that env var holds a key. Its guards:
         max_jobs (global, persisted), ip_jobs_per_day / ip_projects_per_hour (per client IP, persisted),
         max_upload_s / max_upload_mb, ttl_minutes (projects auto-deleted), no project listing."""
@@ -126,12 +127,17 @@ class App:
         self.budget_lock = threading.Lock()
         self.hosted_floor_usd = hosted_floor_usd  # restart-proof stop: refuse when the real balance nears this
         self.hosted_key_env = hosted_key_env
+        # "open": anyone may use the operator key (capped). "judge": only with the private judge code
+        # (env MULTICAM_JUDGE_CODE); everyone else brings their own key. No code configured = BYO key only.
+        self.hosted_access = hosted_access if hosted_access in ("open", "judge") else "judge"
+        self.judge_max_jobs = judge_max_jobs
+        self.public_site = bool(public or hosted_key_env)  # public-site guards (no listing, TTL, rate limits)
         self.engine = engine if engine in ENGINES else "reshoot"  # default for new projects
         import os as _os
         # small shared-CPU hosts: render at <=1280 px with a fast x264 preset (≈4x less CPU than 1080p/medium)
-        rm = _os.environ.get("MULTICAM_RENDER_MAX", "1280" if self.hosted else "")
+        rm = _os.environ.get("MULTICAM_RENDER_MAX", "1280" if self.public_site else "")
         self.render_max_long = int(rm) if rm.strip().isdigit() and int(rm) > 0 else None
-        self.render_preset = _os.environ.get("MULTICAM_RENDER_PRESET", "veryfast" if self.hosted else "medium")
+        self.render_preset = _os.environ.get("MULTICAM_RENDER_PRESET", "veryfast" if self.public_site else "medium")
         self.max_jobs = max_jobs
         self.max_jobs_per_run = max_jobs_per_run
         self.repo_url = repo_url
@@ -139,14 +145,30 @@ class App:
         self.projects: dict[str, Project] = {}
         self.pool = ThreadPoolExecutor(max_workers=3)
         self.counter_file = self.data / "hosted_jobs.json"
-        self.analyze_sem = threading.Semaphore(1 if self.hosted else 2)  # whisper is CPU-heavy
+        self.analyze_sem = threading.Semaphore(1 if self.public_site else 2)  # whisper is CPU-heavy
         if self.ttl_minutes:
             threading.Thread(target=self._janitor, daemon=True).start()
 
     @property
-    def hosted(self) -> bool:
+    def operator_key(self) -> str | None:
         import os
-        return bool(self.hosted_key_env and os.environ.get(self.hosted_key_env))
+        return (os.environ.get(self.hosted_key_env) or None) if self.hosted_key_env else None
+
+    @property
+    def hosted(self) -> bool:
+        """Open hosted mode: any visitor without a key uses the operator key (capped)."""
+        return bool(self.operator_key) and self.hosted_access == "open"
+
+    @property
+    def judge_enabled(self) -> bool:
+        import os
+        return bool(self.operator_key) and self.hosted_access == "judge" and len(os.environ.get("MULTICAM_JUDGE_CODE", "")) >= 8
+
+    def judge_ok(self, code: str | None) -> bool:
+        import hmac
+        import os
+        return bool(self.judge_enabled and code and hmac.compare_digest(code.strip().encode(),
+                                                                     os.environ["MULTICAM_JUDGE_CODE"].encode()))
 
     # ---------- public-demo guards
     def client_ip(self, request) -> str:
@@ -176,7 +198,7 @@ class App:
 
     def check_project_quota(self, ip: str, record: bool = False):
         """Per-IP upload rate limit; call with record=False before and record=True after a valid upload."""
-        if not (self.hosted and self.ip_projects_per_hour):
+        if not (self.public_site and self.ip_projects_per_hour):
             return
         with self.budget_lock:
             d = self._ledger()
@@ -190,23 +212,39 @@ class App:
                 save_json(d, self.counter_file)
 
     # ---------- key handling
-    def resolve_key(self, header_key: str | None) -> tuple[str, bool]:
-        import os
+    def resolve_key(self, header_key: str | None, judge_code: str | None = None) -> tuple[str, bool | str]:
+        """-> (key, False) for the visitor's own key, (operator key, True) in open hosted mode,
+        (operator key, "judge") with a valid judge code."""
         if header_key and header_key.strip():
             return header_key.strip(), False
-        if self.hosted_key_env and os.environ.get(self.hosted_key_env):
-            return os.environ[self.hosted_key_env], True
-        raise PermissionError("Comfy Cloud API key required (paste it in the key field)")
+        if self.hosted:
+            return self.operator_key, True
+        if judge_code and judge_code.strip():
+            if self.judge_ok(judge_code):
+                return self.operator_key, "judge"
+            raise PermissionError("that judge code isn't valid. Paste your own Comfy Cloud key instead "
+                                  "(platform.comfy.org → API keys)")
+        raise PermissionError("Comfy Cloud API key required: paste your own key "
+                              "(get one at platform.comfy.org → API keys)")
 
     def hosted_used(self) -> int:
         return self._ledger()["jobs"]
 
-    def charge_hosted(self, n: int, ip: str = "?"):
-        """Atomically reserve n jobs of the operator's budget (global cap + per-IP daily cap)."""
+    def judge_used(self) -> int:
+        return int(self._ledger().get("judge_jobs", 0))
+
+    def charge_hosted(self, n: int, ip: str = "?", judge: bool = False):
+        """Atomically reserve n jobs of the operator's budget (global cap + per-IP daily cap).
+        Judge-code jobs have their own total cap and no per-IP cap; the balance floor applies to both."""
         with self.budget_lock:
             d = self._ledger()
+            if judge:
+                used = int(d.get("judge_jobs", 0))
+                if used + n > self.judge_max_jobs:
+                    raise PermissionError(f"the judge quota is used up ({used}/{self.judge_max_jobs} jobs). "
+                                          "Paste your own Comfy Cloud key to keep going")
             used = d["jobs"]
-            if self.max_jobs is not None and used + n > self.max_jobs:
+            if not judge and self.max_jobs is not None and used + n > self.max_jobs:
                 raise PermissionError(f"the public demo budget is used up ({used}/{self.max_jobs} jobs). "
                                       "Paste your own Comfy Cloud key to keep going")
             if self.hosted_floor_usd is not None:  # ask Comfy for the real balance (survives restarts/disk loss)
@@ -218,6 +256,10 @@ class App:
                     bal = None
                 if bal is None or bal - n * COST_PER_JOB_USD < self.hosted_floor_usd:
                     raise PermissionError("the public demo budget is used up. Paste your own Comfy Cloud key to keep going")
+            if judge:
+                d["judge_jobs"] = int(d.get("judge_jobs", 0)) + n
+                save_json(d, self.counter_file)
+                return
             k = self._ip_id(ip)
             ts = self._recent(d["ip_jobs"].get(k, []), 86400)
             if self.ip_jobs_per_day is not None and len(ts) + n > self.ip_jobs_per_day:
@@ -227,18 +269,22 @@ class App:
             d["ip_jobs"][k] = ts + [time.time()] * n
             save_json(d, self.counter_file)
 
-    def refund_hosted(self, n: int, ip: str = "?"):
+    def refund_hosted(self, n: int, ip: str = "?", judge: bool = False):
         """Give back jobs that were reserved but never reached Comfy (e.g. upload failed)."""
         if n <= 0:
             return
         with self.budget_lock:
             d = self._ledger()
+            if judge:
+                d["judge_jobs"] = max(0, int(d.get("judge_jobs", 0)) - n)
+                save_json(d, self.counter_file)
+                return
             d["jobs"] = max(0, d["jobs"] - n)
             k = self._ip_id(ip)
             d["ip_jobs"][k] = d["ip_jobs"].get(k, [])[:-n] if n else d["ip_jobs"].get(k, [])
             save_json(d, self.counter_file)
 
-    def hosted_run(self, p: "Project", n: int, ip: str, fn):
+    def hosted_run(self, p: "Project", n: int, ip: str, fn, judge: bool = False):
         """Wrap a paid background action so unsubmitted reservations are refunded."""
         def submitted():
             return len(p.state.get("prompt_ids", []))
@@ -248,7 +294,7 @@ class App:
             try:
                 fn()
             finally:
-                self.refund_hosted(n - (submitted() - before), ip)
+                self.refund_hosted(n - (submitted() - before), ip, judge)
         return run
 
     def _janitor(self):
@@ -698,9 +744,9 @@ def create_app(app_state: App):
                                 else "still analyzing your video (transcribe + plan); try again in a few seconds")
         return p
 
-    def key_or_403(k):
+    def key_or_403(k, judge_code=None):
         try:
-            return A.resolve_key(k)
+            return A.resolve_key(k, judge_code)
         except PermissionError as e:
             raise HTTPException(403, str(e))
 
@@ -709,11 +755,12 @@ def create_app(app_state: App):
         if not hosted:
             return fn
         ip = A.client_ip(request)
+        judge = hosted == "judge"
         try:
-            A.charge_hosted(n, ip)
+            A.charge_hosted(n, ip, judge=judge)
         except PermissionError as e:
             raise HTTPException(429 if "rate limit" in str(e) else 403, str(e))
-        return A.hosted_run(p, n, ip, fn)
+        return A.hosted_run(p, n, ip, fn, judge=judge)
 
     @api.get("/api/config")
     def config():
@@ -725,13 +772,20 @@ def create_app(app_state: App):
                 "ip_jobs_per_day": A.ip_jobs_per_day if hosted else None,
                 "max_upload_s": A.max_upload_s, "max_upload_mb": A.max_upload_mb, "ttl_minutes": A.ttl_minutes,
                 "cost_per_job_usd": job_cost(A.engine), "repo_url": A.repo_url, "max_jobs_per_run": A.max_jobs_per_run,
+                "byok_only": not hosted, "judge_code": A.judge_enabled, "public": A.public_site,
+                "get_key_url": "https://platform.comfy.org/profile/api-keys",
                 "engine": A.engine, "cost_usd": {e: job_cost(e) for e in (*ENGINES, "angles")},
                 "reshoot_angles": {k: {"label": v[0], "variants": v[1]} for k, v in ANGLES.items()}}
 
     @api.post("/api/check-key")
-    def check_key(x_comfy_key: str | None = Header(default=None)):
+    def check_key(x_comfy_key: str | None = Header(default=None), x_judge_code: str | None = Header(default=None)):
         from .comfy import ComfyError, balance_usd, check_key as ck
-        key, hosted = key_or_403(x_comfy_key)
+        if not (x_comfy_key or "").strip() and (x_judge_code or "").strip():
+            if not A.judge_ok(x_judge_code):
+                raise HTTPException(403, "that judge code isn't valid")
+            return {"ok": True, "judge": True, "judge_jobs_left": max(0, A.judge_max_jobs - A.judge_used()),
+                    "judge_jobs_total": A.judge_max_jobs}
+        key, hosted = key_or_403(x_comfy_key, x_judge_code)
         try:
             u = ck(key)
         except ComfyError as e:
@@ -741,7 +795,7 @@ def create_app(app_state: App):
 
     @api.get("/api/projects")
     def list_projects():
-        if A.hosted:  # public demo: never list other visitors' projects
+        if A.public_site:  # public site: never list other visitors' projects
             return []
         out = []
         for d in sorted(A.data.iterdir(), key=lambda x: x.stat().st_mtime, reverse=True):
@@ -840,7 +894,8 @@ def create_app(app_state: App):
         return A.estimate(need_plan(proj(pid)))
 
     @api.post("/api/projects/{pid}/generate")
-    async def generate(pid: str, request: Request, x_comfy_key: str | None = Header(default=None)):
+    async def generate(pid: str, request: Request, x_comfy_key: str | None = Header(default=None),
+                   x_judge_code: str | None = Header(default=None)):
         p = need_plan(proj(pid))
         body = await request.json()
         est = A.estimate(p)
@@ -848,7 +903,7 @@ def create_app(app_state: App):
             raise HTTPException(400, {"needs_confirm": True, **est})
         if est["jobs"] > A.max_jobs_per_run:
             raise HTTPException(400, f"{est['jobs']} jobs exceeds the per-run cap ({A.max_jobs_per_run})")
-        key, hosted = key_or_403(x_comfy_key)
+        key, hosted = key_or_403(x_comfy_key, x_judge_code)
         if p.state.get("busy"):
             raise HTTPException(409, f"busy: {p.state['busy']}")
         fn = charge_or_403(request, est["jobs"], hosted, p, lambda: A.generate(p, key))
@@ -859,14 +914,15 @@ def create_app(app_state: App):
         return A.public(p)
 
     @api.post("/api/projects/{pid}/angles")
-    async def angles(pid: str, request: Request, x_comfy_key: str | None = Header(default=None)):
+    async def angles(pid: str, request: Request, x_comfy_key: str | None = Header(default=None),
+                   x_judge_code: str | None = Header(default=None)):
         """Only (re)generate the 8 Qwen angle stills (1 job)."""
         p = proj(pid)
         body = await request.json() if (await request.body()) else {}
         if not body.get("confirm"):
             from .comfy import job_cost
             raise HTTPException(400, {"needs_confirm": True, "jobs": 1, "usd": job_cost("angles")})
-        key, hosted = key_or_403(x_comfy_key)
+        key, hosted = key_or_403(x_comfy_key, x_judge_code)
         if p.state.get("busy"):
             raise HTTPException(409, f"busy: {p.state['busy']}")
         fn = charge_or_403(request, 1, hosted, p, lambda: A._gen_angles(p, key))
@@ -877,7 +933,8 @@ def create_app(app_state: App):
         return A.public(p)
 
     @api.post("/api/projects/{pid}/reroll")
-    async def reroll(pid: str, request: Request, x_comfy_key: str | None = Header(default=None)):
+    async def reroll(pid: str, request: Request, x_comfy_key: str | None = Header(default=None),
+                   x_judge_code: str | None = Header(default=None)):
         p = need_plan(proj(pid))
         body = await request.json()
         plan = p.edited_plan()
@@ -890,7 +947,7 @@ def create_app(app_state: App):
         if not body.get("confirm"):
             from .comfy import job_cost
             raise HTTPException(400, {"needs_confirm": True, "jobs": 1, "usd": job_cost(A.engine_of(p))})
-        key, hosted = key_or_403(x_comfy_key)
+        key, hosted = key_or_403(x_comfy_key, x_judge_code)
         still = body.get("still") or p.state["cam_stills"].get(cam)
         from .reshoot import ANGLES
         if A.engine_of(p) == "reshoot":

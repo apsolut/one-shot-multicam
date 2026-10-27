@@ -36,6 +36,11 @@
       <button class="ghost" id="keyToggle" title="Show / hide">👁</button>
       <button id="keyCheck">Check</button>
     </div>
+    <details class="adv" id="judgeBox" hidden><summary>Have a judge code?</summary>
+      <div class="row"><input id="judge" type="password" autocomplete="off" spellcheck="false" placeholder="judge access code">
+      <button id="judgeCheck">Use code</button></div>
+      <p class="note small">Challenge judges got a private code that runs a few jobs on the maintainer's credits. Everyone else: paste your own key above.</p>
+    </details>
     <p class="note">🔒 Saved only in <b>this browser</b> (localStorage). It's sent per request to your local Multicam server, which forwards it to Comfy Cloud and <b>never stores or logs it</b>. Free steps (transcribe, plan, align, render, edit) don't need it. <a href="#" id="keyForget">Forget key</a></p>
   </section>
 

@@ -11,7 +11,7 @@ A VFX "re-shoot from any angle" app for the Comfy *Open Source Higgsfield* chall
 and faster-whisper for the word cuts. MIT licensed.
 
 - **Live gallery (no key needed, before/after):** <https://apsolut.github.io/one-shot-multicam/>
-- **Try it (hosted demo, capped):** <https://one-shot-multicam.fly.dev/> (15 free demo jobs on my credits ≈ 3 videos; after that, paste your own Comfy Cloud key, or run it locally in 2 commands, below)
+- **Try it:** <https://one-shot-multicam.fly.dev/> (bring your own Comfy Cloud key, [get one here](https://platform.comfy.org/profile/api-keys); analyze, plan, edit and render are free, a re-shoot insert is ≈ $0.055 on your Comfy credits. Or run it locally in 2 commands, below)
 - **Demo video (1:43):** <https://apsolut.github.io/one-shot-multicam/media/submission_demo.mp4> (the app in action, the ComfyUI workflow, v0.1 vs v0.2)
 - **Release / media:** <https://github.com/apsolut/one-shot-multicam/releases/tag/v0.1.0>
 
@@ -114,14 +114,23 @@ multicam serve --host 0.0.0.0 --public --hosted-key-env COMFY_API_KEY --max-jobs
 ```
 
 The live demo runs on Fly.io from the repo's `fly.toml` (Dockerfile build, 1 GB volume at `/data`):
-`fly secrets set COMFY_API_KEY=... && fly deploy --remote-only --ha=false`.
+`fly deploy --remote-only --ha=false`. It is **bring-your-own-key**: every visitor pastes their own
+Comfy Cloud key (kept in their browser, forwarded per request, never stored or logged).
 
-Visitors who paste no key use the operator's credits. `--public` turns on all the guards
-(each can also be set by env var, so a container only needs env):
+**Access modes for the operator's key** (`--hosted-access` / `MULTICAM_HOSTED_ACCESS`):
+- `open`: visitors who paste no key use the operator's credits, capped by the guards below.
+- `judge` (the live demo): the operator key is used **only** with a private access code
+  (secret `MULTICAM_JUDGE_CODE`, sent as `X-Judge-Code`; the UI has a small "Have a judge code?" field),
+  capped at `MULTICAM_JUDGE_MAX_JOBS` jobs total (default 10) and still under the balance floor.
+  Everyone else must bring their own key. Without a configured code, nobody can use the operator key.
+  Set it with `fly secrets set MULTICAM_JUDGE_CODE=... COMFY_API_KEY=...`; never commit it.
+
+`--public` turns on the public-site guards (no project listing, upload limits, TTL, fast 720p
+renders; each can also be set by env var, so a container only needs env):
 
 | Guard | Flag / env | `--public` default |
 |---|---|---|
-| Global job cap, persisted in `<data>/hosted_jobs.json` (reserved atomically before submit, refunded if the job never reached Comfy) | `--max-jobs` / `MULTICAM_MAX_JOBS` | 15 (≈ $0.80 of re-shoot jobs) |
+| Global job cap, persisted in `<data>/hosted_jobs.json` (reserved atomically before submit, refunded if the job never reached Comfy) | `--max-jobs` / `MULTICAM_MAX_JOBS` | 15 in `open` mode (≈ $0.80 of re-shoot jobs); the live demo uses 0 |
 | Paid jobs per visitor IP per 24 h (IPs stored only as salted hashes) | `--ip-jobs-per-day` / `MULTICAM_IP_JOBS_PER_DAY` | 6 |
 | Uploads per visitor IP per hour | `--ip-projects-per-hour` / `MULTICAM_IP_PROJECTS_PER_HOUR` | 4 |
 | Max video length / size (checked while streaming and with ffprobe) | `--max-upload-s`, `--max-upload-mb` | 30 s / 60 MB |

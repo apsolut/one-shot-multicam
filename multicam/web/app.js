@@ -11,11 +11,16 @@ const toast = (msg, ms = 2600) => { const t = $("#toast"); t.textContent = msg; 
 const fmt = t => `${Math.floor(t / 60)}:${(t % 60).toFixed(1).padStart(4, "0")}`;
 const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
 const key = () => localStorage.getItem(KEY_LS) || "";
+const JUDGE_LS = "multicam.judgeCode";
+const judge = () => (cfg.judge_code && localStorage.getItem(JUDGE_LS)) || "";
+let judgeLeft = null;  // jobs left on a valid judge code (null = unknown / none)
+const canPay = () => !!(key() || cfg.hosted || judge());
 
 async function api(path, opts = {}) {
   const headers = {...(opts.headers || {})};
   if (opts.json !== undefined) { headers["Content-Type"] = "application/json"; opts.body = JSON.stringify(opts.json); }
   if (opts.withKey && key()) headers["X-Comfy-Key"] = key();
+  else if (opts.withKey && judge()) headers["X-Judge-Code"] = judge();
   const r = await fetch(path, {method: opts.method || (opts.body ? "POST" : "GET"), headers, body: opts.body});
   const data = await r.json().catch(() => ({}));
   if (!r.ok) { const e = new Error(typeof data.detail === "string" ? data.detail : JSON.stringify(data.detail)); e.status = r.status; e.data = data.detail; throw e; }
@@ -50,10 +55,23 @@ function renderKey() {
   if (cfg.hosted && !k && !(cfg.hosted_jobs_left > 0)) { b.textContent = "free demo used up · paste your key"; b.className = "badge bad"; }
   else if (cfg.hosted && !k) { b.textContent = `demo key · ${cfg.hosted_jobs_left ?? "∞"} jobs left`; b.className = "badge warn"; }
   else if (k) { b.textContent = "saved in this browser"; b.className = "badge ok"; }
+  else if (judge()) { b.textContent = `judge code · ${judgeLeft ?? "?"} jobs left`; b.className = "badge warn"; }
+  else if (cfg.byok_only && cfg.public) { b.textContent = "required to generate"; b.className = "badge bad"; }
   else { b.textContent = "not set"; b.className = "badge"; }
 }
 $("#key").addEventListener("change", e => { const v = e.target.value.trim();
   v ? localStorage.setItem(KEY_LS, v) : localStorage.removeItem(KEY_LS); renderKey(); });
+$("#judgeCheck").onclick = async () => {
+  const v = $("#judge").value.trim();
+  if (!v) { localStorage.removeItem(JUDGE_LS); judgeLeft = null; renderKey(); return; }
+  try {
+    const r = await fetch("/api/check-key", {method: "POST", headers: {"X-Judge-Code": v}});
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(d.detail || "invalid code");
+    localStorage.setItem(JUDGE_LS, v); judgeLeft = d.judge_jobs_left; renderKey();
+    toast(`Judge code OK · ${d.judge_jobs_left}/${d.judge_jobs_total} jobs left (leave the key field empty to use it)`, 4500);
+  } catch (e) { localStorage.removeItem(JUDGE_LS); judgeLeft = null; renderKey(); toast(e.message, 4000); }
+};
 $("#keyToggle").onclick = () => { const i = $("#key"); i.type = i.type === "password" ? "text" : "password"; };
 $("#keyForget").onclick = e => { e.preventDefault(); localStorage.removeItem(KEY_LS); renderKey(); toast("Key removed from this browser"); };
 $("#keyCheck").onclick = async () => {
@@ -161,7 +179,7 @@ function renderEstimate() {
 
 $("#generate").onclick = async () => {
   const e = S.estimate;
-  if (!key() && !cfg.hosted) { toast("Paste your Comfy Cloud key first (step 1)", 3500); $("#key").focus(); return; }
+  if (!canPay()) { toast("Paste your own Comfy Cloud key first (step 1) — get one at platform.comfy.org → API keys", 4500); $("#keyCard").classList.add("attention"); $("#key").focus(); return; }
   if (demoOut(e.jobs)) return needOwnKey(e.jobs);
   const ok = await confirmBox("Spend on Comfy Cloud?",
     `<p>This submits <b>${e.jobs}</b> job(s) to Comfy Cloud with your key — about <b>$${e.usd.toFixed(2)}</b>.</p><ul>
@@ -173,7 +191,7 @@ $("#generate").onclick = async () => {
   catch (err) { toast(err.message, 4500); }
 };
 $("#anglesBtn").onclick = async () => {
-  if (!key() && !cfg.hosted) { toast("Paste your Comfy Cloud key first (step 1)", 3500); $("#key").focus(); return; }
+  if (!canPay()) { toast("Paste your own Comfy Cloud key first (step 1) — get one at platform.comfy.org → API keys", 4500); $("#keyCard").classList.add("attention"); $("#key").focus(); return; }
   const ok = await confirmBox("Generate angle stills?", `<p>1 Qwen-Image-Edit job → 8 views of you (close-up, wide, 45°/90° left/right, low, aerial). About <b>$${(cfg.cost_per_job_usd || 0.03).toFixed(2)}</b>. Then pick one per camera.</p>`, "Generate stills");
   if (!ok) return;
   try { S = await api(`/api/projects/${S.id}/angles`, {json: {confirm: true}, withKey: true}); render(); poll(); }
@@ -253,7 +271,7 @@ function renderShotPanel() {
     toast(b.dataset.cam === "A" ? "Insert dropped — hit Re-render (free)" : `Shot → CAM ${b.dataset.cam}${clips[b.dataset.cam] ? " — Re-render (free)" : " — no clip yet: re-roll to generate it"}`); });
   const rb = $('button[data-act="reroll"]', el);
   if (rb) rb.onclick = async () => {
-    if (!key() && !cfg.hosted) { toast("Paste your Comfy Cloud key first (step 1)", 3500); return; }
+    if (!canPay()) { toast("Paste your own Comfy Cloud key first (step 1) — get one at platform.comfy.org → API keys", 4500); return; }
     if (demoOut(1)) return needOwnKey(1);
     const still = $("#rerollStill")?.value; const cam = s.cam;
     const ok = await confirmBox("Re-roll this shot?", `<p>1 ${reshoot() ? "LTX-2.3 CrossView re-shoot (next camera move)" : "LTX-2.3 ID LoRA"} job for <b>CAM ${cam}</b> on “${esc(s.words)}” with a new seed${still && still !== S.cam_stills[cam] ? ` and the <b>${esc(camLabel(still))}</b> angle` : ""}. About <b>$${jobUsd().toFixed(2)}</b>. The old version is kept.</p>`, "Re-roll");
@@ -278,6 +296,19 @@ $("#shareBtn").onclick = async () => {
 
 function renderBanner() {
   const b = $("#banner");
+  $("#judgeBox").hidden = !cfg.judge_code;
+  if (cfg.public && cfg.byok_only) {
+    const per = (cfg.cost_usd?.[cfg.engine] ?? cfg.cost_per_job_usd ?? 0.05), url = cfg.get_key_url || "https://platform.comfy.org/profile/api-keys";
+    $("#keyCard .note").innerHTML = `🔑 <b>Bring your own key:</b> generation runs on <b>your</b> Comfy Cloud credits. Get a key at <a href="${url}" target="_blank" rel="noopener">platform.comfy.org → API keys</a>. It's saved only in <b>this browser</b> (localStorage) and sent per request to this server, which forwards it to Comfy Cloud and <b>never stores or logs it</b>. Free steps (transcribe, plan, edit, render) don't need it. <a href="#" id="keyForget">Forget key</a>`;
+    $("#keyForget").onclick = e => { e.preventDefault(); localStorage.removeItem(KEY_LS); renderKey(); toast("Key removed from this browser"); };
+    if (cfg.max_upload_s) $("#dropHint").textContent = `Up to ${cfg.max_upload_s} s, you talking to camera (or performing). Your own face, or someone who consented.`;
+    b.hidden = false; b.classList.remove("out");
+    b.innerHTML = `<b>Bring your own Comfy Cloud key.</b> Try the free steps (upload, analyze, plan, edit, render) right away; to generate AI cameras,
+      <a href="#keyCard" id="bannerKey"><b>paste your own key</b></a> (<a href="${url}" target="_blank" rel="noopener">get one</a>) — ≈ $${per.toFixed(3)} per clip, ≈ $${(4 * per).toFixed(2)} per video, billed by Comfy.
+      ${cfg.max_upload_s ? `Uploads ≤ ${cfg.max_upload_s}s` : ""}${cfg.ttl_minutes ? ` · deleted after ${cfg.ttl_minutes} min` : ""} · or <a href="${cfg.repo_url}" target="_blank" rel="noopener">run it yourself</a>.`;
+    $("#bannerKey").onclick = e => { e.preventDefault(); $("#keyCard").classList.add("attention"); $("#keyCard").scrollIntoView({behavior: "smooth", block: "center"}); $("#key").focus(); };
+    return;
+  }
   if (cfg.hosted) $("#keyCard .note").innerHTML = `${(cfg.hosted_jobs_left ?? 0) > 0 ? "🔒 Optional here: leave it empty to use the capped demo credits." : "🔑 <b>Required now</b>: the free demo credits are used up — get a key at <a href=\"https://platform.comfy.org/profile/api-keys\" target=\"_blank\" rel=\"noopener\">platform.comfy.org → API keys</a>."} If you paste your own key it's saved only in <b>this browser</b> (localStorage) and sent per request to this server, which forwards it to Comfy Cloud and <b>never stores or logs it</b>. <a href="#" id="keyForget">Forget key</a>`,
     $("#keyForget").onclick = e => { e.preventDefault(); localStorage.removeItem(KEY_LS); renderKey(); toast("Key removed from this browser"); };
   if (cfg.max_upload_s) $("#dropHint").textContent = `Up to ${cfg.max_upload_s} s, you talking to camera (or performing). Your own face, or someone who consented.`;
@@ -323,4 +354,6 @@ $("#newProject").onclick = e => { e.preventDefault(); location.hash = ""; S = nu
   cfg = await api("/api/config").catch(() => ({}));
   $("#repoLink").href = cfg.repo_url || "#";
   renderKey(); renderBanner(); loadRecent(); openFromHash();
+  if (judge()) fetch("/api/check-key", {method: "POST", headers: {"X-Judge-Code": judge()}}).then(r => r.json())
+    .then(d => { judgeLeft = d.judge_jobs_left ?? null; renderKey(); }).catch(() => {});
 })();

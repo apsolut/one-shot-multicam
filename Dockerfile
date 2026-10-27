@@ -14,6 +14,6 @@ RUN mkdir -p /data && chmod 777 /data && chmod -R a+rX /app   # runs as any uid 
 VOLUME /data
 EXPOSE 8787
 # The Comfy key is NOT baked in: users paste it in the UI (kept in their browser only).
-# Public hosted demo: add env MULTICAM_PUBLIC=1, MULTICAM_HOSTED_KEY_ENV=COMFY_API_KEY, MULTICAM_MAX_JOBS=15,
+# Public hosted demo: add env MULTICAM_PUBLIC=1, MULTICAM_HOSTED_KEY_ENV=COMFY_API_KEY, MULTICAM_HOSTED_ACCESS=judge (BYO key; operator key only with MULTICAM_JUDGE_CODE),
 # MULTICAM_PROXY_HOPS=1 and the COMFY_API_KEY secret (all flags read MULTICAM_* env, PORT sets the port).
 CMD ["multicam", "serve", "--host", "0.0.0.0"]

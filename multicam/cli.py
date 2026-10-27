@@ -267,14 +267,15 @@ def cmd_serve(a):
         a.max_upload_mb = 60.0 if a.max_upload_mb == 500.0 else a.max_upload_mb
         a.ttl_minutes = 60.0 if a.ttl_minutes is None else a.ttl_minutes
         a.max_jobs_per_run = min(a.max_jobs_per_run, 6)
-    if a.hosted_key_env and a.max_jobs is None:
+    if a.hosted_key_env and a.hosted_access == "open" and a.max_jobs is None:
         raise SystemExit("hosted mode needs a job cap: pass --max-jobs N (or --public)")
     from .server import serve
     serve(host=a.host, port=a.port, data_dir=a.data_dir, hosted_key_env=a.hosted_key_env, max_jobs=a.max_jobs,
           max_jobs_per_run=a.max_jobs_per_run, repo_url=a.repo_url, whisper_model=a.model,
           max_upload_mb=a.max_upload_mb, max_upload_s=a.max_upload_s, ttl_minutes=a.ttl_minutes,
           ip_jobs_per_day=a.ip_jobs_per_day, ip_projects_per_hour=a.ip_projects_per_hour, proxy_hops=a.proxy_hops,
-          hosted_floor_usd=a.hosted_floor_usd, engine=a.engine)
+          hosted_floor_usd=a.hosted_floor_usd, engine=a.engine, public=a.public, hosted_access=a.hosted_access,
+          judge_max_jobs=a.judge_max_jobs)
 
 
 def _add_plan_args(p):
@@ -368,6 +369,11 @@ def main(argv=None):
     g = p.add_argument_group("public hosted demo (all also settable via MULTICAM_* env vars)")
     g.add_argument("--hosted-key-env", default=E("MULTICAM_HOSTED_KEY_ENV"),
                    help="env var holding YOUR Comfy key, used when a visitor pastes none (enables hosted mode)")
+    g.add_argument("--hosted-access", choices=["open", "judge"], default=E("MULTICAM_HOSTED_ACCESS") or "open",
+                   help="open: visitors without a key use the hosted key (capped). judge: only with the private "
+                        "judge code in env MULTICAM_JUDGE_CODE; everyone else brings their own key")
+    g.add_argument("--judge-max-jobs", type=int, default=_int(E("MULTICAM_JUDGE_MAX_JOBS")) or 10,
+                   help="total jobs the judge code may spend on the hosted key (default 10)")
     g.add_argument("--max-jobs", type=int, default=_int(E("MULTICAM_MAX_JOBS")), help="total job cap for the hosted key (persisted)")
     g.add_argument("--ip-jobs-per-day", type=int, default=_int(E("MULTICAM_IP_JOBS_PER_DAY")))
     g.add_argument("--ip-projects-per-hour", type=int, default=_int(E("MULTICAM_IP_PROJECTS_PER_HOUR")))

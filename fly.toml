@@ -1,0 +1,40 @@
+# Fly.io config for the public hosted judge demo (https://one-shot-multicam.fly.dev).
+# Secret (set separately, never committed): fly secrets set COMFY_API_KEY=...
+# Deploy: fly deploy --remote-only --ha=false
+app = "one-shot-multicam"
+primary_region = "fra"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  PORT = "8787"
+  MULTICAM_HOST = "0.0.0.0"
+  MULTICAM_DATA_DIR = "/data"          # job-cap ledger (hosted_jobs.json) + uploads live on the volume
+  MULTICAM_PUBLIC = "1"
+  MULTICAM_HOSTED_KEY_ENV = "COMFY_API_KEY"
+  MULTICAM_MAX_JOBS = "30"
+  MULTICAM_PROXY_HOPS = "1"            # Fly's edge proxy appends the client IP to X-Forwarded-For
+  MULTICAM_HOSTED_FLOOR_USD = "33.25"  # refuse hosted jobs once the real Comfy balance would drop below this
+
+[mounts]
+  source = "multicam_data"
+  destination = "/data"
+
+[http_service]
+  internal_port = 8787
+  force_https = true
+  auto_stop_machines = "off"
+  auto_start_machines = true
+  min_machines_running = 1
+
+  [[http_service.checks]]
+    grace_period = "30s"
+    interval = "30s"
+    timeout = "5s"
+    method = "GET"
+    path = "/api/config"
+
+[[vm]]
+  size = "shared-cpu-2x"
+  memory = "2gb"

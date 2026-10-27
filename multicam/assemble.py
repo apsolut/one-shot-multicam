@@ -48,6 +48,29 @@ TRIM_TOL = 0.3     # s: max trim of an insert whose clip falls just short of the
 MIN_INSERT = 0.6   # s: never trim an insert below this
 
 
+def _rgb_stats(path, start: float, dur: float = 5.0, fps: float = 4.0):
+    import subprocess
+    import numpy as np
+    raw = subprocess.run(["ffmpeg", "-v", "error", "-ss", f"{max(0.0, start):.3f}", "-t", f"{dur:.3f}", "-i", str(path),
+                          "-vf", f"fps={fps:g},scale=108:192,format=rgb24", "-f", "rawvideo", "-"],
+                         capture_output=True, check=True).stdout
+    a = np.frombuffer(raw, np.uint8).reshape(-1, 3).astype(float)
+    return a.mean(0), a.std(0)
+
+
+def color_lut(video, clip, src_start: float, strength: float = 0.6) -> str:
+    """lutrgb that moves a generated clip's per-channel mean/std part of the way to CAM A's over the same
+    5 s (CrossView renders drift cooler/bluer than the real take). Gains are clamped to stay subtle."""
+    ma, sa = _rgb_stats(video, src_start)
+    mb, sb = _rgb_stats(clip, 0.0)
+    expr = []
+    for c, ch in enumerate("rgb"):
+        g = min(1.35, max(0.75, 1 + strength * (sa[c] / max(sb[c], 1.0) - 1)))
+        m = mb[c] + strength * (ma[c] - mb[c])
+        expr.append(f"{ch}='clip((val-{mb[c]:.2f})*{g:.4f}+{m:.2f},0,255)'")
+    return "lutrgb=" + ":".join(expr)
+
+
 def resolve_shots(plan: dict, clips: dict, fps: float) -> list[dict]:
     """Attach clips to inserts; fall back to A when a clip is missing or doesn't cover the shot."""
     out = []
@@ -106,7 +129,7 @@ def assemble(plan: dict, out: str | Path, clips_json=None, clips_dir=None, video
              labels=False, shake=False, shake_px=10.0, cut_lead_frames=0,
              width=None, height=None, fps=None, crf=18, align=True, transcript=None,
              align_cache=None, clips=None, max_long: int | None = None, preset: str = "medium",
-             a_label: str = "real") -> list[dict]:
+             a_label: str = "real", color_match: float = 0.0) -> list[dict]:
     need("ffmpeg")
     video = str(Path(video or plan["source"]).resolve())
     vinfo = probe(video)
@@ -150,6 +173,13 @@ def assemble(plan: dict, out: str | Path, clips_json=None, clips_dir=None, video
             clip_idx[s["clip"]] = len(inputs)
             inputs.append(s["clip"])
 
+    luts = {}
+    if color_match > 0:
+        for s in shots:
+            if s["src"] == "generated" and s["clip"] not in luts:
+                src_start = s["start"] - s["clip_start"] / float(s.get("speed", 1.0))
+                luts[s["clip"]] = color_lut(video, s["clip"], src_start, color_match)
+
     uses: dict[int, int] = {}
     for s in shots:
         k = 0 if s["src"] == "real" else clip_idx[s["clip"]]
@@ -173,6 +203,8 @@ def assemble(plan: dict, out: str | Path, clips_json=None, clips_dir=None, video
             sp = float(s.get("speed", 1.0))
             c0 = s["clip_start"]
             chain = f"{src}trim=start={c0:.4f}:end={c0 + sp * (n + 3) / fps:.4f},setpts=(PTS-STARTPTS)/{sp:.5f},fps={fps:g}"
+            if s["clip"] in luts:
+                chain += f",format=rgb24,{luts[s['clip']]}"
             if shake:
                 sw, sh = int(width * 1.04) // 2 * 2, int(height * 1.04) // 2 * 2
                 a = shake_px

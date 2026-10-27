@@ -495,7 +495,19 @@ as a multicam edit.** Open weights only, all on Comfy Cloud:
    language (aligned to your reviewed lines), the cuts are planned, and the CrossView re-shoots give the
    B/C angles. The re-shoots freeze the dubbed audio, so the side angles speak the new language too.
 
-[EN original | DE | ES | HR side by side (17 s)](docs/media/dub_4lang.mp4)
+[EN original | DE | ES | HR side by side (17 s)](docs/media/dub_4lang_v2.mp4) ([v1 before the seam and colour fixes](docs/media/dub_4lang.mp4))
+
+**Window seams and colour.** The first ~0.2 s of each LipDub window still carry the real take's mouth pose,
+which shows as a small jump on CAM A at the window boundary. The dubbed take crossfades the video over the
+previous window's extra rendered frames (LipDub renders 8k+1 frames, so each clip runs a bit past its
+window); the audio cuts hard inside the sentence pause. The multicam edit then **puts a camera cut over
+every seam**: it stretches the neighbouring B/C insert back to just before the boundary, or cuts in a short
+insert from a re-shoot that spans it. Frame-difference spikes at the seam drop from ~3× normal motion to
+normal, apart from the deliberate cut. CrossView inserts render cooler and bluer than the real take, so they
+are colour-matched to CAM A (per-channel mean/std over the same 5 s, 60 % strength, `--color-match 0.6` in
+`assemble`): CAM C's blue channel moved from 165 to 134, against 118 in CAM A. Face structure in the
+far/wide angles still drifts. A stronger CrossView IC-LoRA (1.8 vs 1.5) did not help in a test (tighter
+framing, no better likeness), so it stays at 1.5.
 
 **Measured on the 17.6 s demo take** (2 windows, 4 inserts): every translated word was spoken. A
 whisper transcript of each dub matched the reviewed text apart from ASR slips such as "Cloud Code".

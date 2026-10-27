@@ -154,31 +154,52 @@ def run_dub_job(video: str | Path, win: dict, text: str, lang: str, out_path: Pa
     return rec
 
 
-def stitch(video: str | Path, wins: list[dict], clips: dict[str, str], out: str | Path) -> Path:
-    """Dubbed CAM A: each window's LipDub clip trimmed to the window, concatenated, with its generated
-    speech. Windows without a clip fall back to the real take (video and audio)."""
+def stitch(video: str | Path, wins: list[dict], clips: dict[str, str], out: str | Path, xfade_s: float = 0.25) -> Path:
+    """Dubbed CAM A: each window's LipDub clip trimmed to the window and joined with its generated speech.
+    Windows without a clip fall back to the real take (video and audio).
+
+    Seams: LipDub renders 8k+1 frames, so a window's clip runs a little past the window end (the real
+    motion continues there). The video crossfades from that tail into the next window over `xfade_s`
+    (the next window starts exactly on time, so timing and lip sync are unchanged); the audio cuts hard at
+    the boundary, which sits in a sentence pause."""
     need("ffmpeg")
     info = probe(video)
     fps = round(info.get("fps", 30.0), 3)
     w, h = info["width"], info["height"]
-    parts, filt = [], []
+    total = info["duration"]
+    parts, filt, n = [], [], len(wins)
+    vfix = f"fps={fps:g},scale={w}:{h}:force_original_aspect_ratio=increase,crop={w}:{h},setsar=1,format=yuv420p"
+    tails = []
     for i, win in enumerate(wins):
         d = win["end"] - win["start"]
         c = clips.get(win["id"])
+        if i < n - 1 and xfade_s > 0:
+            avail = (probe(c)["duration"] - d) if c else (total - win["end"])
+            tail = max(0.0, min(xfade_s, avail - 1.0 / fps))
+        else:
+            tail = 0.0
+        tails.append(tail)
+        k = sum(1 for p in parts if p == "-i")
         if c:
             parts += ["-i", str(c)]
-            k = sum(1 for p in parts if p == "-i") - 1
-            filt.append(f"[{k}:v]trim=duration={d:.4f},setpts=PTS-STARTPTS,fps={fps:g},"
-                        f"scale={w}:{h}:force_original_aspect_ratio=increase,crop={w}:{h},setsar=1,format=yuv420p[v{i}];"
+            filt.append(f"[{k}:v]trim=duration={d + tail:.4f},setpts=PTS-STARTPTS,{vfix}[v{i}];"
                         f"[{k}:a]atrim=duration={d:.4f},asetpts=PTS-STARTPTS,aresample=48000,apad=whole_dur={d:.4f}[a{i}]")
         else:
-            parts += ["-ss", f"{win['start']:.4f}", "-t", f"{d:.4f}", "-i", str(video)]
-            k = sum(1 for p in parts if p == "-i") - 1
-            filt.append(f"[{k}:v]setpts=PTS-STARTPTS,fps={fps:g},setsar=1,format=yuv420p[v{i}];"
-                        f"[{k}:a]asetpts=PTS-STARTPTS,aresample=48000,apad=whole_dur={d:.4f}[a{i}]")
-    n = len(wins)
-    filt.append("".join(f"[v{i}][a{i}]" for i in range(n)) + f"concat=n={n}:v=1:a=1[v][a]")
-    run(["ffmpeg", "-y", "-v", "error", *parts, "-filter_complex", ";".join(filt), "-map", "[v]", "-map", "[a]",
+            parts += ["-ss", f"{win['start']:.4f}", "-t", f"{d + tail:.4f}", "-i", str(video)]
+            filt.append(f"[{k}:v]setpts=PTS-STARTPTS,{vfix}[v{i}];"
+                        f"[{k}:a]atrim=duration={d:.4f},asetpts=PTS-STARTPTS,aresample=48000,apad=whole_dur={d:.4f}[a{i}]")
+    # video: chain crossfades (a window with no usable tail joins with a 1-frame "fade" = hard cut)
+    cur, t = "v0", 0.0
+    for i in range(1, n):
+        t += wins[i - 1]["end"] - wins[i - 1]["start"]
+        dur = tails[i - 1] if tails[i - 1] >= 1.5 / fps else 1.0 / fps
+        if tails[i - 1] < 1.5 / fps:  # pad the previous segment by one frame so the cut lands on time
+            filt.append(f"[{cur}]tpad=stop_mode=clone:stop_duration={1.0 / fps:.4f}[{cur}p]")
+            cur = f"{cur}p"
+        filt.append(f"[{cur}][v{i}]xfade=transition=fade:duration={dur:.4f}:offset={t:.4f}[x{i}]")
+        cur = f"x{i}"
+    filt.append("".join(f"[a{i}]" for i in range(n)) + f"concat=n={n}:v=0:a=1[a]")
+    run(["ffmpeg", "-y", "-v", "error", *parts, "-filter_complex", ";".join(filt), "-map", f"[{cur}]", "-map", "[a]",
          "-c:v", "libx264", "-preset", "medium", "-crf", "18", "-pix_fmt", "yuv420p", "-r", f"{fps:g}",
          "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart", str(out)])
     return Path(out)
@@ -224,9 +245,12 @@ def make_dubbed_take(video: str | Path, work: Path, dp: dict, key=None, seed=Non
 
 
 def multicam_from_dub(dubbed: Path, mc: Path, lang: str, script: str, key=None, seed=None,
-                      log: Callable[[str], None] = print, preset: str = "medium", model: str = "small") -> dict:
+                      log: Callable[[str], None] = print, preset: str = "medium", model: str = "small",
+                      seams: list[float] | None = None, color_match: float = 0.6) -> dict:
     """The dubbed take becomes a normal multicam source: transcribe in the target language (aligned to the
-    reviewed script), plan cuts, CrossView re-shoots for B/C, assemble -> <mc>/multicam(_labeled).mp4."""
+    reviewed script), plan cuts, CrossView re-shoots for B/C, assemble -> <mc>/multicam(_labeled).mp4.
+    `seams` (window starts after the first) get a camera cut over them (see hide_seams); inserts are
+    colour-matched to CAM A."""
     from .assemble import assemble
     from .comfy import load_bindings
     from .plan import PlanParams, plan
@@ -259,10 +283,63 @@ def multicam_from_dub(dubbed: Path, mc: Path, lang: str, script: str, key=None, 
         clips[cid] = {"path": f"{cid}_{cam}.mp4", "angle": cam, "src_start": chunks[cid]["start"], "synced": True,
                       "preset": preset_name, "camera": phrase, "seed": rec["seed"]}
         save_json(clips, clips_path)
+    if seams:
+        from .util import probe as _probe
+        durs = {cid: _probe(gen / c["path"])["duration"] for cid, c in clips.items()}
+        for ch in hide_seams(pl, clips, durs, seams, tr["words"]):
+            log(f"seam {ch['seam']:.2f}s hidden: {ch['how']}")
+        save_json(pl, mc / "plan.json")
     log("assembling the multicam edit (free)")
     out = {}
     for lab, name in ((False, "multicam.mp4"), (True, "multicam_labeled.mp4")):
         assemble(pl, mc / name, clips_json=clips_path, video=dubbed, labels=lab, shake=True, transcript=tr,
-                 align_cache=mc / "align_cache", preset=preset, a_label="lip-dub (AI)")
+                 align_cache=mc / "align_cache", preset=preset, a_label="lip-dub (AI)", color_match=color_match)
         out[name] = mc / name
     return out
+
+
+def hide_seams(plan: dict, clips: dict, clip_dur: dict, seams: list[float], words: list[dict],
+               pre: float = 0.1, post: float = 0.5, min_a: float = 0.4) -> list[dict]:
+    """Put a camera cut over each LipDub window seam (the first frames of a window still carry the real
+    mouth pose, a visible jump on CAM A). Prefer stretching a neighbouring insert, else cut in a short
+    insert from any re-shoot that covers the seam. Edits plan["shots"] in place; returns what changed."""
+    changes = []
+
+    def covers(cid, a, b):
+        c = clips.get(cid)
+        return bool(c) and c["src_start"] <= a + 1e-3 and c["src_start"] + clip_dur.get(cid, 0) - 0.05 >= b
+
+    for t in seams:
+        shots = plan["shots"]
+        k = next((i for i, x in enumerate(shots) if x["start"] < t < x["end"]), None)
+        if k is None or shots[k]["cam"] != "A":
+            continue
+        a = shots[k]
+        cut = round(t - pre, 4)
+        nxt = shots[k + 1] if k + 1 < len(shots) else None
+        prv = shots[k - 1] if k > 0 else None
+        if nxt and nxt["cam"] != "A" and nxt["start"] - t <= 1.6 and covers(nxt.get("chunk"), cut, nxt["end"]) \
+                and cut - a["start"] >= min_a:
+            changes.append({"seam": t, "how": f"insert {nxt['cam']} starts at {cut:.2f}s (was {nxt['start']:.2f})"})
+            nxt["start"] = a["end"] = cut
+            continue
+        end = next((w["end"] for w in words if w["end"] >= t + post), t + post)
+        if prv and prv["cam"] != "A" and t - prv["end"] <= 1.0 and covers(prv.get("chunk"), prv["start"], end) \
+                and a["end"] - end >= min_a:
+            changes.append({"seam": t, "how": f"insert {prv['cam']} ends at {end:.2f}s (was {prv['end']:.2f})"})
+            prv["end"] = a["start"] = end
+            continue
+        for cid, c in clips.items():  # any re-shoot that spans the seam: cut it in
+            cut = round(max(t - pre, c["src_start"] + 0.04), 4)  # its first frame, if it starts after t - pre
+            end2 = min(end, c["src_start"] + clip_dur.get(cid, 0) - 0.05)
+            if cut <= t - 0.03 and covers(cid, cut, t + post) and cut - a["start"] >= min_a and a["end"] - end2 >= min_a:
+                new = {k2: v for k2, v in a.items() if k2 not in ("words", "align", "note")}
+                new.update({"cam": c["angle"], "chunk": cid, "start": cut, "end": round(end2, 4), "seam_cover": True})
+                tail = dict(a, start=round(end2, 4))
+                a["end"] = cut
+                shots[k + 1:k + 1] = [new, tail]
+                changes.append({"seam": t, "how": f"cut in {c['angle']} ({cid}) {cut:.2f}-{end2:.2f}s"})
+                break
+    for i, x in enumerate(plan["shots"]):
+        x["i"] = i
+    return changes

@@ -242,7 +242,7 @@ def mount(api, A, key_or_403, charge_or_403):
             save_json(cur, d / "dub.json")
             script = " ".join(w["translation"] for w in cur["windows"])
             D.multicam_from_dub(dubbed, d / "mc", cur["lang"], script, key=key, log=log, preset=A.render_preset,
-                                model=A.whisper_model)
+                                model=A.whisper_model, seams=[w["start"] for w in cur["windows"][1:]])
             log("done")
         run_bg(did, "generate", charge_or_403(request, est["jobs"], hosted, _Shim(d, dp["lang"]), work))
         return public(did)

@@ -40,3 +40,21 @@ def test_fit_and_estimate():
 def test_dub_prompt_quotes():
     p = D.dub_prompt('He said "go"', "de")
     assert "German" in p and '"go"' not in p
+
+
+def _plan(shots):
+    return {"shots": [dict(x, i=i) for i, x in enumerate(shots)]}
+
+
+def test_hide_seams_stretches_next_insert():
+    plan = _plan([{"cam": "A", "start": 7.1, "end": 9.2}, {"cam": "B", "start": 9.2, "end": 10.8, "chunk": "c03"}])
+    ch = D.hide_seams(plan, {"c03": {"src_start": 8.0, "angle": "B"}}, {"c03": 5.04}, [8.11], [])
+    assert ch and plan["shots"][1]["start"] == plan["shots"][0]["end"] == 8.01
+
+
+def test_hide_seams_cuts_in_when_no_neighbour():
+    words = [{"text": "x", "start": 8.5, "end": 8.74}]
+    plan = _plan([{"cam": "A", "start": 7.2, "end": 11.3}, {"cam": "B", "start": 11.3, "end": 12.7, "chunk": "c03"}])
+    ch = D.hide_seams(plan, {"c03": {"src_start": 8.02, "angle": "B"}}, {"c03": 5.04}, [8.11], words)
+    cams = [(s["cam"], s["start"], s["end"]) for s in plan["shots"]]
+    assert ch and cams[1] == ("B", 8.06, 8.74) and cams[0][2] == 8.06 and cams[2][1] == 8.74

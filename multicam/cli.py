@@ -99,7 +99,7 @@ def cmd_assemble(a):
     shots = assemble(plan, a.out, clips_json=a.clips, clips_dir=a.clips_dir, video=a.video, labels=a.labels,
                      shake=a.shake, shake_px=a.shake_px, cut_lead_frames=a.cut_lead_frames,
                      align=not a.no_align, transcript=tr, align_cache=Path(a.workdir) / "align_cache",
-                     max_long=a.max_long, preset=a.preset)
+                     max_long=a.max_long, preset=a.preset, color_match=a.color_match)
     for s in shots:
         print_shot(s)
     print(f"wrote {a.out}")
@@ -247,7 +247,8 @@ def cmd_dub(a):
         return
     from .dub import multicam_from_dub
     script = " ".join(w["translation"] for w in wins)
-    outs = multicam_from_dub(final, work / f"mc_{a.lang}", a.lang, script, seed=a.seed)
+    outs = multicam_from_dub(final, work / f"mc_{a.lang}", a.lang, script, seed=a.seed,
+                            seams=[w["start"] for w in wins[1:]])
     print(f"wrote {final} and " + ", ".join(str(p) for p in outs.values()))
 
 
@@ -389,6 +390,7 @@ def main(argv=None):
     p.add_argument("--cut-lead-frames", type=int, default=0, help="video-only: cut N frames before the word (audio untouched)")
     p.add_argument("--max-long", type=int, help="cap the long side, e.g. 1280 for a fast 720p render")
     p.add_argument("--preset", default="medium", help="x264 preset (veryfast ≈4x faster than medium)")
+    p.add_argument("--color-match", type=float, default=0.0, help="pull AI inserts toward CAM A colour (0-1, try 0.6)")
     p.set_defaults(fn=cmd_assemble)
 
     p = sub.add_parser("align", help="lip-sync align generated inserts to the real words (writes offset/speed)")

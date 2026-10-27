@@ -92,7 +92,7 @@ def add_parser(sub):
     q = ss.add_parser("init", help="transcribe + write scene.json (free)")
     q.add_argument("video")
     q.add_argument("--partner", choices=["clone", "photo", "character"], default="clone")
-    q.add_argument("--line", action="append", help="'N:text' = B answers after A's sentence N (0-based); repeatable")
+    q.add_argument("--line", action="append", help="'N:text' or 'N@ots:text' = B answers after A's sentence N (0-based), optional framing single|ots|close; repeatable")
     q.add_argument("--suggest", action="store_true", help="pre-fill B's lines from the transcript")
     q.add_argument("--look", default="night", help="clone look: night|noir|office|studio or free text")
     q.add_argument("--photo", help="partner photo (only photos of people who consented)")

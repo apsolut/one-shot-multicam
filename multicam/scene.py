@@ -116,9 +116,12 @@ def parse_lines(items: list[str] | None, n_sentences: int) -> list[dict]:
     """'2:Wait, really?' -> B speaks after A's sentence #2 (0-based). Without an index: after successive sentences."""
     out, nxt = [], 0
     for it in items or []:
-        m = re.match(r"^\s*(\d+)\s*[:=]\s*(.+)$", it)
-        after, text = (int(m.group(1)), m.group(2)) if m else (nxt, it)
-        out.append({"after": min(after, n_sentences - 1), "text": text.strip()})
+        m = re.match(r"^\s*(\d+)(?:@(single|ots|close))?\s*[:=]\s*(.+)$", it)
+        after, shot, text = (int(m.group(1)), m.group(2), m.group(3)) if m else (nxt, None, it)
+        ln = {"after": min(after, n_sentences - 1), "text": text.strip()}
+        if shot:
+            ln["shot"] = shot
+        out.append(ln)
         nxt = after + 1
     out.sort(key=lambda x: x["after"])
     return out
@@ -418,7 +421,7 @@ def make_clips(sc: dict, work: Path, key=None, only: list[str] | None = None, se
     for k, ln in enumerate(sc["lines"]):
         if (only and str(k) not in only) or (not only and str(k) in sc["b_clips"]):
             continue
-        shot = b_shot_for(k)
+        shot = ln.get("shot") or b_shot_for(k)
         tasks.append((str(k), shot, line_prompt(sc, shot, ln["text"]), line_seconds(ln["text"]), ln["text"]))
     if (only and "react" in only) or (not only and "react" not in sc["b_clips"]):
         tasks.append(("react", "ots", react_prompt(sc, "ots"), 5.0, ""))

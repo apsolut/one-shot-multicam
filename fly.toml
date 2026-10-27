@@ -17,7 +17,7 @@ primary_region = "fra"
   MULTICAM_JUDGE_MAX_JOBS = "10"       # total jobs the judge code may spend (secret MULTICAM_JUDGE_CODE, never committed)
   MULTICAM_MAX_JOBS = "0"              # no open free quota
   MULTICAM_PROXY_HOPS = "1"            # Fly's edge proxy appends the client IP to X-Forwarded-For
-  MULTICAM_HOSTED_FLOOR_USD = "32.44"  # refuse hosted jobs once the real Comfy balance would drop below this
+  MULTICAM_HOSTED_FLOOR_USD = "30.46"  # refuse hosted jobs once the real Comfy balance would drop below this
 
 [mounts]
   source = "multicam_data"

@@ -24,7 +24,7 @@ venv/
 
 # gallery: only the small 720p web copies + README images are committed (masters stay out)
 !docs/media/*.mp4
-!docs/media/poster.jpg
+!docs/media/poster*.jpg
 !docs/img/*.jpg
 screens/
 build/

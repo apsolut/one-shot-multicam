@@ -23,4 +23,4 @@ multicam = "multicam.cli:main"
 packages = ["multicam"]
 
 [tool.setuptools.package-data]
-multicam = ["web/*", "voices/*", "models/*"]
+multicam = ["web/*", "web/fonts/*", "voices/*", "models/*"]

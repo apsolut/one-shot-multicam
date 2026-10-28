@@ -4,14 +4,15 @@
 (() => {
   const MEDIA = "/gallery/media/";
   const EX = {  // precomputed outputs from docs/media (free to watch)
-    talk: {loop: "loop_talk.mp4", full: "demo_v6_labeled.mp4", wide: false,
-      cap: "Your real take is CAM A. CAM B and C are AI re-shoots of the same moment, cut on word boundaries over your real audio."},
-    music: {loop: "loop_music.mp4", full: "demo_v5_labeled.mp4", wide: false,
-      cap: "Same cut engine as Talk, timed to your lyrics. (Example shows a Talk cut; a Music sample is coming.)"},
-    scene: {loop: "loop_scene.mp4", full: "scene_clone_v2_labeled.mp4", wide: false,
-      cap: "One take becomes a two-person scene: you, and your other self answering between your sentences, shot / reverse-shot."},
-    dub: {loop: "loop_dub.mp4", full: "dub_4lang_v2.mp4", wide: true,
-      cap: "The same take dubbed into German, Spanish and Croatian: your face and voice, new lip motion, then a multicam edit."},
+    // clean (unlabeled) exports; camera names are UI chips under the player, not burned-in text
+    talk: {loop: "ex_talk.mp4", full: "ex_talk.mp4", wide: false, chips: [["A", "Real take"], ["B", "AI · side"], ["C", "AI · wide"]],
+      cap: "Camera A is your real take. B and C are AI re-shoots of the same moment."},
+    music: {loop: "ex_talk.mp4", full: "ex_talk.mp4", wide: false, chips: [["A", "Real take"], ["B", "AI · side"], ["C", "AI · wide"]],
+      cap: "The Talk cut engine, timed to your lyrics. A Music sample is coming."},
+    scene: {loop: "ex_scene.mp4", full: "ex_scene.mp4", wide: false, chips: [["A", "Real take"], ["A", "AI · side"], ["B", "AI · single"], ["B", "AI · over the shoulder"]],
+      cap: "One take becomes a two-person scene: you, and your other self answering."},
+    dub: {loop: "ex_dub.mp4", full: "ex_dub.mp4", wide: true, chips: [["EN", "Original"], ["DE", "Dubbed"], ["ES", "Dubbed"], ["HR", "Experimental"]],
+      cap: "The same take in German, Spanish and Croatian. Your face and voice, new lip motion."},
   };
   const NOTE = {
     talk: "Talk: nothing to set, the defaults work. Add your exact script under Advanced for word-perfect cuts.",
@@ -24,14 +25,44 @@
   let view = "ex", mine = null, mineFile = null, access = null, playingFull = false;
 
   // ---------- preview stage
+  // finished Scene / Dub video in a project: shown big in the right column, cameras as chips under it.
+  // (Talk keeps its own player: the cut-list playhead is synced to it.)
+  function resultVideo() {
+    if (!document.body.classList.contains("in-project")) return null;
+    for (const [box, vid, edl] of [["#scResult", "#scPlayer", "#scEdl"], ["#dbResult", "#dbPlayer", null]]) {
+      const b = $(box), v = $(vid);
+      if (b && !b.hidden && !b.closest("[hidden]") && v && v.getAttribute("src")) return {v, edl: edl && $(edl)};
+    }
+    return null;
+  }
+  function stageResult() {
+    const r = resultVideo();
+    document.body.classList.toggle("has-result", !!r);
+    if (!r) { if (sv.dataset.result) { delete sv.dataset.result; sv.dataset.src = ""; stage(); } return; }
+    const src = r.v.getAttribute("src");
+    if (sv.dataset.src !== src) {
+      sv.dataset.src = src; sv.dataset.result = "1"; sv.src = src; sv.muted = false; sv.controls = true; sv.loop = false;
+      $("#stageTag").textContent = "Your result"; $("#stageTabs").hidden = true; $("#stagePlay").hidden = true;
+      $("#stageFrame").classList.toggle("wide", r.v.videoWidth > r.v.videoHeight);
+      $("#stageCap").textContent = "Download it, or edit the lines and re-render for free.";
+    }
+    const cams = r.edl ? [...new Set($$(".sc-shot-chip", r.edl).map(c => c.textContent.trim()))] : [];
+    const html = cams.map(c => { const [k, ...rest] = c.split(" "); return `<span class="chip"><b>${esc(k)}</b>${esc(rest.join(" ") || "camera")}</span>`; }).join("");
+    if ($("#stageChips").innerHTML !== html) $("#stageChips").innerHTML = html;
+    $("#stageChips").hidden = !html;
+  }
+  window.uxStageResult = stageResult;
   function stage() {
+    if (sv.dataset.result) return;
     const ex = EX[mode] || EX.talk;
     $("#stageTabs").hidden = !mine;
     $$("#stageTabs button").forEach(b => b.classList.toggle("on", b.dataset.v === view));
     const showMine = view === "mine" && mine;
     const src = showMine ? mine : MEDIA + (playingFull ? ex.full : ex.loop);
     $("#stageTag").textContent = showMine ? "Your clip" : `Example output · ${NAME[mode]}`;
-    $("#stageCap").textContent = showMine ? "This is what you'll upload. The example on the other tab shows what you get back." : ex.cap;
+    $("#stageCap").textContent = showMine ? "This is what you'll upload." : ex.cap;
+    $("#stageChips").hidden = !!showMine;
+    $("#stageChips").innerHTML = (ex.chips || []).map(([k, v]) => `<span class="chip"><b>${k}</b>${v}</span>`).join("");
     $("#stageFrame").classList.toggle("wide", !showMine && ex.wide);
     $("#stagePlay").hidden = !!showMine;
     if (sv.dataset.src !== src) { sv.dataset.src = src; sv.src = src; }
@@ -89,10 +120,10 @@
     // the counter next to Generate
     const r = $("#runsLeft");
     r.hidden = false;
-    if (key()) r.textContent = "🔑 using your key";
-    else if (judge()) r.textContent = `🎟 judge code${judgeLeft != null ? ` · ${judgeLeft} jobs left` : ""}`;
-    else if (t) r.textContent = t.used_by_you ? "🎁 your free run" : `🎁 ${t.runs_left} of ${t.runs_total} free runs left`;
-    else if (cfg.hosted) r.textContent = `🎁 ${cfg.hosted_jobs_left ?? "∞"} demo jobs left`;
+    if (key()) r.textContent = "Using your key";
+    else if (judge()) r.textContent = `Judge code${judgeLeft != null ? ` · ${judgeLeft} jobs left` : ""}`;
+    else if (t) r.textContent = t.used_by_you ? "Your free run" : `${t.runs_left} of ${t.runs_total} free runs left`;
+    else if (cfg.hosted) r.textContent = `${cfg.hosted_jobs_left ?? "∞"} demo jobs left`;
     else r.hidden = true;
     r.classList.toggle("out", !!t && !trialOk() && !key() && !judge());
   }
@@ -112,8 +143,8 @@
     $(".step-b", el).inert = st === "locked"; }
   function sync() {
     const s1 = !!file && $("#consent").checked && !over(), w2 = step2Why(), s2 = s1 && !w2;
-    setStep($("#step1"), s1 ? "done" : "active", s1 ? "✓ Done" : "");
-    setStep($("#step2"), !s1 ? "locked" : w2 ? "active" : "done", !s1 ? "Finish step 1" : w2 ? "" : "✓ Ready");
+    setStep($("#step1"), s1 ? "done" : "active", s1 ? "Done" : "");
+    setStep($("#step2"), !s1 ? "locked" : w2 ? "active" : "done", !s1 ? "Finish step 1" : w2 ? "" : "Ready");
     setStep($("#step3"), s2 ? "active" : "locked", s2 ? "" : "Finish steps 1–2");
     $("#step3 .step-b").inert = false;  // keep the button + access choice readable; the button carries the reason
     const why = !file ? "Add a clip in step 1, or press “Try with sample clip”." : over() ? `Your clip is longer than ${cfg.max_upload_s} s. Trim it and add it again.`
@@ -170,7 +201,7 @@
   const CARDS = [["#progressCard", "#busyBadge"], ["#sceneCard", "#scBusy"], ["#dubCard", "#dbBusy"]];
   CARDS.forEach(([c]) => {
     const n = document.createElement("div"); n.className = "leave"; n.hidden = true;
-    n.innerHTML = `<div class="leave-t">⏳ <b>You can leave this page.</b> Generation keeps running on the server. Come back with this link<span class="leave-ttl"></span>:</div>
+    n.innerHTML = `<div class="leave-t"><b>You can leave this page.</b> Generation keeps running on the server. Come back with this link<span class="leave-ttl"></span>:</div>
       <div class="leave-row"><input class="leave-url" readonly aria-label="Link to this project"><button type="button" class="secondary leave-copy">Copy link</button></div>`;
     $(".card-h", $(c)).after(n);
     $(".leave-copy", n).onclick = async () => {
@@ -273,7 +304,8 @@
       P.hidden = false; P.dataset.state = "running"; document.body.classList.remove("stage-idle");
       if (P.dataset.wasRunning !== j.key) { P.dataset.wasRunning = j.key; P.classList.remove("open"); }
       const frac = j.frac != null ? Math.max(.04, j.frac) : null, left = Math.max(0, (j.eta || 60) - (j.frac == null ? el : 0));
-      P.innerHTML = `<div class="jp-top"><span class="spin" aria-hidden="true"></span><span class="jp-k">Working</span><span class="jp-mini">${esc(j.title)}</span><span class="jp-time">${mmss(el)}<span class="jp-eta"> elapsed · ${eta(left)}</span></span><span class="jp-chev" aria-hidden="true"></span></div>
+      const pv = $(".sc-pick.chosen img") || $("#scPhotoFile img") || null, prev = pv ? pv.getAttribute("src") : null;
+      P.innerHTML = `${prev ? `<img class="jp-prev" src="${esc(prev)}" alt="">` : ""}<div class="jp-top"><span class="spin" aria-hidden="true"></span><span class="jp-k">Working</span><span class="jp-mini">${esc(j.title)}</span><span class="jp-time">${mmss(el)}<span class="jp-eta"> elapsed · ${eta(left)}</span></span><span class="jp-chev" aria-hidden="true"></span></div>
         <div class="jp-title">${esc(j.title)}</div>
         <div class="jp-bar ${frac == null ? "ind" : ""}"><i style="${frac == null ? "" : `width:${Math.round(frac * 100)}%`}"></i></div>
         ${j.detail ? `<div class="jp-detail">${esc(j.detail)}</div>` : ""}
@@ -288,8 +320,8 @@
       const name = was ? was.split(".")[2] : (tr[`${j.kindOf}.${j.id}`]?.name) || (j.kindOf === "p" ? (S.steps?.plan?.status === "done" ? "generate" : "analyze") : j.obj?.sentences || j.obj?.windows ? "generate" : "analyze");
       const sel = RETRY[j.kindOf]?.[name];
       P.hidden = false; P.dataset.state = "error";
-      P.innerHTML = `<div class="jp-err-h">⚠ Something went wrong</div><div class="jp-err-m">${esc(j.error)}</div>
-        <div class="jp-actions">${sel ? `<button type="button" class="jp-retry">${sel === "#newProject" ? "Upload again" : "↻ Retry"}</button>` : ""}<button type="button" class="ghost jp-dismiss">Dismiss</button></div>
+      P.innerHTML = `<div class="jp-err-h">Something went wrong</div><div class="jp-err-m">${esc(j.error)}</div>
+        <div class="jp-actions">${sel ? `<button type="button" class="jp-retry">${sel === "#newProject" ? "Upload again" : "Retry"}</button>` : ""}<button type="button" class="ghost jp-dismiss">Dismiss</button></div>
         <div class="jp-note">${sel && sel !== "#newProject" ? "Retry shows the cost again before anything is spent." : "Nothing was charged for this step."}</div>`;
       const r = $(".jp-retry", P); if (r) r.onclick = () => { const b = $(sel); if (b) { b.disabled = false; b.click(); } };
       $(".jp-dismiss", P).onclick = () => { dismissed = j.error; panel(); };
@@ -297,10 +329,10 @@
       return;
     }
     if (was && j?.idle) {
-      document.title = "✅ Done – Multicam";
-      if (!was.endsWith("suggest")) toast("✅ Done", 3500);
+      document.title = "Done · Multicam";
+      if (!was.endsWith("suggest")) toast("Done", 3500);
       P.hidden = false; P.dataset.state = "done";
-      P.innerHTML = `<div class="jp-top"><span class="jp-k">Done</span></div><div class="jp-title">✅ ${was.endsWith("suggest") ? "Lines added" : "Finished"}</div>
+      P.innerHTML = `<div class="jp-top"><span class="jp-k">Done</span></div><div class="jp-title">${was.endsWith("suggest") ? "Lines added" : "Finished"}</div>
         <div class="jp-detail">${was.includes(".analyze") ? "Your clip is analyzed. Check the cameras and cost, then generate." : was.endsWith("suggest") ? "Edit them if you like, then Generate." : "Your result is ready below."}</div>`;
       setTimeout(() => { if (!prevKey && P.dataset.state === "done") P.hidden = true; }, 8000);
       return;
@@ -318,8 +350,8 @@
       if (sv.paused && matchMedia("(min-width:981px)").matches) sv.play().catch(() => {});
     } else { P.hidden = true; document.body.classList.remove("stage-idle"); }
   }
-  window.addEventListener("focus", () => { if (!prevKey && document.title.startsWith("✅")) setTimeout(() => { document.title = BASE_TITLE; }, 4000); });
-  setInterval(panel, 1000);
+  window.addEventListener("focus", () => { if (!prevKey && document.title.startsWith("Done ·")) setTimeout(() => { document.title = BASE_TITLE; }, 4000); });
+  setInterval(() => { panel(); stageResult(); }, 1000);
   // mobile: the sticky panel is one line (status + elapsed); tap to expand
   $("#jobPanel").addEventListener("click", e => {
     if (e.target.closest("button,a,input") || !matchMedia("(max-width:560px)").matches) return;
@@ -351,7 +383,7 @@
     }
     if (!ok.length) return;
     const [md, v, d] = ok[0], mins = Math.max(1, Math.round((now - v.t) / 60e3));
-    const st = d.busy ? `⏳ still working (${esc(d.busy)})` : d.error ? "⚠ stopped with an error" : (d.output || d.renders?.length) ? "✓ result ready" : "waiting for you";
+    const st = d.busy ? `Still working (${esc(d.busy)})` : d.error ? "Stopped with an error" : (d.output || d.renders?.length) ? "Result ready" : "waiting for you";
     const C = $("#resumeCard"); C.hidden = false;
     C.innerHTML = `<div class="rs-main"><div class="rs-k">Welcome back</div><div class="rs-t">Resume your last project</div>
       <div class="rs-m"><b>${NAME[md] || md}</b>${v.name ? ` · ${esc(v.name)}` : ""} · started ${mins} min ago · ${st}</div>

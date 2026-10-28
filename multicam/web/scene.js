@@ -73,7 +73,7 @@
     return `<div class="sc-line" data-k="${k}"><select class="sc-after">${opts}</select>
       <input class="sc-text" maxlength="160" value="${esc(ln.text)}" placeholder="B's line, exact words">
       <select class="sc-shot">${shots}</select>${ln.clip ? '<span class="badge ok">clip</span>' : ""}
-      <button class="ghost sc-del" title="remove">✕</button></div>`;
+      <button class="ghost sc-del" title="remove" aria-label="Remove line"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>`;
   }
   function collect() {
     return $$("#scLines .sc-line").map(r => ({after: +$(".sc-after", r).value, text: $(".sc-text", r).value.trim(), shot: $(".sc-shot", r).value}))
@@ -122,8 +122,8 @@
       const chosen = opts.find(o => o.chosen);
       const figs = opts.map(o => `<button type="button" class="sc-pick${o.chosen ? " chosen" : ""}${o.ok ? "" : " bad"}" data-shot="${shot}" data-still="${esc(o.name)}" aria-pressed="${o.chosen}" title="${esc(o.reason || "")}">
           <img src="${o.url}" alt="${o.original ? "your original photo" : esc(o.name)}" loading="lazy">
-          ${o.chosen ? '<span class="sc-use">✓ using</span>' : ""}${o.ok ? "" : `<span class="sc-flag">⚠ ${esc(o.reason)}</span>`}
-          <span class="sc-cap">${o.original ? "<b>Your original photo</b><small>looks at the camera</small>" : `<b>AI variant</b><small>${esc(o.name)} · looks screen-right</small>`}</span></button>`).join("");
+          ${o.chosen ? '<span class="sc-use">Using</span>' : ""}${o.ok ? "" : `<span class="sc-flag">${esc(o.reason)}</span>`}
+          <span class="sc-cap">${o.original ? "<b>Your original photo</b><small>looks at the camera</small>" : `<b>AI variant</b><small>${esc(o.name)} · ${o.ok ? "looks screen-right" : "not used automatically"}</small>`}</span></button>`).join("");
       return `<div class="sc-pick-row"><div class="sc-pick-h"><span class="tag B">B</span> ${SHOT_LABEL[shot] || shot} <span class="req">Required</span>${chosen ? "" : ' <span class="sc-none">pick one</span>'}</div><div class="sc-pick-opts">${figs}</div></div>`;
     }).join("");
     const e = SC.estimate || {}, gen = Object.values(SC.stills || {}).some(o => Array.isArray(o) && o.some(x => !x.original));

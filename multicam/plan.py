@@ -7,6 +7,8 @@ Editorial rule (defaults):
   * never use the first `breath` seconds of a generated chunk (breath mismatch)
   * at least `min_a` seconds of A between inserts (no back-to-back inserts)
   * inserts alternate between the B/C angles (pins can force an angle)
+  * angles listed in `silent_only` (pulled-back wides) are never put over speech: lips too small to read,
+    the shot looks frozen (see continuity.py); every insert here covers words, so they go to the other angles
 """
 from __future__ import annotations
 
@@ -33,6 +35,7 @@ class PlanParams:
     angles: list = field(default_factory=lambda: ["B", "C"])
     fps: float = 30.0
     all_chunks: bool = False     # emit generation jobs for chunks without an insert too
+    silent_only: list = field(default_factory=lambda: ["C"])  # wide angles: only over silence (C = wide by default)
 
 
 def _split_long_phrases(words, phrases, limit):
@@ -146,16 +149,26 @@ def pick_inserts(tr: dict, chunks: list[dict], P: PlanParams) -> list[dict]:
     return inserts
 
 
-def assign_angles(inserts: list[dict], angles: list[str], pins: dict[str, str]) -> None:
-    """Viterbi: minimize same-angle repeats between consecutive inserts, honoring pins."""
+def assign_angles(inserts: list[dict], angles: list[str], pins: dict[str, str],
+                  silent_only: list[str] | tuple = ()) -> None:
+    """Viterbi: minimize same-angle repeats between consecutive inserts, honoring pins.
+    Inserts that cover words never get a `silent_only` angle (a pin to one is ignored with a warning)."""
     if not inserts:
         return
+    speech_ok = [a for a in angles if a not in silent_only]
+    for ins in inserts:
+        if ins.get("words") and ins["chunk"] in pins and pins[ins["chunk"]] in silent_only:
+            print(f"warn: pin {ins['chunk']}={pins[ins['chunk']]} ignored: a wide can't go over speech "
+                  f"(\"{ins['words']}\")")
+            pins = {k: v for k, v in pins.items() if k != ins["chunk"]}
+    if not speech_ok:
+        speech_ok = angles
     INF = float("inf")
     n = len(inserts)
     cost = [{a: INF for a in angles} for _ in range(n)]
     back = [{a: None for a in angles} for _ in range(n)]
     for k, ins in enumerate(inserts):
-        allowed = [pins[ins["chunk"]]] if ins["chunk"] in pins else angles
+        allowed = [pins[ins["chunk"]]] if ins["chunk"] in pins else (speech_ok if ins.get("words") else angles)
         for a in allowed:
             if k == 0:
                 cost[0][a] = angles.index(a) * 0.01 if a in angles else 0.0
@@ -190,7 +203,8 @@ def build_plan(tr: dict, P: PlanParams, pins: list[str] | None = None) -> dict:
     inserts = pick_inserts(tr, chunks, P)
     pin_map = resolve_pins(pins, chunks)
     all_angles = sorted(set(P.angles) | set(pin_map.values()))
-    assign_angles(inserts, P.angles if set(pin_map.values()) <= set(P.angles) else all_angles, pin_map)
+    assign_angles(inserts, P.angles if set(pin_map.values()) <= set(P.angles) else all_angles, pin_map,
+                  silent_only=P.silent_only)
     by_chunk = {c["id"]: c for c in chunks}
     for ins in inserts:
         ch = by_chunk[ins["chunk"]]
@@ -198,7 +212,8 @@ def build_plan(tr: dict, P: PlanParams, pins: list[str] | None = None) -> dict:
     if P.all_chunks:
         for k, ch in enumerate(chunks):
             if not ch["generate"]:
-                ch["angle"], ch["generate"] = P.angles[k % len(P.angles)], True
+                ok = [x for x in P.angles if x not in P.silent_only] or P.angles
+                ch["angle"], ch["generate"] = ok[k % len(ok)], True
 
     # shots: A everywhere except inserts
     dur_q = qt(tr["duration"], P.fps)

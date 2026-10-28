@@ -587,6 +587,24 @@ are several, including Scene and Dub). The same files are saved in the project f
 `workflows/NN_<kind>_<prompt_id>.json`. Open one in ComfyUI or POST it to `/api/prompt` to re-run or modify that shot.
 API: `GET /api/{projects|scene|dub}/<id>/workflows` (list), `…/workflow/<prompt_id>` (one JSON), `…/workflows.zip`.
 
+## Continuity rules (automatic, free)
+
+Found in review (2026-10-28) and now enforced by the planner, the assembler and the Scene editor (`multicam/continuity.py`):
+
+- **No wide over speech.** In a pulled-back CrossView wide, the mouth is 0.28–0.45× the size it is in the real
+  take. Lips can't be read at that size, so the shot looks "mouth closed, body frozen" while the voice plays.
+  Wides (`wide`, `aerial`) are only used where the person on screen is silent or listening. With the default
+  cameras (B = side, C = wide), a talking take therefore gets its inserts on B.
+- **Mouth-motion check per insert** (`multicam/lipcheck.py`, OpenCV YuNet face landmarks, CPU, ~0.5 s per insert).
+  An insert over speech is dropped if it has no face, a mouth far smaller than the real take's, or articulation
+  far below the real take's over the same source span. It is replaced by another speech-safe angle that covers
+  the span, otherwise by the real take.
+- **One camera = one set.** Every insert on a camera uses the same CrossView camera phrase and seed, so CAM C
+  can't jump between two hallucinated rooms. A re-roll still moves that one shot to the next variant.
+- **Scene partner mirrors A.** B stills and clips are prompted "seated, same height, same room/lighting as the
+  source frame". The posture is read from the source frame (`--posture` overrides it); `--set look` keeps the
+  old per-look room.
+
 ## Next
 
 - **MCP server, so your own agent can drive Multicam.** A small `multicam mcp` server, using the same FastAPI

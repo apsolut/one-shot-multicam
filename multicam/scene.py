@@ -162,8 +162,10 @@ def suggest_lines(tr: dict, partner: str = "clone", max_lines: int = 3) -> list[
 def init(video: str | Path, work: Path, partner: str = "clone", lines: list[str] | None = None,
          look: str = "night", photo: str | None = None, character: str | None = None, voice: str | None = None,
          person: str = "man", a_look: str | None = None, script: str | None = None, suggest: bool = False,
-         transcript: str | None = None, model: str = "small") -> dict:
-    """Transcribe the real take (free) and write scene.json."""
+         transcript: str | None = None, model: str = "small", posture: str | None = None,
+         set_mode: str = "same") -> dict:
+    """Transcribe the real take (free) and write scene.json. posture: seated|standing (default: read from the
+    source frame); set_mode: "same" (partner in A's room, default) or "look" (the look's own room)."""
     if partner not in PARTNER_MODES:
         raise SystemExit(f"--partner must be one of {PARTNER_MODES}")
     if partner == "photo" and not photo:
@@ -183,7 +185,9 @@ def init(video: str | Path, work: Path, partner: str = "clone", lines: list[str]
           "look": look, "photo": str(Path(photo).resolve()) if photo else None, "character": character,
           "voice": voice or ("self" if partner == "clone" else "af_heart"),
           "a_look": a_look or "the other speaker", "lines": ls, "stills": {}, "a_clips": {}, "b_clips": {},
-          "jobs": [], "created": time.strftime("%Y-%m-%dT%H:%M:%S%z")}
+          "jobs": [], "created": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
+          "set": set_mode if set_mode in ("same", "look") else "same"}
+    sc["posture"] = posture if posture in POSTURES else a_posture(sc)
     if partner == "photo":
         try:
             make_originals(sc, work)
@@ -195,11 +199,40 @@ def init(video: str | Path, work: Path, partner: str = "clone", lines: list[str]
 
 
 # ------------------------------------------------------------------ prompts
+SAME_SET = ("the same room, background and lighting as in the source frame", "")
+POSTURES = {"seated": "seated, at the same height and eye level as in the source frame",
+            "standing": "standing, at the same height and eye level as in the source frame"}
+
+
+def a_posture(sc) -> str:
+    """The partner mirrors A's posture. Explicit sc["posture"] wins; otherwise read it from the source frame
+    (continuity.guess_posture: a talking-head framing = seated; a small face high in a full-body frame = standing)."""
+    p = sc.get("posture")
+    if p in POSTURES:
+        return p
+    try:
+        from .continuity import guess_posture
+        return guess_posture(sc["source"])
+    except Exception:  # noqa: BLE001
+        return "seated"
+
+
+def posture_line(sc) -> str:
+    """Prompt line for B stills/clips: same posture and set as A (conversation partners share a room)."""
+    if (sc.get("set") or "same") != "same":  # the user asked for a different room: keep only the posture
+        return f"The person is {POSTURES[a_posture(sc)]}. Do not change the posture."
+    return (f"The person is {POSTURES[a_posture(sc)]}, in the same room/lighting as the source frame. "
+            "Do not make the person stand up, do not move them to a window or another room.")
+
+
 def _look(sc) -> tuple[str, str, str]:
+    """-> (wardrobe, place for the still, place for the clip prompt). sc["set"] == "look" keeps the old
+    behaviour (each look has its own room); the default "same" keeps A's room so the two speakers match."""
     lk = sc.get("look") or "night"
-    if lk in LOOKS:
-        return LOOKS[lk]
-    return (lk, "a different room with different lighting", lk)  # free text: "<wardrobe>; <place/light>"
+    wear, place, short = LOOKS[lk] if lk in LOOKS else (lk, "a different room with different lighting", lk)
+    if (sc.get("set") or "same") == "same":
+        place, short = SAME_SET
+    return wear, place, short
 
 
 def _ots(sc) -> str:
@@ -224,14 +257,16 @@ def still_prompts(sc) -> list[tuple[str, str, float]]:
     p = _who(sc)
     if sc["partner"] == "clone":
         wear, place, _ = _look(sc)
+        bg = "" if (sc.get("set") or "same") == "same" else f"Change the lighting and background to {place}."
         keep = (f"Keep exactly the same {p} with the same face, same face shape, same eyes, same nose, same facial hair, "
-                f"same hairstyle, same head pose. Remove any headphones. Dress the {p} in {wear}. Change the lighting "
-                f"and background to {place}. ")
+                f"same hairstyle, same head pose. Remove any headphones. Dress the {p} in {wear}. "
+                + (f"{bg} " if bg else "") + f"{posture_line(sc)} ")
         base = [("single", keep + "Same camera angle and framing. Photorealistic film still.", 0.0),
                 ("ots", keep + "Same camera angle." + _ots(sc) + " Photorealistic film still.", 0.0),
                 ("close", keep + "Move the camera closer to a tight close-up of the face. Photorealistic film still.", 0.0)]
     else:
-        keep = (f"Keep exactly the same {p}: same face, same hair, same clothes, same room and lighting. ")
+        keep = (f"Keep exactly the same {p}: same face, same hair, same clothes, same room and lighting. "
+                f"{posture_line(sc)} ")
         base = [("single", SINGLE_ANGLE_PROMPT, SINGLE_ANGLE_LORA),
                 ("ots", keep + f"The {p} looks toward the right side of the frame, listening." + _ots(sc), 0.0),
                 ("close", keep + f"Move the camera closer to a close-up of the face, the {p} looks toward the right "
@@ -252,7 +287,7 @@ def b_visual(sc, shot: str, listening: bool = False) -> str:
     p = _who(sc)
     if sc["partner"] == "clone":
         wear, _, place = _look(sc)
-        who = f"The same {p} wearing {wear}, {place}"
+        who = f"The same {p} wearing {wear}" + (f", {place}" if place else "")
     else:
         who = f"The same {p}, same clothes, same room and lighting"
     frame = {"single": "", "ots": ", seen over the out-of-focus shoulder of the other speaker in the foreground",
@@ -260,7 +295,11 @@ def b_visual(sc, shot: str, listening: bool = False) -> str:
     act = ("listens silently with the mouth closed, small nod, thoughtful skeptical expression, blinking naturally"
            if listening else "talking with clearly articulated, natural mouth movements (lips, teeth and jaw move with "
            "every syllable), relaxed natural head movement and accurate lip sync")
-    return (f"{who}{frame}, keeps looking at someone off-screen to the right and never looks into the camera, {act}, "
+    pose = POSTURES[a_posture(sc)].split(",")[0] + " at the same height as the other speaker"
+    if (sc.get("set") or "same") == "same":
+        pose += ", same room/lighting as the source frame"
+    return (f"{who}{frame}, {pose}, "
+            f"keeps looking at someone off-screen to the right and never looks into the camera, {act}, "
             "natural skin texture with visible pores, not airbrushed, static camera, shallow depth of field, "
             "photorealistic film.")
 
@@ -392,13 +431,14 @@ def render_voices(out_dir: Path = VOICE_DIR, text: str = VOICE_TEXT, names=None,
 
 # ------------------------------------------------------------------ paid steps
 def a_wants(sc: dict) -> list[tuple[str, float, str]]:
-    """A turns that still need a re-shoot: (name, src_start, preset). Turn 0 -> wide, turns after B -> right90."""
+    """A turns that still need a re-shoot: (name, src_start, preset). All right90 (A side): A is speaking in every
+    A turn and a pulled-back wide can't go over speech (continuity.py), so a wide re-shoot would be wasted."""
     tr = load_json(sc["transcript"])
     out = []
     for i, t in enumerate(turns(sc, tr)):
         if t["who"] != "A":
             continue
-        preset = "right90" if i > 0 else "wide"
+        preset = "right90"
         if i == 0 and t["end"] - t["start"] < 3.0:
             continue
         probe_t = t["start"] if i > 0 else t["start"] + 1.2
@@ -731,8 +771,25 @@ def plan_edit(sc: dict, work: Path, react: bool = True) -> list[dict]:
     react_used: list[tuple[float, float]] = []
     edl = []
 
-    def covering(cl, t0, t1):
-        return next((c for c in cl if c["src_start"] + 0.05 <= t0 and t1 <= c["src_start"] + 5.0), None)
+    from .continuity import lip_ok, speaking
+    guard_log = sc.setdefault("continuity", [])
+    guard_log.clear()
+
+    def a_insert_ok(cam, c, s0, s1) -> bool:
+        """Continuity: A is speaking in an A turn, so no wide over words, and an A side must move its mouth."""
+        if cam == "A wide" and speaking(words, s0, s1):
+            guard_log.append({"t": round(s0, 2), "cam": cam, "reason": "wide over speech"})
+            return False
+        if cam == "A side" and speaking(words, s0, s1):
+            ok, why = lip_ok(c["path"], s0 - c["src_start"], s1 - c["src_start"], sc["source"], s0)
+            if not ok:
+                guard_log.append({"t": round(s0, 2), "cam": cam, "reason": why})
+            return ok
+        return True
+
+    def covering(cl, t0, t1, cam=None):
+        return next((c for c in cl if c["src_start"] + 0.05 <= t0 and t1 <= c["src_start"] + 5.0
+                     and (cam is None or a_insert_ok(cam, c, t0, t1))), None)
 
     for i, t in enumerate(T):
         if t["who"] == "B":
@@ -770,7 +827,7 @@ def plan_edit(sc: dict, work: Path, react: bool = True) -> list[dict]:
         if opening:
             cut = t1 if t1 - t0 < 2.2 else _cut_near(aw, min(t1 - 0.8, t0 + 1.6), t0 + 0.9, t1 - 0.6)
             for cam, src, pool in opening:
-                c = pool if src == "react" else covering(pool, t0, cut)
+                c = pool if src == "react" else covering(pool, t0, cut, cam)
                 if c and cut - t0 >= 0.6:
                     segs.append((cam, src, c, t0, cut)); cur, used = cut, cam
                     break
@@ -786,7 +843,7 @@ def plan_edit(sc: dict, work: Path, react: bool = True) -> list[dict]:
             for n, (cam, src, c) in enumerate(pool):
                 if cam == used:
                     continue
-                c = c or covering(side if cam == "A side" else wide, a, bb)
+                c = c or covering(side if cam == "A side" else wide, a, bb, cam)
                 if c:
                     pick = (cam, src, c); pool.pop(n)
                     break

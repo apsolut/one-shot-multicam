@@ -8,8 +8,9 @@ mouth shapes frame for frame, and alignment is the identity (offset 0, speed 1) 
 
 The CrossView LoRA was trained on a fixed vocabulary:
     crossview. new camera angle: {azimuth}, {elevation}, {distance}.
-Each camera preset below lists several variants; the n-th insert on a camera uses variant n (and a
-re-roll moves to the next one), so no two inserts look the same.
+Each camera preset below lists several variants. Every insert on a camera uses the SAME variant and seed
+(one camera = one virtual set: two different phrasings/seeds hallucinate two different rooms, review
+2026-10-28); a re-roll moves that shot to the next variant and a fresh seed.
 """
 from __future__ import annotations
 
@@ -121,13 +122,20 @@ def run_reshoot_job(video: str | Path, start: float, preset: str, variant: int, 
     return rec
 
 
-def insert_ordinals(plan: dict) -> dict[tuple[str, str], int]:
-    """(chunk, cam) -> how many earlier inserts use the same cam (picks the camera variant)."""
+def camera_seed(scope: str, cam: str) -> int:
+    """Deterministic seed per (project, camera): every insert on that camera shares it (consistent set)."""
+    import hashlib
+    return int(hashlib.sha256(f"{scope}|{cam}".encode()).hexdigest()[:12], 16)
+
+
+def insert_ordinals(plan: dict, consistent: bool = True) -> dict[tuple[str, str], int]:
+    """(chunk, cam) -> camera variant for that insert. consistent (default): 0 for every insert, so all uses of
+    a camera share one camera phrase; consistent=False: the n-th insert on a camera gets variant n (old)."""
     seen: dict[str, int] = {}
     out = {}
     for s in plan["shots"]:
         if s["cam"] == "A" or not s.get("chunk") or (s["chunk"], s["cam"]) in out:
             continue
-        out[(s["chunk"], s["cam"])] = seen.get(s["cam"], 0)
+        out[(s["chunk"], s["cam"])] = 0 if consistent else seen.get(s["cam"], 0)
         seen[s["cam"]] = seen.get(s["cam"], 0) + 1
     return out

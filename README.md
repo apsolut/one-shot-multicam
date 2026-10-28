@@ -11,7 +11,7 @@ A VFX "re-shoot from any angle" app for the Comfy *Open Source Higgsfield* chall
 and faster-whisper for the word cuts. MIT licensed.
 
 - **Live gallery (no key needed, before/after):** <https://apsolut.github.io/one-shot-multicam/>
-- **Try it:** <https://one-shot-multicam.fly.dev/> (bring your own Comfy Cloud key, [get one here](https://platform.comfy.org/profile/api-keys); analyze, plan, edit and render are free, a re-shoot insert is ≈ $0.055 on your Comfy credits. Or run it locally in 2 commands, below)
+- **Try it:** <https://one-shot-multicam.fly.dev/> (a few free runs, one per visitor, while they last; then bring your own Comfy Cloud key, [get one here](https://platform.comfy.org/profile/api-keys); analyze, plan, edit and render are free, a re-shoot insert is ≈ $0.055 on your Comfy credits. Or run it locally in 2 commands, below)
 - **Demo video (1:43):** <https://apsolut.github.io/one-shot-multicam/media/submission_demo.mp4> (the app in action, the ComfyUI workflow, v0.1 vs v0.2)
 - **Release / media:** <https://github.com/apsolut/one-shot-multicam/releases/tag/v0.1.0>
 
@@ -125,6 +125,18 @@ Comfy Cloud key (kept in their browser, forwarded per request, never stored or l
   capped at `MULTICAM_JUDGE_MAX_JOBS` jobs total (default 10) and still under the balance floor.
   Everyone else must bring their own key. Without a configured code, nobody can use the operator key.
   Set it with `fly secrets set MULTICAM_JUDGE_CODE=... COMFY_API_KEY=...`; never commit it.
+
+**Free trial runs** (`--hosted-runs` / `MULTICAM_HOSTED_RUNS`, on in the live demo with 6): visitors with
+no key and no judge code may use the operator key for **one free run each**. A run is one project in any
+mode (Talk, Music, Scene or Dub; clips ≤ 30 s), capped at `MULTICAM_TRIAL_JOBS_PER_RUN` Comfy jobs (default
+10, so a 17 s Dub of 9 jobs fits). Its paid steps (for example Dub's translate, then generate, or a
+re-roll) share that one run. One per visitor is enforced by a salted IP hash **and** a random first-party
+cookie (`mc_vid`). The UI shows "X of 6 free runs left" and falls back to your own key or a judge code
+when they're gone. The judge quota is separate and unaffected, and the balance floor stays a hard stop
+for both. The counter lives in `<data>/hosted_jobs.json` → `"trial": {"used": N, ...}` (on Fly:
+`/data/hosted_jobs.json` on the `multicam_data` volume). Runs that never reached Comfy are refunded, so a
+failed upload doesn't burn a visitor's run. **To top up by 6 more**, raise `MULTICAM_HOSTED_RUNS` to 12 in
+`fly.toml` (the used count stays) and lower `MULTICAM_HOSTED_FLOOR_USD` by about $3, then `fly deploy`.
 
 `--public` turns on the public-site guards (no project listing, upload limits, TTL, fast 720p
 renders; each can also be set by env var, so a container only needs env):

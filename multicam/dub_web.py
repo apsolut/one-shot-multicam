@@ -27,6 +27,7 @@ class _Shim:
 
     def __init__(self, d: Path, lang: str):
         self.d, self.lang = d, lang
+        self.work = d  # project identity for free trial runs (App.project_key)
 
     @property
     def state(self):

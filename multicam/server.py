@@ -34,6 +34,7 @@ STILL_LABELS = {"closeup": "Close-up", "wide": "Wide", "right45": "45° right", 
                 "right90": "Profile right", "left90": "Profile left", "lowangle": "Low angle", "aerial": "Aerial"}
 BURN_NAMES = {"closeup": "close-up", "wide": "wide", "right45": "side", "left45": "side", "right90": "profile",
               "left90": "profile", "lowangle": "low angle", "aerial": "aerial"}  # burned-in label text
+VISITOR_COOKIE = "mc_vid"  # random first-party id for the one-free-run-per-visitor rule
 ENGINES = ("reshoot", "idlora")  # reshoot = CrossView IC-LoRA on the real take; idlora = classic Qwen still + ID LoRA
 REPO_ROOT = Path(__file__).resolve().parent.parent
 WEB_DIR = Path(__file__).resolve().parent / "web"
@@ -116,7 +117,7 @@ class App:
                  ttl_minutes: float | None = None, ip_jobs_per_day: int | None = None,
                  ip_projects_per_hour: int | None = None, proxy_hops: int = 0, hosted_floor_usd: float | None = None,
                  engine: str = "reshoot", public: bool = False, hosted_access: str = "open",
-                 judge_max_jobs: int = 10):
+                 judge_max_jobs: int = 10, trial_runs: int = 0, trial_jobs_per_run: int = 10):
         """Hosted (public) mode = hosted_key_env is set AND that env var holds a key. Its guards:
         max_jobs (global, persisted), ip_jobs_per_day / ip_projects_per_hour (per client IP, persisted),
         max_upload_s / max_upload_mb, ttl_minutes (projects auto-deleted), no project listing."""
@@ -131,6 +132,11 @@ class App:
         # (env MULTICAM_JUDGE_CODE); everyone else brings their own key. No code configured = BYO key only.
         self.hosted_access = hosted_access if hosted_access in ("open", "judge") else "judge"
         self.judge_max_jobs = judge_max_jobs
+        # free trial runs on the operator key: a global pool (MULTICAM_HOSTED_RUNS, raise it to top up; the
+        # used count lives in hosted_jobs.json on the data volume), one run per visitor (hashed IP + cookie),
+        # one run = one project in any mode, capped at trial_jobs_per_run Comfy jobs. Balance floor still applies.
+        self.trial_runs = max(0, int(trial_runs or 0))
+        self.trial_jobs_per_run = max(1, int(trial_jobs_per_run or 10))
         self.public_site = bool(public or hosted_key_env)  # public-site guards (no listing, TTL, rate limits)
         self.engine = engine if engine in ENGINES else "reshoot"  # default for new projects
         import os as _os
@@ -163,6 +169,93 @@ class App:
     def judge_enabled(self) -> bool:
         import os
         return bool(self.operator_key) and self.hosted_access == "judge" and len(os.environ.get("MULTICAM_JUDGE_CODE", "")) >= 8
+
+    @property
+    def trial_enabled(self) -> bool:
+        return bool(self.operator_key) and self.trial_runs > 0
+
+    @staticmethod
+    def _cookie_id(cookie: str | None) -> str | None:
+        import hashlib
+        return hashlib.sha256(("multicam-vid:" + cookie).encode()).hexdigest()[:16] if cookie else None
+
+    @staticmethod
+    def project_key(p) -> str:
+        import hashlib
+        return hashlib.sha256(str(getattr(p, "work", p)).encode()).hexdigest()[:16]
+
+    def _trial(self, d: dict) -> dict:
+        t = d.setdefault("trial", {})
+        for k, v in (("used", 0), ("ips", {}), ("cookies", {}), ("jobs", {})):
+            t.setdefault(k, v)
+        return t
+
+    def trial_status(self, ip: str, cookie: str | None) -> dict | None:
+        if not self.trial_enabled:
+            return None
+        t = self._trial(self._ledger())
+        mine = t["ips"].get(self._ip_id(ip)) or t["cookies"].get(self._cookie_id(cookie) or "-")
+        return {"runs_total": self.trial_runs, "runs_left": max(0, self.trial_runs - int(t["used"])),
+                "used_by_you": bool(mine), "jobs_per_run": self.trial_jobs_per_run}
+
+    def _floor_ok(self, n: int) -> bool:
+        if self.hosted_floor_usd is None:
+            return True
+        import os
+        from .comfy import COST_PER_JOB_USD, balance_usd
+        try:
+            bal = balance_usd(os.environ[self.hosted_key_env])
+        except Exception:  # noqa: BLE001
+            bal = None
+        return bal is not None and bal - n * COST_PER_JOB_USD >= self.hosted_floor_usd
+
+    def charge_trial(self, n: int, ip: str, cookie: str | None, pkey: str):
+        """Reserve n jobs of a free trial run. The first paid action on a project starts the visitor's run;
+        later actions on the same project (e.g. Dub translate -> generate, a re-roll) use the same run."""
+        with self.budget_lock:
+            d = self._ledger()
+            t = self._trial(d)
+            ipk, ck = self._ip_id(ip), self._cookie_id(cookie)
+            owner = t["ips"].get(ipk) or (t["cookies"].get(ck) if ck else None)
+            if owner and owner != pkey:
+                raise PermissionError("you've used your free run (one per visitor). Paste your own Comfy Cloud key "
+                                      "to keep going (platform.comfy.org → API keys), or use a judge code")
+            if pkey not in t["jobs"] and int(t["used"]) >= self.trial_runs:
+                raise PermissionError(f"all {self.trial_runs} free runs are used up. Paste your own Comfy Cloud key "
+                                      "(platform.comfy.org → API keys), or use a judge code")
+            used = int(t["jobs"].get(pkey, 0))
+            if used + n > self.trial_jobs_per_run:
+                raise PermissionError(f"a free run covers up to {self.trial_jobs_per_run} Comfy jobs ({used} used on "
+                                      f"this project, this needs {n}). Paste your own key for more")
+            if not self._floor_ok(n):
+                raise PermissionError("the free runs are used up. Paste your own Comfy Cloud key to keep going")
+            if pkey not in t["jobs"]:
+                t["used"] = int(t["used"]) + 1
+            t["jobs"][pkey] = used + n
+            t["ips"][ipk] = pkey
+            if ck:
+                t["cookies"][ck] = pkey
+            save_json(d, self.counter_file)
+
+    def refund_trial(self, n: int, pkey: str):
+        """Give back unsubmitted trial jobs; a run with nothing submitted is released entirely."""
+        if n <= 0:
+            return
+        with self.budget_lock:
+            d = self._ledger()
+            t = self._trial(d)
+            if pkey not in t["jobs"]:
+                return
+            left = int(t["jobs"][pkey]) - n
+            if left > 0:
+                t["jobs"][pkey] = left
+            else:
+                del t["jobs"][pkey]
+                t["used"] = max(0, int(t["used"]) - 1)
+                for m in (t["ips"], t["cookies"]):
+                    for k in [k for k, v in m.items() if v == pkey]:
+                        del m[k]
+            save_json(d, self.counter_file)
 
     def judge_ok(self, code: str | None) -> bool:
         import hmac
@@ -224,6 +317,8 @@ class App:
                 return self.operator_key, "judge"
             raise PermissionError("that judge code isn't valid. Paste your own Comfy Cloud key instead "
                                   "(platform.comfy.org → API keys)")
+        if self.trial_enabled:
+            return self.operator_key, "trial"  # charge_trial enforces the pool / per-visitor / floor limits
         raise PermissionError("Comfy Cloud API key required: paste your own key "
                               "(get one at platform.comfy.org → API keys)")
 
@@ -247,14 +342,7 @@ class App:
             if not judge and self.max_jobs is not None and used + n > self.max_jobs:
                 raise PermissionError(f"the public demo budget is used up ({used}/{self.max_jobs} jobs). "
                                       "Paste your own Comfy Cloud key to keep going")
-            if self.hosted_floor_usd is not None:  # ask Comfy for the real balance (survives restarts/disk loss)
-                import os
-                from .comfy import COST_PER_JOB_USD, balance_usd
-                try:
-                    bal = balance_usd(os.environ[self.hosted_key_env])
-                except Exception:  # noqa: BLE001
-                    bal = None
-                if bal is None or bal - n * COST_PER_JOB_USD < self.hosted_floor_usd:
+            if not self._floor_ok(n):  # asks Comfy for the real balance (survives restarts/disk loss)
                     raise PermissionError("the public demo budget is used up. Paste your own Comfy Cloud key to keep going")
             if judge:
                 d["judge_jobs"] = int(d.get("judge_jobs", 0)) + n
@@ -284,8 +372,8 @@ class App:
             d["ip_jobs"][k] = d["ip_jobs"].get(k, [])[:-n] if n else d["ip_jobs"].get(k, [])
             save_json(d, self.counter_file)
 
-    def hosted_run(self, p: "Project", n: int, ip: str, fn, judge: bool = False):
-        """Wrap a paid background action so unsubmitted reservations are refunded."""
+    def hosted_run(self, p: "Project", n: int, ip: str, fn, judge: bool = False, trial: str | None = None):
+        """Wrap a paid background action so unsubmitted reservations are refunded (trial: project key)."""
         def submitted():
             return len(p.state.get("prompt_ids", []))
         before = submitted()
@@ -294,7 +382,10 @@ class App:
             try:
                 fn()
             finally:
-                self.refund_hosted(n - (submitted() - before), ip, judge)
+                if trial:
+                    self.refund_trial(n - (submitted() - before), trial)
+                else:
+                    self.refund_hosted(n - (submitted() - before), ip, judge)
         return run
 
     def _janitor(self):
@@ -755,6 +846,13 @@ def create_app(app_state: App):
         if not hosted:
             return fn
         ip = A.client_ip(request)
+        if hosted == "trial":
+            pkey = A.project_key(p)
+            try:
+                A.charge_trial(n, ip, request.cookies.get(VISITOR_COOKIE), pkey)
+            except PermissionError as e:
+                raise HTTPException(403, str(e))
+            return A.hosted_run(p, n, ip, fn, trial=pkey)
         judge = hosted == "judge"
         try:
             A.charge_hosted(n, ip, judge=judge)
@@ -762,9 +860,21 @@ def create_app(app_state: App):
             raise HTTPException(429 if "rate limit" in str(e) else 403, str(e))
         return A.hosted_run(p, n, ip, fn, judge=judge)
 
+    @api.middleware("http")
+    async def visitor_cookie(request: Request, call_next):
+        """Free-trial visitors get a random first-party cookie (one free run per visitor = IP + cookie)."""
+        resp = await call_next(request)
+        if A.trial_enabled and not request.cookies.get(VISITOR_COOKIE):
+            import secrets as _secrets
+            https = request.url.scheme == "https" or request.headers.get("x-forwarded-proto", "") == "https"
+            resp.set_cookie(VISITOR_COOKIE, _secrets.token_hex(12), max_age=400 * 86400, httponly=True,
+                            samesite="lax", secure=https)
+        return resp
+
     @api.get("/api/config")
-    def config():
+    def config(request: Request):
         hosted = A.hosted
+        trial = A.trial_status(A.client_ip(request), request.cookies.get(VISITOR_COOKIE))
         from .comfy import job_cost
         from .reshoot import ANGLES
         return {"version": __version__, "hosted": hosted, "hosted_jobs_left": max(0, A.max_jobs - A.hosted_used())
@@ -772,14 +882,21 @@ def create_app(app_state: App):
                 "ip_jobs_per_day": A.ip_jobs_per_day if hosted else None,
                 "max_upload_s": A.max_upload_s, "max_upload_mb": A.max_upload_mb, "ttl_minutes": A.ttl_minutes,
                 "cost_per_job_usd": job_cost(A.engine), "repo_url": A.repo_url, "max_jobs_per_run": A.max_jobs_per_run,
-                "byok_only": not hosted, "judge_code": A.judge_enabled, "public": A.public_site,
+                "byok_only": not hosted and not trial, "trial": trial, "judge_code": A.judge_enabled, "public": A.public_site,
                 "get_key_url": "https://platform.comfy.org/profile/api-keys",
                 "engine": A.engine, "cost_usd": {e: job_cost(e) for e in (*ENGINES, "angles")},
                 "reshoot_angles": {k: {"label": v[0], "variants": v[1]} for k, v in ANGLES.items()}}
 
     @api.post("/api/check-key")
-    def check_key(x_comfy_key: str | None = Header(default=None), x_judge_code: str | None = Header(default=None)):
+    def check_key(request: Request, x_comfy_key: str | None = Header(default=None),
+                  x_judge_code: str | None = Header(default=None)):
         from .comfy import ComfyError, balance_usd, check_key as ck
+        if not (x_comfy_key or "").strip() and not (x_judge_code or "").strip() and not A.hosted:
+            t = A.trial_status(A.client_ip(request), request.cookies.get(VISITOR_COOKIE))
+            if not t:
+                raise HTTPException(403, "Comfy Cloud API key required: paste your own key "
+                                         "(get one at platform.comfy.org → API keys)")
+            return {"ok": True, "trial": t}
         if not (x_comfy_key or "").strip() and (x_judge_code or "").strip():
             if not A.judge_ok(x_judge_code):
                 raise HTTPException(403, "that judge code isn't valid")

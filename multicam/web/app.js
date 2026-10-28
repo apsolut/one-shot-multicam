@@ -14,7 +14,9 @@ const key = () => localStorage.getItem(KEY_LS) || "";
 const JUDGE_LS = "multicam.judgeCode";
 const judge = () => (cfg.judge_code && localStorage.getItem(JUDGE_LS)) || "";
 let judgeLeft = null;  // jobs left on a valid judge code (null = unknown / none)
-const canPay = () => !!(key() || cfg.hosted || judge());
+// free trial runs on the hosted key: a visitor may pay with one (the server enforces pool, 1 per visitor, floor)
+const trialOk = () => !!(cfg.trial && (cfg.trial.runs_left > 0 || cfg.trial.used_by_you));
+const canPay = () => !!(key() || cfg.hosted || judge() || trialOk());
 
 async function api(path, opts = {}) {
   const headers = {...(opts.headers || {})};
@@ -56,6 +58,8 @@ function renderKey() {
   else if (cfg.hosted && !k) { b.textContent = `demo key · ${cfg.hosted_jobs_left ?? "∞"} jobs left`; b.className = "badge warn"; }
   else if (k) { b.textContent = "saved in this browser"; b.className = "badge ok"; }
   else if (judge()) { b.textContent = `judge code · ${judgeLeft ?? "?"} jobs left`; b.className = "badge warn"; }
+  else if (cfg.trial && trialOk()) { b.textContent = cfg.trial.used_by_you ? "using your free run" : `optional · ${cfg.trial.runs_left} of ${cfg.trial.runs_total} free runs left`; b.className = "badge ok"; }
+  else if (cfg.trial) { b.textContent = "free runs used · paste your key"; b.className = "badge bad"; }
   else if (cfg.byok_only && cfg.public) { b.textContent = "required to generate"; b.className = "badge bad"; }
   else { b.textContent = "not set"; b.className = "badge"; }
 }
@@ -90,6 +94,7 @@ const drop = $("#drop");
 ["dragleave", "drop"].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove("over"); }));
 drop.addEventListener("drop", e => setFile(e.dataTransfer.files[0]));
 $("#file").onchange = e => setFile(e.target.files[0]);
+$("#fileCam").onchange = e => setFile(e.target.files[0]);  // phones: record a new take with the front camera
 let fileDur = null;
 const canStart = () => { $("#start").disabled = !(file && $("#consent").checked && !(cfg.max_upload_s && fileDur > cfg.max_upload_s + 0.5)); };
 $("#consent").onchange = canStart;
@@ -297,6 +302,21 @@ $("#shareBtn").onclick = async () => {
 function renderBanner() {
   const b = $("#banner");
   $("#judgeBox").hidden = !cfg.judge_code;
+  if (cfg.public && cfg.trial) {
+    const t = cfg.trial, url = cfg.get_key_url || "https://platform.comfy.org/profile/api-keys";
+    const open = t.runs_left > 0 && !t.used_by_you;
+    if (cfg.max_upload_s) $("#dropHint").textContent = `Up to ${cfg.max_upload_s} s, you talking to camera (or performing). Your own face, or someone who consented.`;
+    $("#keyNote").innerHTML = `${open ? "🎁 <b>Optional while free runs last:</b> leave it empty to use your free run." : "🔑 <b>Bring your own key:</b> generation runs on <b>your</b> Comfy Cloud credits."} Get a key at <a href="${url}" target="_blank" rel="noopener">platform.comfy.org → API keys</a>. It's saved only in <b>this browser</b> (localStorage) and sent per request to this server, which forwards it to Comfy Cloud and <b>never stores or logs it</b>. <a href="#" id="keyForget">Forget key</a>`;
+    $("#keyForget").onclick = e => { e.preventDefault(); localStorage.removeItem(KEY_LS); renderKey(); toast("Key removed from this browser"); };
+    b.hidden = false; b.classList.toggle("out", !open && !t.used_by_you);
+    b.innerHTML = open
+      ? `🎁 <b>${t.runs_left} of ${t.runs_total} free runs left.</b> One free run per visitor: one video in any mode (Talk, Music, Scene or Dub), clips up to ${cfg.max_upload_s || 30} s${cfg.ttl_minutes ? `, deleted after ${cfg.ttl_minutes} min` : ""}. After that, <a href="#keyCard" id="bannerKey"><b>paste your own Comfy Cloud key</b></a> (<a href="${url}" target="_blank" rel="noopener">get one</a>)${cfg.judge_code ? " or a judge code" : ""}.`
+      : t.used_by_you
+        ? `🎁 <b>You're using your free run</b> on one project (${t.runs_left} of ${t.runs_total} left for others). For more, <a href="#keyCard" id="bannerKey"><b>paste your own Comfy Cloud key</b></a> (<a href="${url}" target="_blank" rel="noopener">get one</a>)${cfg.judge_code ? " or a judge code" : ""}.`
+        : `<b>The free runs are used up (0 of ${t.runs_total} left).</b> 🔑 <a href="#keyCard" id="bannerKey"><b>Paste your own Comfy Cloud key</b></a> (<a href="${url}" target="_blank" rel="noopener">get one</a>)${cfg.judge_code ? " or a judge code" : ""} to generate. Free steps (upload, analyze, plan, edit, render) still work, or <a href="${cfg.repo_url}" target="_blank" rel="noopener">run it yourself</a>.`;
+    $("#bannerKey").onclick = e => { e.preventDefault(); $("#keyCard").classList.add("attention"); $("#keyCard").scrollIntoView({behavior: "smooth", block: "center"}); $("#key").focus(); };
+    return;
+  }
   if (cfg.public && cfg.byok_only) {
     const per = (cfg.cost_usd?.[cfg.engine] ?? cfg.cost_per_job_usd ?? 0.05), url = cfg.get_key_url || "https://platform.comfy.org/profile/api-keys";
     $("#keyNote").innerHTML = `🔑 <b>Bring your own key:</b> generation runs on <b>your</b> Comfy Cloud credits. Get a key at <a href="${url}" target="_blank" rel="noopener">platform.comfy.org → API keys</a>. It's saved only in <b>this browser</b> (localStorage) and sent per request to this server, which forwards it to Comfy Cloud and <b>never stores or logs it</b>. Free steps (transcribe, plan, edit, render) don't need it. <a href="#" id="keyForget">Forget key</a>`;
@@ -334,7 +354,7 @@ async function refreshCfg() { cfg = await api("/api/config").catch(() => cfg); r
 // ---------- polling / boot
 function poll() { clearTimeout(polling); polling = setTimeout(async () => {
   try { S = await api(`/api/projects/${S.id}`); render(); } catch (e) { /* server restarting */ }
-  if (S.busy) poll(); else { loadRecent(); if (cfg.hosted) refreshCfg(); } }, 1200); }
+  if (S.busy) poll(); else { loadRecent(); if (cfg.hosted || cfg.trial) refreshCfg(); } }, 1200); }
 async function loadRecent() {
   const list = await api("/api/projects").catch(() => []);
   $("#recentCard").hidden = !list.length;

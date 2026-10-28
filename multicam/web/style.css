@@ -187,3 +187,44 @@ dialog ul{padding-left:18px;color:var(--muted);margin:8px 0}
 .db-line .db-src{font-size:13px;color:var(--muted)}.db-line textarea{width:100%;min-height:52px}
 .db-line .db-fit{font-size:12px;color:var(--warn)}.db-line .db-fit.ok{color:var(--dim)}
 #dbPlayer{width:100%;max-width:360px;border-radius:14px;display:block;margin:8px 0;background:#000}
+
+/* ---- mobile (360-430 px phones). Root cause of the old horizontal overflow: `1fr` grid tracks can't
+   shrink below their nowrap buttons' min-content, so the 4-tab mode row pushed every card to ~580 px. */
+img,video{max-width:100%}
+main,.card,.foot,.banner,.note,.consent{overflow-wrap:break-word}
+.card,.card>*{min-width:0}
+.seg{grid-template-columns:repeat(2,minmax(0,1fr))}
+#mode{grid-template-columns:repeat(4,minmax(0,1fr))}
+#scPartner{grid-template-columns:repeat(3,minmax(0,1fr))}
+.seg button{min-width:0;white-space:normal;line-height:1.25;text-align:center}
+.scene-opts{grid-template-columns:minmax(0,1fr)}  /* an auto track grows to the longest <select> option */
+.camrec{display:none}
+@media (pointer:coarse){.camrec{display:inline-flex;align-items:center;justify-content:center;gap:6px;margin-top:10px;width:100%;min-height:44px}}
+@media (max-width:560px){
+  main{padding:4px 12px 32px}
+  .top{padding:12px 14px}.top nav{gap:14px}
+  .banner{width:calc(100% - 24px);padding:11px 13px}
+  .hero{padding:22px 0 12px}.hero p{font-size:15.5px}
+  .card{padding:16px 14px;margin:12px 0;border-radius:16px}
+  #mode{grid-template-columns:repeat(2,minmax(0,1fr))}
+  #scPartner{grid-template-columns:1fr}
+  .seg button{min-height:44px;padding:8px 10px}
+  .seg button small{margin-left:3px}
+  button,.btn,.filebtn,select{min-height:44px}
+  input:not([type=checkbox]):not([type=radio]):not([type=file]),textarea,select{font-size:16px!important}  /* no iOS focus zoom */
+  .row.gap,.row{flex-wrap:wrap}
+  .row.gap>.switch{flex-basis:100%}
+  input:not([type=checkbox]):not([type=radio]),select,textarea{max-width:100%}
+  button.primary{width:100%}
+  .row.gap>button,.row.gap>.btn,.row.gap>a.btn{flex:1 1 auto}
+  .drop{padding:16px 14px}.drop-in{gap:12px}
+  .consent{font-size:14px}.consent input{width:22px;height:22px;margin-top:0}
+  .card-h{flex-wrap:wrap}
+  .sc-line{grid-template-columns:minmax(0,1fr) auto}
+  .sc-line .sc-text{grid-column:1/-1}
+  .sc-stills{grid-template-columns:repeat(2,1fr)}
+  #scPlayer,#dbPlayer{max-width:100%}
+  .db-line textarea{min-height:110px}
+  .foot{padding:10px 14px 32px}
+  dialog{padding:18px}
+}

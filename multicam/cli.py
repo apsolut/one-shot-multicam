@@ -337,7 +337,7 @@ def cmd_serve(a):
           max_upload_mb=a.max_upload_mb, max_upload_s=a.max_upload_s, ttl_minutes=a.ttl_minutes,
           ip_jobs_per_day=a.ip_jobs_per_day, ip_projects_per_hour=a.ip_projects_per_hour, proxy_hops=a.proxy_hops,
           hosted_floor_usd=a.hosted_floor_usd, engine=a.engine, public=a.public, hosted_access=a.hosted_access,
-          judge_max_jobs=a.judge_max_jobs)
+          judge_max_jobs=a.judge_max_jobs, trial_runs=a.hosted_runs, trial_jobs_per_run=a.trial_jobs_per_run)
 
 
 def _add_plan_args(p):
@@ -451,6 +451,10 @@ def main(argv=None):
                         "judge code in env MULTICAM_JUDGE_CODE; everyone else brings their own key")
     g.add_argument("--judge-max-jobs", type=int, default=_int(E("MULTICAM_JUDGE_MAX_JOBS")) or 10,
                    help="total jobs the judge code may spend on the hosted key (default 10)")
+    g.add_argument("--hosted-runs", type=int, default=_int(E("MULTICAM_HOSTED_RUNS")) or 0,
+                   help="free trial runs on the hosted key (global pool, one per visitor; raise it to top up)")
+    g.add_argument("--trial-jobs-per-run", type=int, default=_int(E("MULTICAM_TRIAL_JOBS_PER_RUN")) or 10,
+                   help="Comfy jobs one free run may use (a 17 s Dub = 9, a talk video = 4)")
     g.add_argument("--max-jobs", type=int, default=_int(E("MULTICAM_MAX_JOBS")), help="total job cap for the hosted key (persisted)")
     g.add_argument("--ip-jobs-per-day", type=int, default=_int(E("MULTICAM_IP_JOBS_PER_DAY")))
     g.add_argument("--ip-projects-per-hour", type=int, default=_int(E("MULTICAM_IP_PROJECTS_PER_HOUR")))

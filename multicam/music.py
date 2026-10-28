@@ -76,42 +76,67 @@ def face_visibility(video, step_fps: float = 8.0) -> list[tuple[float, float]]:
     return out
 
 
-def lyric_words(lyrics: list[str], word_dur: float) -> list[dict]:
-    """'8.0=Cause I work' or '8.0-9.6=Cause I work' -> timed words (evenly spread)."""
+def parse_time(t: str) -> float:
+    """'8', '8.5', '8,5', '0:08', '1:02.5' -> seconds. Raises ValueError on anything else."""
+    t = t.strip().replace(",", ".")
+    if not t:
+        raise ValueError("empty time")
+    parts = t.split(":")
+    if len(parts) > 3:
+        raise ValueError(f"bad time {t!r}")
+    secs = 0.0
+    for p in parts:
+        secs = secs * 60 + float(p)
+    if secs < 0:
+        raise ValueError(f"negative time {t!r}")
+    return secs
+
+
+def lyric_words(lyrics: list[str], word_dur: float, bad: list | None = None) -> list[dict]:
+    """'8.0=Cause I work', '8.0-9.6=Cause I work' or '0:08-0:09.6=...' -> timed words (evenly spread).
+    Lines that don't parse are skipped (and appended to `bad` when given) instead of failing the whole plan."""
     words = []
-    for pi, item in enumerate(lyrics or []):
-        t, text = item.split("=", 1)
-        toks = text.split()
-        if "-" in t:
-            t0, t1 = map(float, t.split("-"))
-        else:
-            t0 = float(t); t1 = t0 + word_dur * len(toks)
+    pi = 0
+    for item in lyrics or []:
+        try:
+            t, text = item.split("=", 1)
+            toks = text.split()
+            if not toks:
+                raise ValueError("no words")
+            if "-" in t.strip()[1:]:  # a range (a leading '-' would be a negative time)
+                a, b = t.strip().split("-", 1)
+                t0, t1 = parse_time(a), parse_time(b)
+                if t1 <= t0:
+                    raise ValueError("end before start")
+            else:
+                t0 = parse_time(t); t1 = t0 + word_dur * len(toks)
+        except ValueError:
+            if bad is not None:
+                bad.append(item)
+            continue
         for k, tok in enumerate(toks):
             s = t0 + (t1 - t0) * k / len(toks)
             words.append({"text": tok, "start": round(s, 3), "end": round(s + (t1 - t0) / len(toks), 3),
                           "source": "lyrics", "phrase": pi})
+        pi += 1
     words.sort(key=lambda w: w["start"])
     for i, w in enumerate(words):
         w["i"] = i
     return words
 
 
-def build_music_plan(video, P: MusicParams, lyrics=None, pins=None, angle_names=None) -> tuple[dict, dict]:
-    video = str(Path(video).resolve())
-    info = probe(video)
-    dur, fps = info["duration"], info.get("fps", 30.0)
-    tempo, beats = beat_times(video)
-    vis = face_visibility(video, P.face_fps)
-    vt = np.array([v[0] for v in vis]) if vis else np.array([])
-    vs = np.array([v[1] for v in vis]) if vis else np.array([])
-    words = lyric_words(lyrics, P.lyric_word_dur)
+def beat_grid(dur: float, period: float = 0.5) -> np.ndarray:
+    """Even 120 BPM grid: the fallback when no beat can be tracked (silence, a quiet a cappella take, speech)."""
+    return np.round(np.arange(period, max(period, dur), period), 3)
 
-    def visibility(s, e):
-        if not len(vt):
-            return 1.0
-        m = (vt >= s) & (vt < e)
-        return float(vs[m].mean()) if m.any() else 1.0
 
+def min_duration(P: "MusicParams") -> float:
+    """Shortest clip that fits one insert between the opening and closing real (CAM A) shots."""
+    return P.head_a + P.min_insert + P.tail_a
+
+
+def insert_candidates(beats, dur: float, P: "MusicParams", visibility) -> list[tuple]:
+    """(score, start, end, weak_face) for every beat-to-beat span of an allowed insert length."""
     cands = []
     for i, b0 in enumerate(beats):
         if b0 < P.head_a:
@@ -124,6 +149,44 @@ def build_music_plan(video, P: MusicParams, lyrics=None, pins=None, angle_names=
                 break
             weak = 1.0 - visibility(b0, b1)
             cands.append((weak - 0.1 * abs(d - P.target_insert), float(b0), float(b1), weak))
+    return cands
+
+
+def build_music_plan(video, P: MusicParams, lyrics=None, pins=None, angle_names=None) -> tuple[dict, dict]:
+    video = str(Path(video).resolve())
+    info = probe(video)
+    dur, fps = info["duration"], info.get("fps", 30.0)
+    if "sample_rate" not in info:
+        raise ValueError("this clip has no sound. Music mode cuts on the beat of the song in your clip: upload a "
+                         "clip where the music (or your singing) is audible, or use Talk mode")
+    tempo, beats = beat_times(video)
+    vis = face_visibility(video, P.face_fps)
+    vt = np.array([v[0] for v in vis]) if vis else np.array([])
+    vs = np.array([v[1] for v in vis]) if vis else np.array([])
+    bad_lyrics: list[str] = []
+    words = lyric_words(lyrics, P.lyric_word_dur, bad=bad_lyrics)
+    notes = []
+
+    def visibility(s, e):
+        if not len(vt):
+            return 1.0
+        m = (vt >= s) & (vt < e)
+        return float(vs[m].mean()) if m.any() else 1.0
+
+    beat_source = "tracked"
+    cands = insert_candidates(beats, dur, P, visibility)
+    if not cands and dur >= min_duration(P):
+        # no usable beat (silence, a cappella, speech): never a silent no-op, cut on an even grid instead
+        beats, beat_source, tempo = beat_grid(dur), "grid", 120.0
+        cands = insert_candidates(beats, dur, P, visibility)
+        notes.append("No clear beat found in the audio, so cuts are on an even 120 BPM grid. "
+                     "A clip with the song audible gives beat-matched cuts.")
+    if dur < min_duration(P):
+        notes.append(f"The clip is {dur:.1f} s; Music needs at least {min_duration(P) + 1:.0f} s to fit an AI "
+                     "insert between the opening and closing shots of your real take.")
+    if bad_lyrics:
+        notes.append(f"Skipped {len(bad_lyrics)} lyric line(s) I couldn't read (use 3.2-5.0=words or 0:03-0:05=words): "
+                     + "; ".join(x[:40] for x in bad_lyrics[:3]))
     cands.sort(reverse=True)
     chosen = []
     for score, s, e, weak in cands:
@@ -173,7 +236,8 @@ def build_music_plan(video, P: MusicParams, lyrics=None, pins=None, angle_names=
         s["duration"] = round(s["end"] - s["start"], 4)
         s.setdefault("words", "")
     plan = {"mode": "music", "source": video, "duration": dur, "fps": fps, "tempo": round(tempo, 2),
-            "beats": [round(b, 3) for b in beats], "params": asdict(P), "pins": pin_map, "angle_names": names,
+            "beats": [round(float(b), 3) for b in beats], "beat_source": beat_source,
+            "note": " ".join(notes), "params": asdict(P), "pins": pin_map, "angle_names": names,
             "face_visibility": [[round(t, 3), v] for t, v in vis],
             "chunks": chunks, "shots": shots, "cuts": [s["start"] for s in shots[1:]]}
     transcript = {"source": video, "duration": dur, "fps": fps, "mode": "music", "model": "lyrics (user-supplied)",

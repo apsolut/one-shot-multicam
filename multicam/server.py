@@ -630,7 +630,8 @@ class App:
         save_json(plan, p.work / "plan.json")
         prep(plan, p.work / "gen", video=src)
         n_ins = sum(1 for s in plan["shots"] if s["cam"] != "A")
-        p.set_step("plan", "done", f"{len(plan['shots'])} shots, {n_ins} inserts, {len(plan['chunks'])} chunks")
+        note = f" · {plan['note']}" if plan.get("note") else ""
+        p.set_step("plan", "done", f"{len(plan['shots'])} shots, {n_ins} inserts, {len(plan['chunks'])} chunks{note}")
 
     def estimate(self, p: Project) -> dict:
         plan = p.edited_plan()
@@ -888,7 +889,7 @@ class App:
                               if a.get("align") else None})
             st["plan"] = {"duration": plan["duration"], "mode": plan.get("mode", "talk"), "shots": shots,
                           "chunks": [{k: c[k] for k in ("id", "start", "end", "words")} for c in plan["chunks"]],
-                          "angle_names": plan.get("angle_names")}
+                          "angle_names": plan.get("angle_names"), "note": plan.get("note") or ""}
             st["estimate"] = self.estimate(p)
         return st
 

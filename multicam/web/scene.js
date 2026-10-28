@@ -80,7 +80,10 @@
     const dlg = $("#scDialogue");
     if (SC.sentences && !dlg.dataset.done) {
       dlg.innerHTML = SC.sentences.map(s => `<div class="sc-a"><b>A</b> ${esc(s.text)}</div>`).join("");
-      $("#scLines").innerHTML = (SC.lines || []).map(lineRow).join("");
+      const draft = textDraft.get("s", SC.id);  // unsaved B lines typed before a refresh
+      const rows = draft && JSON.stringify(draft) !== JSON.stringify((SC.lines || []).map(l => ({after: l.after, text: l.text, shot: l.shot}))) ? draft : null;
+      $("#scLines").innerHTML = (rows || SC.lines || []).map(lineRow).join("");
+      if (rows) toast("Restored the lines you typed before the refresh (not saved yet)", 3500);
       dlg.dataset.done = "1";
     }
     $("#scStills").innerHTML = Object.entries(SC.stills || {}).map(([k, u]) => `<figure><img src="${u}" alt="${k}"><figcaption>B · ${SHOT_LABEL[k] || k}</figcaption></figure>`).join("");
@@ -109,13 +112,16 @@
     const after = Math.min((SC.sentences || []).length - 1, ls.length ? ls[ls.length - 1].after + 1 : 0);
     $("#scLines").insertAdjacentHTML("beforeend", lineRow({after, text: "", shot: scfg.shots[ls.length % 3]}, ls.length));
   };
+  const rawLines = () => $$("#scLines .sc-line").map(r => ({after: +$(".sc-after", r).value, text: $(".sc-text", r).value, shot: $(".sc-shot", r).value}));
+  ["input", "change"].forEach(ev => $("#scLines").addEventListener(ev, () => SC && textDraft.set("s", SC.id, rawLines())));
   $("#scLines").addEventListener("click", e => { if (e.target.classList.contains("sc-del")) e.target.closest(".sc-line").remove(); });
   $("#scSuggest").onclick = async () => {
     const r = await api(`/api/scene/${SC.id}/suggest`, {method: "POST"});
     $("#scLines").innerHTML = r.lines.map((l, k) => lineRow({...l, shot: scfg.shots[k % 3]}, k)).join("");
+    textDraft.set("s", SC.id, rawLines());
     toast("Suggested — edit them, they're yours");
   };
-  async function saveLines() { SC = await api(`/api/scene/${SC.id}/lines`, {json: {lines: collect()}}); $("#scDialogue").dataset.done = ""; render(); }
+  async function saveLines() { SC = await api(`/api/scene/${SC.id}/lines`, {json: {lines: collect()}}); textDraft.clear("s", SC.id); $("#scDialogue").dataset.done = ""; render(); }
   $("#scSave").onclick = () => saveLines().then(() => toast("Saved")).catch(e => toast(e.message));
   $("#scGen").onclick = async () => {
     try {

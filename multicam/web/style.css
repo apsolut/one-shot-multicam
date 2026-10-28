@@ -382,3 +382,8 @@ select.big{font-size:16px;padding:13px 44px 13px 15px}
 #scPhotoFile img{width:72px;height:72px;object-fit:cover;border-radius:12px;display:block}
 #scPhotoFile{margin-top:0}
 @media (max-width:560px){.choice button{min-height:56px}}
+
+/* running jobs: leave-and-come-back note */
+.leave{margin:0 0 14px;padding:12px 14px;border-radius:14px;background:#2a3320;border:1px solid var(--cta-line);display:grid;gap:10px;font-size:13.5px;color:var(--text)}
+.leave-row{display:flex;gap:8px}.leave-url{flex:1;font-family:ui-monospace,Menlo,monospace;font-size:12.5px}
+@media (max-width:560px){.leave-row{flex-direction:column}}

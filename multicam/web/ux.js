@@ -158,5 +158,35 @@
     box.innerHTML = f ? `<img src="${photoUrl}" alt="partner photo"><div style="flex:1;min-width:0"><b>${esc(f.name)}</b><br><small class="muted">${(f.size / 1e6).toFixed(1)} MB · click to replace</small></div><span class="ok-check" aria-label="added">✓</span>` : "";
   });
   if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) $$("#mode video").forEach(v => { v.removeAttribute("autoplay"); v.pause(); });
+  // ---------- typed text on the home form (script, lyrics, scene descriptions) survives a refresh
+  const DRAFT_IDS = ["script", "lyrics", "scChar", "scALook", "scLookCustom"];
+  const saved = textDraft.get("new", "form") || {};
+  DRAFT_IDS.forEach(id => { const el = $("#" + id); if (!el) return;
+    if (saved[id]) { el.value = saved[id]; if (id === "script" || id === "lyrics") $("#advBox").open = true; }
+    el.addEventListener("input", () => textDraft.set("new", "form", Object.fromEntries(DRAFT_IDS.map(i => [i, $("#" + i)?.value || ""])))); });
+  if (saved.scLookCustom) $("#scLookCustom").hidden = false;
+
+  // ---------- while a job runs: "you can leave this page, come back with this link"
+  const CARDS = [["#progressCard", "#busyBadge"], ["#sceneCard", "#scBusy"], ["#dubCard", "#dbBusy"]];
+  CARDS.forEach(([c]) => {
+    const n = document.createElement("div"); n.className = "leave"; n.hidden = true;
+    n.innerHTML = `<div class="leave-t">⏳ <b>You can leave this page.</b> Generation keeps running on the server. Come back with this link<span class="leave-ttl"></span>:</div>
+      <div class="leave-row"><input class="leave-url" readonly aria-label="Link to this project"><button type="button" class="secondary leave-copy">Copy link</button></div>`;
+    $(".card-h", $(c)).after(n);
+    $(".leave-copy", n).onclick = async () => {
+      const u = $(".leave-url", n);
+      try { await navigator.clipboard.writeText(u.value); } catch { u.select(); document.execCommand("copy"); }
+      toast("Link copied. Open it any time to see the progress and the result.");
+    };
+  });
+  function leaveNotes() {
+    CARDS.forEach(([c, b]) => {
+      const card = $(c), n = $(".leave", card), busy = !card.hidden && $(b).classList.contains("warn") && /…$/.test($(b).textContent);
+      n.hidden = !busy; if (!busy) return;
+      const u = $(".leave-url", n); if (u.value !== location.href) u.value = location.href;
+      $(".leave-ttl", n).textContent = cfg.ttl_minutes ? ` (projects are kept for ${cfg.ttl_minutes} min)` : "";
+    });
+  }
+  setInterval(leaveNotes, 1000);
   sync();
 })();

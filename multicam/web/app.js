@@ -6,6 +6,13 @@ const STEP_NAMES = {transcribe: "Transcribe", plan: "Plan cuts", angles: "Genera
   cameras: "Generate cameras", align: "Align lip-sync", render: "Render"};
 let cfg = {}, S = null, mode = "talk", file = null, sel = null, polling = null;
 
+// typed text survives a refresh: localStorage per project (kind "p" | "s" | "d" | "new" for the home form)
+const textDraft = {
+  k: (kind, id) => `multicam.text.${kind}.${id}`,
+  get(kind, id) { try { return JSON.parse(localStorage.getItem(this.k(kind, id)) || "null"); } catch { return null; } },
+  set(kind, id, v) { try { localStorage.setItem(this.k(kind, id), JSON.stringify(v)); } catch { /* quota / private mode */ } },
+  clear(kind, id) { localStorage.removeItem(this.k(kind, id)); },
+};
 const toast = (msg, ms = 2600) => { const t = $("#toast"); t.textContent = msg; t.classList.add("on");
   clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove("on"), ms); };
 const fmt = t => `${Math.floor(t / 60)}:${(t % 60).toFixed(1).padStart(4, "0")}`;

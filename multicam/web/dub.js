@@ -34,6 +34,7 @@
       <div class="db-fit ${warn ? "" : "ok"}">${f ? (warn ? `⚠ ${esc(f.hint)} (×${f.ratio})` : `fits (×${f.ratio})`) : ""}${w.dubbed ? " · dubbed ✓" : ""}</div></div>`;
   }
   const collect = () => $$("#dbLines .db-text").map(t => t.value.trim());
+  $("#dbLines").addEventListener("input", () => DB && textDraft.set("d", DB.id, $$("#dbLines .db-text").map(t => t.value)));
   function render() {
     $("#dubCard").hidden = !DB;
     if (!DB) return;
@@ -47,6 +48,11 @@
     const box = $("#dbLines"), sig = JSON.stringify((DB.windows || []).map(w => [w.translation, w.dubbed, w.fit?.ratio]));
     if (DB.windows && box.dataset.sig !== sig && !box.contains(document.activeElement)) {
       box.innerHTML = DB.windows.map(lineRow).join(""); box.dataset.sig = sig;
+      const draft = textDraft.get("d", DB.id);  // unsaved translations typed before a refresh
+      if (draft && draft.length === DB.windows.length && draft.some((t, i) => t !== (DB.windows[i].translation || ""))) {
+        $$("#dbLines .db-text").forEach((el, i) => { el.value = draft[i]; });
+        if (!box.dataset.restored) { box.dataset.restored = "1"; toast("Restored the lines you typed before the refresh (not saved yet)", 3500); }
+      }
     }
     const e = DB.estimate;
     $("#dbEst").innerHTML = e ? `<span><b>${e.windows}</b> LipDub windows + <b>${e.inserts}</b> CrossView re-shoots ≈ <b>$${e.usd.toFixed(2)}</b></span>` : "";
@@ -68,11 +74,12 @@
     $("#dubCard").scrollIntoView({behavior: "smooth"}); }
   const ownKey = () => { toast("Paste your own Comfy Cloud key first (step 1) — get one at platform.comfy.org → API keys", 4500);
     $("#keyCard").classList.add("attention"); };
-  async function save() { DB = await api(`/api/dub/${DB.id}/lines`, {json: {translations: collect()}}); $("#dbLines").dataset.sig = ""; render(); }
+  async function save() { DB = await api(`/api/dub/${DB.id}/lines`, {json: {translations: collect()}}); textDraft.clear("d", DB.id); $("#dbLines").dataset.sig = ""; render(); }
 
   $("#dbSave").onclick = () => save().then(() => toast("Saved")).catch(e => toast(e.message));
   $("#dbTranslate").onclick = async () => {
     if (!canPay()) return ownKey();
+    textDraft.clear("d", DB.id);  // fresh machine translations replace the draft
     try { DB = await api(`/api/dub/${DB.id}/translate`, {method: "POST", withKey: true}); render(); refresh(); }
     catch (e) { toast(e.message, 5000); }
   };

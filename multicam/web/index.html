@@ -21,6 +21,7 @@
 
 <main class="studio">
   <div class="intro" id="intro">
+    <section class="resume" id="resumeCard" hidden aria-live="polite"></section>
     <section class="hero">
       <h1>One phone shot. <span class="grad">A multicam edit.</span></h1>
       <p>Upload one selfie video. AI re-films it from new camera angles (same head moves, same lips) and cuts between them on your words, over your <b>real</b> audio.</p>
@@ -183,14 +184,18 @@
       <div>
         <h3>Your sentences <small>B answers after the one you pick</small></h3>
         <div id="scDialogue" class="sc-dialogue"></div>
-        <h3>B's lines <small>exact words, spoken by LTX-2.3 ID LoRA</small></h3>
-        <div id="scLines"></div>
-        <div class="row gap wrap"><button class="ghost" id="scAdd">＋ Line</button><button class="ghost" id="scSuggest">💡 Suggest from my words</button><button class="ghost" id="scSave">Save</button></div>
+        <h3 class="cam-field-h"><span class="tag B">CAM B</span> Partner's lines <span class="req">Required</span> <small>exact words B says</small></h3>
+        <div class="cam-field" id="scField">
+          <div class="cam-empty" id="scEmpty" hidden><b>Camera B has no lines yet.</b> Press <b>✨ Auto-suggest</b> to write them from your words, or add a line and type it yourself.</div>
+          <div id="scLines"></div>
+          <p class="filled-note" id="scFilled" hidden>✓ Lines added — edit if you like</p>
+        </div>
+        <div class="row gap wrap"><button class="secondary suggest" id="scSuggest" data-loading="Writing lines…"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/></svg><span>Auto-suggest</span></button><button class="ghost" id="scAdd">＋ Add a line</button><button class="ghost" id="scSave">Save</button></div>
       </div>
       <div><h3>Partner shots <small>all look screen-right</small></h3><div id="scStills" class="sc-stills"></div></div>
     </div>
     <div class="estimate" id="scEst"></div>
-    <div class="row gap"><button class="primary" id="scGen">Generate scene</button><button class="secondary" id="scRender">Re-render — free</button></div>
+    <div class="row gap"><button class="primary" id="scGen" data-loading="Generating…">Generate scene</button><button class="secondary" id="scRender" data-loading="Rendering…">Re-render — free</button></div>
     <pre class="sc-log" id="scLog"></pre>
     <div class="err" id="scErr" hidden></div>
   </section>
@@ -203,11 +208,14 @@
       <label class="switch"><input type="checkbox" id="dbLabels"><span></span>Camera labels</label>
     </div>
     <p class="note" id="dbWarn" hidden></p>
-    <h3>Lines <small>one LipDub job per window; keep each about as long as the original</small></h3>
-    <div id="dbLines" class="db-lines"></div>
-    <div class="row gap wrap"><button class="ghost" id="dbTranslate">🔤 Translate (Gemma 3 12B, ≈$0.01)</button><button class="ghost" id="dbSave">Save lines</button></div>
+    <h3 class="cam-field-h">Lines in <span id="dbLangName2">the new language</span> <span class="req">Required</span> <small>one LipDub job per window; keep each about as long as the original</small></h3>
+    <div class="cam-field" id="dbField">
+      <div class="cam-empty" id="dbEmpty" hidden><b>No translated lines yet.</b> Press <b>🔤 Translate</b> or type each line yourself.</div>
+      <div id="dbLines" class="db-lines"></div>
+    </div>
+    <div class="row gap wrap"><button class="secondary" id="dbTranslate" data-loading="Translating…">🔤 Translate (Gemma 3 12B, ≈$0.01)</button><button class="ghost" id="dbSave">Save lines</button></div>
     <div class="estimate" id="dbEst"></div>
-    <button class="primary" id="dbGen">Dub + multicam</button>
+    <button class="primary" id="dbGen" data-loading="Dubbing…">Dub + multicam</button>
     <pre class="sc-log" id="dbLog"></pre>
     <div class="err" id="dbErr" hidden></div>
   </section>
@@ -223,11 +231,11 @@
     <div class="card-h"><h2><span class="n">4</span>Cameras & cost</h2></div>
     <div id="engine"></div>
     <div class="cams" id="cams"></div>
-    <div class="row gap wrap" id="anglesRow"><button class="ghost" id="anglesBtn">✨ Generate 8 angle stills of me · ~$0.03</button><span class="muted small">Qwen-Image-Edit 2511 + Multiple-Angles LoRA, from your sharpest front-facing frame</span></div>
+    <div class="row gap wrap" id="anglesRow"><button class="ghost" id="anglesBtn" data-loading="Generating stills…">✨ Generate 8 angle stills of me · ~$0.03</button><span class="muted small">Qwen-Image-Edit 2511 + Multiple-Angles LoRA, from your sharpest front-facing frame</span></div>
     <div class="estimate" id="estimate"></div>
     <div class="row gap">
-      <button class="primary" id="generate">Generate</button>
-      <button class="secondary" id="renderFree">Render with what I have — free</button>
+      <button class="primary" id="generate" data-loading="Generating…">Generate</button>
+      <button class="secondary" id="renderFree" data-loading="Rendering…">Render with what I have — free</button>
     </div>
     <details class="adv">
       <summary>Bring your own stills / clips (manual ComfyUI mode)</summary>
@@ -264,7 +272,7 @@
         <div class="playhead-wrap"><div class="ruler" id="ruler"></div></div>
         <div class="shot-panel" id="shotPanel"><p class="muted">Pick a shot on the timeline to switch its camera, drop it, or re-roll it.</p></div>
         <div class="row gap">
-          <button class="secondary" id="rerender" disabled>Re-render — free</button>
+          <button class="secondary" id="rerender" data-loading="Rendering…" disabled>Re-render — free</button>
           <span class="muted small" id="editInfo"></span>
         </div>
       </div>
@@ -277,8 +285,9 @@
   </section>
   </div>
 
-  <aside class="stage" id="stage" aria-label="Preview">
-    <div class="stage-card">
+  <aside class="stage" id="stage" aria-label="Preview and progress">
+    <div class="job-panel" id="jobPanel" hidden aria-live="polite"></div>
+    <div class="stage-card" id="stageCard">
       <div class="stage-h">
         <span class="stage-tag" id="stageTag">Example output · Talk</span>
         <div class="stage-tabs" id="stageTabs" hidden><button type="button" data-v="mine">Your clip</button><button type="button" data-v="ex" class="on">Example</button></div>

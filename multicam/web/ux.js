@@ -188,5 +188,165 @@
     });
   }
   setInterval(leaveNotes, 1000);
+
+  // ---------- one big progress panel for every job (analyze, auto-suggest, generate, scene, dub)
+  const TERM = ["success", "error", "non_retryable_error", "lost", "cancelled"];
+  const JOB_LS = "multicam.job";
+  const mmss = s => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
+  const eta = s => s <= 15 ? "almost done" : s < 90 ? `about ${Math.round(s / 10) * 10} s left` : `about ${Math.round(s / 60)} min left`;
+  const lastLog = o => (o?.log || []).slice(-1)[0] || "";
+  const camOf = label => (String(label).match(/CAM ([A-D])/) || [])[1];
+  const KIND_LABEL = {still: "partner stills", stills: "partner stills", b: "camera B", line: "camera B", b_line: "camera B",
+    a: "your side angle", a_reshoot: "your side angle", reshoot: "your side angle"};
+  function trackGet() { try { return JSON.parse(localStorage.getItem(JOB_LS) || "{}"); } catch { return {}; } }
+  function trackSet(o) { localStorage.setItem(JOB_LS, JSON.stringify(o)); }
+  // what is running right now, in plain language
+  function currentJob() {
+    const home = !$("#uploadCard").hidden;
+    if (home) return $("#start").textContent === "Uploading…" ? {key: "upload", kind: "upload", title: "Uploading your clip…", eta: 20} : null;
+    const SCN = window.uxScene, DBB = window.uxDub;
+    if (SCN && !$("#sceneCard").hidden) {
+      if (window.uxSuggesting) return {key: `s.${SCN.id}.suggest`, id: SCN.id, kind: "suggest", title: "Writing lines for camera B…", detail: "From your own words. Free, no Comfy job.", eta: 5};
+      if (!SCN.busy) return {idle: true, id: SCN.id, kindOf: "s", error: SCN.error, obj: SCN};
+      const t = trackGet()[`s.${SCN.id}`], base = t?.key === `s.${SCN.id}.${SCN.busy}` ? (t.jobs0 ?? 0) : (SCN.jobs || []).length;
+      const js = (SCN.jobs || []).filter((x, i) => i >= base || !TERM.includes(x.status));
+      if (SCN.busy === "analyze") return {key: `s.${SCN.id}.analyze`, id: SCN.id, kindOf: "s", name: "analyze", title: "Analyzing your take…", detail: lastLog(SCN), eta: 60};
+      if (SCN.busy === "render") return {key: `s.${SCN.id}.render`, id: SCN.id, kindOf: "s", name: "render", title: "Rendering your scene…", detail: "Free, on this server (ffmpeg).", eta: 45};
+      const total = Math.max(js.length, SCN.estimate?.n_jobs || 0), done = js.filter(j => TERM.includes(j.status)).length;
+      const run = js.find(j => !TERM.includes(j.status));
+      const kk = String(run?.kind || ""), nm = kk.split(":")[1] || "";
+      const what = !run ? "the scene" : kk === "character" ? "the partner's look" : kk === "stills" ? "partner stills"
+        : kk.startsWith("clip:") ? `camera B${nm ? ` (${nm})` : ""}` : kk.startsWith("reshoot:") ? `your side angle${nm ? ` (${nm})` : ""}` : (KIND_LABEL[kk] || kk);
+      return {key: `s.${SCN.id}.${SCN.busy}`, id: SCN.id, kindOf: "s", name: SCN.busy, jobs0: base,
+        title: total ? `Generating ${what}… step ${Math.min(done + 1, total)} of ${total}` : `Generating ${what}…`,
+        frac: total ? done / total : null, detail: lastLog(SCN), eta: total ? (total - done) * 75 + 40 : 180};
+    }
+    if (DBB && !$("#dubCard").hidden) {
+      if (!DBB.busy) return {idle: true, id: DBB.id, kindOf: "d", error: DBB.error, obj: DBB};
+      const n = DBB.estimate?.jobs || ((DBB.estimate?.windows || 0) + (DBB.estimate?.inserts || 0));
+      const T = {analyze: ["Analyzing your take…", 60], translate: [`Translating your lines into ${DBB.lang_name || "the new language"}…`, 30],
+        generate: [`Dubbing into ${DBB.lang_name || "the new language"} + multicam…`, n ? n * 70 + 60 : 300]}[DBB.busy] || [`${DBB.busy}…`, 120];
+      return {key: `d.${DBB.id}.${DBB.busy}`, id: DBB.id, kindOf: "d", name: DBB.busy, title: T[0], detail: lastLog(DBB), eta: T[1]};
+    }
+    if (S && !$("#progressCard").hidden) {
+      if (!S.busy) return {idle: true, id: S.id, kindOf: "p", error: S.error, obj: S};
+      const k = `p.${S.id}.${S.busy}`;
+      if (S.busy === "analyze") {
+        const tr = S.steps?.transcribe?.status, n = tr === "done" || tr === "skipped" ? 2 : 1;
+        return {key: k, id: S.id, kindOf: "p", name: "analyze", title: `${n === 1 ? "Transcribing your words" : "Planning the cuts"}… step ${n} of 2`,
+          frac: (n - 1) / 2, detail: (S.steps?.[n === 1 ? "transcribe" : "plan"]?.msg) || "Free, on this server.", eta: n === 1 ? 50 : 15};
+      }
+      if (S.busy === "render") return {key: k, id: S.id, kindOf: "p", name: "render", title: "Rendering your video…", detail: "Free, on this server (ffmpeg).", eta: 40};
+      const tk = trackGet()[`p.${S.id}`], fresh = tk?.key === k, base = fresh ? (tk.jobs0 ?? 0) : (S.jobs || []).length;
+      const js = (S.jobs || []).filter((j, i) => i >= base || !TERM.includes(j.status));
+      const done = js.filter(j => TERM.includes(j.status)).length, run = js.find(j => !TERM.includes(j.status));
+      const total = Math.max(js.length, fresh ? (tk.n0 || 0) : (S.estimate?.jobs || 0));
+      if (!run && js.length && done === js.length) {
+        const al = S.steps?.align?.status === "running";
+        return {key: k, id: S.id, kindOf: "p", name: S.busy, title: al ? "Aligning lip-sync…" : "Rendering your video…", frac: .92, detail: "AI cameras are done. Free from here.", eta: 30};
+      }
+      const cam = run && camOf(run.label), what = !run ? "your cameras" : cam ? `camera ${cam}` : /angle|still/i.test(run.label) ? "angle stills" : run.label;
+      const runEl = run ? Math.round(Date.now() / 1000 - (run.started || Date.now() / 1000)) : 0;
+      return {key: k, id: S.id, kindOf: "p", name: S.busy, jobs0: fresh ? tk.jobs0 : (S.jobs || []).length, n0: S.estimate?.jobs || 0, title: total ? `Generating ${what}… step ${Math.min(done + 1, total)} of ${total}` : `Generating ${what}…`,
+        frac: total ? done / total : null, detail: run ? `${run.label} · Comfy Cloud · ${run.status}` : "Submitting to Comfy Cloud…", eta: Math.max(20, 130 - runEl) + 30};
+    }
+    return null;
+  }
+  const RETRY = {p: {analyze: "#newProject", generate: "#generate", reroll: "#generate", angles: "#anglesBtn", render: "#renderFree"},
+    s: {analyze: "#newProject", generate: "#scGen", render: "#scRender"}, d: {analyze: "#newProject", translate: "#dbTranslate", generate: "#dbGen"}};
+  const LOADING = {p: {generate: ["#generate"], reroll: ["#generate"], angles: ["#anglesBtn"], render: ["#renderFree", "#rerender"]},
+    s: {generate: ["#scGen"], render: ["#scRender"]}, d: {translate: ["#dbTranslate"], generate: ["#dbGen"]}};
+  const BASE_TITLE = document.title;
+  let prevKey = null, dismissed = null;
+  window.addEventListener("beforeunload", e => { if (prevKey) { e.preventDefault(); e.returnValue = ""; } });
+  function panel() {
+    const j = currentJob(), P = $("#jobPanel"), tr = trackGet();
+    $$(".is-loading[data-loading]").forEach(b => { if (b.id !== "scSuggest") b.classList.remove("is-loading"); });
+    if (j && !j.idle) {
+      // remember when it started (survives a reload) and which button started it
+      const rec = tr[j.key.split(".").slice(0, 2).join(".")];
+      if (!rec || rec.key !== j.key) { tr[j.key.split(".").slice(0, 2).join(".")] = {key: j.key, name: j.name, t0: Date.now(), jobs0: j.jobs0 ?? 0, n0: j.n0 || 0}; trackSet(tr); }
+      if (prevKey !== j.key) document.title = BASE_TITLE;
+      prevKey = j.key; dismissed = null;
+      const t0 = (tr[j.key.split(".").slice(0, 2).join(".")] || {}).t0 || Date.now(), el = (Date.now() - t0) / 1000;
+      (LOADING[j.kindOf]?.[j.name] || []).forEach(sel => { const b = $(sel); if (b) { b.classList.add("is-loading"); b.disabled = true; } });
+      P.hidden = false; P.dataset.state = "running";
+      const frac = j.frac != null ? Math.max(.04, j.frac) : null, left = Math.max(0, (j.eta || 60) - (j.frac == null ? el : 0));
+      P.innerHTML = `<div class="jp-top"><span class="spin" aria-hidden="true"></span><span class="jp-k">Working</span><span class="jp-time">${mmss(el)} elapsed · ${eta(left)}</span></div>
+        <div class="jp-title">${esc(j.title)}</div>
+        <div class="jp-bar ${frac == null ? "ind" : ""}"><i style="${frac == null ? "" : `width:${Math.round(frac * 100)}%`}"></i></div>
+        ${j.detail ? `<div class="jp-detail">${esc(j.detail)}</div>` : ""}
+        ${j.kindOf ? `<div class="jp-leave">You can leave this page. Come back with this link: <button type="button" class="ghost jp-copy">Copy link</button></div>` : ""}`;
+      const c = $(".jp-copy", P); if (c) c.onclick = () => navigator.clipboard.writeText(location.href).then(() => toast("Link copied")).catch(() => toast(location.href, 6000));
+      document.body.classList.add("job-running");
+      return;
+    }
+    document.body.classList.remove("job-running");
+    const was = prevKey; prevKey = null;
+    if (j?.idle && j.error && dismissed !== j.error) {
+      const name = was ? was.split(".")[2] : (tr[`${j.kindOf}.${j.id}`]?.name) || (j.kindOf === "p" ? (S.steps?.plan?.status === "done" ? "generate" : "analyze") : j.obj?.sentences || j.obj?.windows ? "generate" : "analyze");
+      const sel = RETRY[j.kindOf]?.[name];
+      P.hidden = false; P.dataset.state = "error";
+      P.innerHTML = `<div class="jp-err-h">⚠ Something went wrong</div><div class="jp-err-m">${esc(j.error)}</div>
+        <div class="jp-actions">${sel ? `<button type="button" class="jp-retry">${sel === "#newProject" ? "Upload again" : "↻ Retry"}</button>` : ""}<button type="button" class="ghost jp-dismiss">Dismiss</button></div>
+        <div class="jp-note">${sel && sel !== "#newProject" ? "Retry shows the cost again before anything is spent." : "Nothing was charged for this step."}</div>`;
+      const r = $(".jp-retry", P); if (r) r.onclick = () => { const b = $(sel); if (b) { b.disabled = false; b.click(); } };
+      $(".jp-dismiss", P).onclick = () => { dismissed = j.error; panel(); };
+      if (was) toast("That job failed. See the red card for details.", 4500);
+      return;
+    }
+    if (was && j?.idle) {
+      document.title = "✅ Done – Multicam";
+      if (!was.endsWith("suggest")) toast("✅ Done", 3500);
+      P.hidden = false; P.dataset.state = "done";
+      P.innerHTML = `<div class="jp-top"><span class="jp-k">Done</span></div><div class="jp-title">✅ ${was.endsWith("suggest") ? "Lines added" : "Finished"}</div>
+        <div class="jp-detail">${was.includes(".analyze") ? "Your clip is analyzed. Check the cameras and cost, then generate." : was.endsWith("suggest") ? "Edit them if you like, then Generate." : "Your result is ready below."}</div>`;
+      setTimeout(() => { if (!prevKey && P.dataset.state === "done") P.hidden = true; }, 8000);
+      return;
+    }
+    if (P.dataset.state === "done" && !P.hidden) return;
+    if (document.body.classList.contains("in-project")) {  // desktop right column: calm idle status
+      P.hidden = false; P.dataset.state = "idle";
+      P.innerHTML = `<div class="jp-top"><span class="jp-k">Status</span></div><div class="jp-title sm">Nothing running</div>
+        <div class="jp-detail">When you start a job, its progress shows here. Nothing is spent until you press a button that shows a cost.</div>`;
+    } else P.hidden = true;
+  }
+  window.addEventListener("focus", () => { if (!prevKey && document.title.startsWith("✅")) setTimeout(() => { document.title = BASE_TITLE; }, 4000); });
+  setInterval(panel, 1000);
+
+  // ---------- resume card: last project / scene / dub per mode, if it's recent (< ~60 min)
+  const LAST_LS = "multicam.last";
+  const lastAll = () => { try { return JSON.parse(localStorage.getItem(LAST_LS) || "{}"); } catch { return {}; } };
+  function remember() {
+    const m = location.hash.match(/([psd])=([0-9a-f]+)/); if (!m) return;
+    const md = m[1] === "s" ? "scene" : m[1] === "d" ? "dub" : (S?.id === m[2] ? S.mode : null); if (!md) return;
+    const all = lastAll(), cur = all[md];
+    if (cur?.id === m[2]) return;
+    const name = m[1] === "p" ? S?.name : m[1] === "d" ? window.uxDub?.lang_name && `into ${window.uxDub.lang_name}` : "";
+    all[md] = {id: m[2], hash: `${m[1]}=${m[2]}`, t: Date.now(), name: name || ""}; localStorage.setItem(LAST_LS, JSON.stringify(all));
+  }
+  setInterval(remember, 1500);
+  async function resumeCard() {
+    if (location.hash.match(/[psd]=/)) return;
+    const MAXAGE = ((cfg.ttl_minutes || 60) - 2) * 60e3, now = Date.now();
+    const items = Object.entries(lastAll()).filter(([, v]) => now - v.t < MAXAGE).sort((a, b) => b[1].t - a[1].t);
+    const ok = [];
+    for (const [md, v] of items) {
+      const path = v.hash[0] === "p" ? `/api/projects/${v.id}` : v.hash[0] === "s" ? `/api/scene/${v.id}` : `/api/dub/${v.id}`;
+      const r = await fetch(path).catch(() => null);  // still on the server? (public projects are deleted after the TTL)
+      if (r?.ok) { const d = await r.json().catch(() => ({})); ok.push([md, v, d]); }
+    }
+    if (!ok.length) return;
+    const [md, v, d] = ok[0], mins = Math.max(1, Math.round((now - v.t) / 60e3));
+    const st = d.busy ? `⏳ still working (${esc(d.busy)})` : d.error ? "⚠ stopped with an error" : (d.output || d.renders?.length) ? "✓ result ready" : "waiting for you";
+    const C = $("#resumeCard"); C.hidden = false;
+    C.innerHTML = `<div class="rs-main"><div class="rs-k">Welcome back</div><div class="rs-t">Resume your last project</div>
+      <div class="rs-m"><b>${NAME[md] || md}</b>${v.name ? ` · ${esc(v.name)}` : ""} · started ${mins} min ago · ${st}</div>
+      ${ok.length > 1 ? `<div class="rs-more">Also: ${ok.slice(1).map(([m2, v2]) => `<a href="#${v2.hash}">${NAME[m2] || m2}</a>`).join(" · ")}</div>` : ""}</div>
+      <div class="rs-act"><a class="btn secondary rs-go" href="#${v.hash}">Resume →</a><button type="button" class="ghost rs-x" aria-label="Hide">Start fresh</button></div>`;
+    $(".rs-x", C).onclick = () => { C.hidden = true; };
+    window.addEventListener("hashchange", () => { C.hidden = true; }, {once: true});
+  }
+  setTimeout(resumeCard, 600);
   sync();
 })();

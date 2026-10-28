@@ -34,11 +34,18 @@
       <div class="db-fit ${warn ? "" : "ok"}">${f ? (warn ? `⚠ ${esc(f.hint)} (×${f.ratio})` : `fits (×${f.ratio})`) : ""}${w.dubbed ? " · dubbed ✓" : ""}</div></div>`;
   }
   const collect = () => $$("#dbLines .db-text").map(t => t.value.trim());
-  $("#dbLines").addEventListener("input", () => DB && textDraft.set("d", DB.id, $$("#dbLines .db-text").map(t => t.value)));
+  $("#dbLines").addEventListener("input", () => { markEmpty(); if (DB) textDraft.set("d", DB.id, $$("#dbLines .db-text").map(t => t.value)); });
+  function markEmpty() {
+    const ts = $$("#dbLines .db-text");
+    $("#dbEmpty").hidden = !(DB?.windows && ts.every(t => !t.value.trim()));
+    $("#dbField").classList.toggle("is-empty", ts.some(t => !t.value.trim()));
+    ts.forEach(t => t.classList.toggle("empty", !t.value.trim()));
+  }
   function render() {
+    window.uxDub = DB;
     $("#dubCard").hidden = !DB;
     if (!DB) return;
-    $("#dbLangName").textContent = DB.lang_name || "…";
+    $("#dbLangName").textContent = DB.lang_name || "…"; $("#dbLangName2").textContent = DB.lang_name || "the new language";
     $("#dbBusy").textContent = DB.busy ? `${DB.busy}…` : (DB.output ? "ready" : "edit");
     $("#dbBusy").className = "badge " + (DB.busy ? "warn" : DB.output ? "ok" : "");
     $("#dbWarn").hidden = DB.validated !== false;
@@ -54,6 +61,7 @@
         if (!box.dataset.restored) { box.dataset.restored = "1"; toast("Restored the lines you typed before the refresh (not saved yet)", 3500); }
       }
     }
+    markEmpty();
     const e = DB.estimate;
     $("#dbEst").innerHTML = e ? `<span><b>${e.windows}</b> LipDub windows + <b>${e.inserts}</b> CrossView re-shoots ≈ <b>$${e.usd.toFixed(2)}</b></span>` : "";
     $("#dbGen").disabled = $("#dbTranslate").disabled = !!DB.busy || !DB.windows;

@@ -245,8 +245,8 @@ main,.card,.foot,.banner,.note,.consent{overflow-wrap:break-word}
   grid-template-areas:"intro stage" "flow stage";column-gap:28px;align-items:start}
 .intro{grid-area:intro}.flow{grid-area:flow;min-width:0}
 .stage{grid-area:stage;position:sticky;top:76px;margin-top:22px}
-body.in-project .studio{width:min(980px,100%);grid-template-columns:minmax(0,1fr);grid-template-areas:"flow"}
-body.in-project .stage{display:none}
+body.in-project .studio{width:min(1240px,100%);grid-template-areas:"flow stage";grid-template-columns:minmax(0,1fr) minmax(300px,360px)}
+body.in-project .stage-card{display:none}
 .hero{padding:26px 2px 10px}
 .hero h1{font-size:clamp(30px,4vw,44px)}
 .hero p{font-size:16px;color:var(--muted);max-width:620px}
@@ -387,3 +387,76 @@ select.big{font-size:16px;padding:13px 44px 13px 15px}
 .leave{margin:0 0 14px;padding:12px 14px;border-radius:14px;background:#2a3320;border:1px solid var(--cta-line);display:grid;gap:10px;font-size:13.5px;color:var(--text)}
 .leave-row{display:flex;gap:8px}.leave-url{flex:1;font-family:ui-monospace,Menlo,monospace;font-size:12.5px}
 @media (max-width:560px){.leave-row{flex-direction:column}}
+
+/* ===== B's lines: REQUIRED, light field, lime dashed empty state; Auto-suggest ===== */
+.cam-field-h{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.cam-field-h small{flex-basis:100%;margin:0}
+.cam-field{border:2px solid var(--line2);border-radius:14px;padding:10px;background:#22232a;transition:border-color .2s,box-shadow .2s}
+.cam-field.is-empty{border:2px dashed var(--cta);background:rgba(163,255,61,.06)}
+.cam-empty{padding:12px 6px;color:var(--text);font-size:14.5px;line-height:1.5}
+.cam-empty b{color:var(--text)}
+.cam-field .sc-line{grid-template-columns:minmax(0,1fr) auto}.cam-field .sc-line .sc-text{grid-column:1/-1;padding:11px 12px}
+.cam-field .sc-line:last-child{border-bottom:0;margin-bottom:0;padding-bottom:0}
+.cam-field .sc-text,.cam-field .db-text{background:#30323b;border:1.5px solid #7a7c8a;color:var(--text);font-size:15px}
+.cam-field .sc-text.empty,.cam-field .db-text.empty{border:1.5px dashed var(--cta);background:#2b2f26}
+.cam-field .sc-text::placeholder,.cam-field .db-text::placeholder{color:#a9a8b3}
+.cam-field.flash{animation:camflash 1.6s ease-out}
+@keyframes camflash{0%{box-shadow:0 0 0 0 rgba(163,255,61,.9);border-color:var(--cta);background:rgba(163,255,61,.22)}100%{box-shadow:0 0 0 10px rgba(163,255,61,0)}}
+.filled-note{margin:8px 2px 0;color:var(--cta);font-weight:700;font-size:14px}
+button.suggest{border:1.5px solid var(--cta-line);color:var(--text);background:#262b1f;font-weight:700}
+button.suggest:hover:not(:disabled){background:#2f3826;border-color:var(--cta)}
+button .ic{width:17px;height:17px;fill:var(--cta);flex:none}
+/* loading labels for start buttons */
+button.is-loading{position:relative;cursor:progress;opacity:1!important}
+button.is-loading>*{display:none}
+button.is-loading{font-size:0!important}
+button.is-loading::after{content:attr(data-loading);font-size:14.5px;display:inline-flex;align-items:center;gap:8px}
+button.is-loading::before{content:"";width:15px;height:15px;border-radius:50%;border:2px solid currentColor;border-right-color:transparent;animation:spin .8s linear infinite;margin-right:8px;flex:none}
+@keyframes spin{to{transform:rotate(360deg)}}
+/* ===== the big job panel (right column on desktop, sticky on top on mobile) ===== */
+.job-panel{background:var(--panel);border:2px solid var(--line2);border-radius:18px;padding:18px;display:grid;gap:10px;margin-bottom:14px}
+.job-panel[data-state=running]{border-color:var(--cta-line);box-shadow:0 0 0 4px var(--cta-soft)}
+.job-panel[data-state=done]{border-color:var(--cta)}
+.jp-top{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.jp-k{font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--cta)}
+.job-panel[data-state=idle] .jp-k{color:var(--dim)}
+.jp-time{margin-left:auto;font-size:13px;font-weight:700;color:var(--muted);font-variant-numeric:tabular-nums}
+.jp-title{font-size:21px;font-weight:780;line-height:1.25;color:var(--text)}
+.jp-title.sm{font-size:17px}
+.jp-detail{font-size:13.5px;color:var(--muted);line-height:1.45;overflow-wrap:anywhere}
+.jp-bar{height:10px;border-radius:99px;background:#30323b;overflow:hidden}
+.jp-bar i{display:block;height:100%;width:4%;border-radius:99px;background:var(--cta);transition:width .6s}
+.jp-bar.ind i{width:35%;animation:ind 1.4s ease-in-out infinite}
+@keyframes ind{0%{transform:translateX(-100%)}100%{transform:translateX(300%)}}
+.spin{width:20px;height:20px;border-radius:50%;border:3px solid var(--cta);border-right-color:transparent;animation:spin .8s linear infinite;flex:none}
+.jp-leave{font-size:13px;color:var(--muted);display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding-top:8px;border-top:1px solid var(--line)}
+.jp-leave button{padding:5px 12px;font-size:13px}
+.job-panel[data-state=error]{background:#3a1820;border-color:#ff5c7a}
+.jp-err-h{font-size:21px;font-weight:800;color:#ffd5dd}
+.jp-err-m{font-size:14px;color:#ffe9ed;line-height:1.5;max-height:9em;overflow:auto;overflow-wrap:anywhere;background:rgba(0,0,0,.22);border-radius:10px;padding:10px 12px}
+.jp-actions{display:flex;gap:10px;flex-wrap:wrap}
+.jp-retry{background:#ff5c7a;color:#2a0710;border:0;font-weight:800;border-radius:999px;padding:10px 20px}
+.jp-retry:hover{background:#ff7d95}
+.jp-actions .ghost{color:#ffd5dd}
+.jp-note{font-size:12.5px;color:#f3b7c3}
+/* ===== resume card (home, top) ===== */
+.resume{margin:18px 0 4px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding:18px 20px;border-radius:18px;
+  background:linear-gradient(90deg,#262b1f,var(--panel));border:2px solid var(--cta-line)}
+.rs-main{flex:1 1 280px;min-width:0}
+.rs-k{font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--cta)}
+.rs-t{font-size:22px;font-weight:800;margin:2px 0 4px}
+.rs-m{font-size:14px;color:var(--muted)}.rs-m b{color:var(--text)}
+.rs-more{margin-top:6px;font-size:13px;color:var(--muted)}.rs-more a{color:var(--text)}
+.rs-act{display:flex;gap:8px;flex-wrap:wrap}
+.rs-go{border:2px solid var(--cta)!important;color:var(--text);font-weight:800;padding:11px 22px}
+@media (max-width:980px){
+  body.in-project .studio{grid-template-columns:minmax(0,1fr);grid-template-areas:"stage" "flow"}
+  body.in-project .stage{position:sticky;top:0;z-index:20;margin-top:8px}
+  .job-panel[data-state=idle]{display:none}
+  body.in-project .job-panel{margin-bottom:6px;box-shadow:0 8px 24px rgba(0,0,0,.5)}
+}
+@media (max-width:560px){
+  .job-panel{padding:14px;gap:8px}.jp-title{font-size:18px}.jp-err-h{font-size:18px}
+  .rs-act>*{flex:1 1 auto}.rs-t{font-size:19px}
+  body.in-project .job-panel[data-state=running] .jp-leave{display:none}
+}

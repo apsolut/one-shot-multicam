@@ -167,8 +167,68 @@ class App:
 
     @property
     def judge_enabled(self) -> bool:
+        return bool(self.operator_key) and self.hosted_access == "judge" and bool(self.promo_codes())
+
+    @staticmethod
+    def promo_id(code: str) -> str:
+        """Ledger key of a promo code: a hash, so plaintext codes never land on the data volume."""
+        import hashlib
+        return hashlib.sha256(("multicam-promo:" + code.strip()).encode()).hexdigest()[:16]
+
+    def promo_codes(self) -> dict[str, tuple[str, int]]:
+        """-> {ledger id: (code, job limit)}. The legacy single code (secret MULTICAM_JUDGE_CODE, limit
+        judge_max_jobs) keeps its id "judge" (ledger key judge_jobs); more codes come from the secret
+        MULTICAM_PROMO_CODES = "CODE:LIMIT,CODE:LIMIT" (limit optional, default judge_max_jobs). Each code
+        has its own counter; remove a code from the secret to revoke it. Codes shorter than 8 are ignored."""
         import os
-        return bool(self.operator_key) and self.hosted_access == "judge" and len(os.environ.get("MULTICAM_JUDGE_CODE", "")) >= 8
+        out: dict[str, tuple[str, int]] = {}
+        legacy = os.environ.get("MULTICAM_JUDGE_CODE", "").strip()
+        if len(legacy) >= 8:
+            out["judge"] = (legacy, int(self.judge_max_jobs))
+        for item in os.environ.get("MULTICAM_PROMO_CODES", "").replace("\n", ",").split(","):
+            code, _, lim = item.strip().partition(":")
+            code, lim = code.strip(), lim.strip()
+            if len(code) < 8 or code == legacy:
+                continue
+            try:
+                limit = int(lim) if lim else int(self.judge_max_jobs)
+            except ValueError:
+                continue
+            if limit > 0:
+                out[self.promo_id(code)] = (code, limit)
+        return out
+
+    def promo_match(self, code: str | None) -> str | None:
+        """Ledger id of a valid promo code, else None (constant-time compare against every code)."""
+        import hmac
+        if not (self.judge_enabled and code and code.strip()):
+            return None
+        c, hit = code.strip().encode(), None
+        for pid, (real, _lim) in self.promo_codes().items():
+            if hmac.compare_digest(c, real.encode()):
+                hit = pid
+        return hit
+
+    def promo_limit(self, pid: str) -> int:
+        return self.promo_codes().get(pid, ("", 0))[1]
+
+    def promo_used(self, pid: str = "judge", d: dict | None = None) -> int:
+        d = self._ledger() if d is None else d
+        return int(d.get("judge_jobs", 0)) if pid == "judge" else int(d.get("promo_jobs", {}).get(pid, 0))
+
+    @staticmethod
+    def _promo_pid(judge) -> str | None:
+        """charge/refund `judge` arg: False/None = not a promo, True or "judge" = legacy code, else a ledger id."""
+        if not judge:
+            return None
+        return "judge" if judge is True else str(judge)
+
+    @staticmethod
+    def _promo_set(d: dict, pid: str, v: int):
+        if pid == "judge":
+            d["judge_jobs"] = v
+        else:
+            d.setdefault("promo_jobs", {})[pid] = v
 
     @property
     def trial_enabled(self) -> bool:
@@ -258,10 +318,7 @@ class App:
             save_json(d, self.counter_file)
 
     def judge_ok(self, code: str | None) -> bool:
-        import hmac
-        import os
-        return bool(self.judge_enabled and code and hmac.compare_digest(code.strip().encode(),
-                                                                     os.environ["MULTICAM_JUDGE_CODE"].encode()))
+        return self.promo_match(code) is not None
 
     # ---------- public-demo guards
     def client_ip(self, request) -> str:
@@ -307,14 +364,17 @@ class App:
     # ---------- key handling
     def resolve_key(self, header_key: str | None, judge_code: str | None = None) -> tuple[str, bool | str]:
         """-> (key, False) for the visitor's own key, (operator key, True) in open hosted mode,
-        (operator key, "judge") with a valid promo code."""
+        (operator key, "judge") with the legacy promo code, (operator key, "promo:<id>") with another one."""
         if header_key and header_key.strip():
             return header_key.strip(), False
         if self.hosted:
             return self.operator_key, True
         if judge_code and judge_code.strip():
-            if self.judge_ok(judge_code):
+            pid = self.promo_match(judge_code)
+            if pid == "judge":
                 return self.operator_key, "judge"
+            if pid:
+                return self.operator_key, "promo:" + pid
             raise PermissionError("that promo code isn't valid. Paste your own Comfy Cloud key instead "
                                   "(platform.comfy.org → API keys)")
         if self.trial_enabled:
@@ -326,17 +386,20 @@ class App:
         return self._ledger()["jobs"]
 
     def judge_used(self) -> int:
-        return int(self._ledger().get("judge_jobs", 0))
+        return self.promo_used("judge")
 
-    def charge_hosted(self, n: int, ip: str = "?", judge: bool = False):
+    def charge_hosted(self, n: int, ip: str = "?", judge: bool | str = False):
         """Atomically reserve n jobs of the operator's budget (global cap + per-IP daily cap).
         Promo-code jobs have their own total cap and no per-IP cap; the balance floor applies to both."""
         with self.budget_lock:
             d = self._ledger()
-            if judge:
-                used = int(d.get("judge_jobs", 0))
-                if used + n > self.judge_max_jobs:
-                    raise PermissionError(f"the judge quota is used up ({used}/{self.judge_max_jobs} jobs). "
+            pid = self._promo_pid(judge)
+            if pid:
+                used, limit = self.promo_used(pid, d), self.promo_limit(pid)
+                if limit <= 0:
+                    raise PermissionError("that promo code isn't valid any more. Paste your own Comfy Cloud key")
+                if used + n > limit:
+                    raise PermissionError(f"this promo code is used up ({used}/{limit} jobs). "
                                           "Paste your own Comfy Cloud key to keep going")
             used = d["jobs"]
             if not judge and self.max_jobs is not None and used + n > self.max_jobs:
@@ -344,8 +407,8 @@ class App:
                                       "Paste your own Comfy Cloud key to keep going")
             if not self._floor_ok(n):  # asks Comfy for the real balance (survives restarts/disk loss)
                     raise PermissionError("the public demo budget is used up. Paste your own Comfy Cloud key to keep going")
-            if judge:
-                d["judge_jobs"] = int(d.get("judge_jobs", 0)) + n
+            if pid:
+                self._promo_set(d, pid, self.promo_used(pid, d) + n)
                 save_json(d, self.counter_file)
                 return
             k = self._ip_id(ip)
@@ -357,14 +420,15 @@ class App:
             d["ip_jobs"][k] = ts + [time.time()] * n
             save_json(d, self.counter_file)
 
-    def refund_hosted(self, n: int, ip: str = "?", judge: bool = False):
+    def refund_hosted(self, n: int, ip: str = "?", judge: bool | str = False):
         """Give back jobs that were reserved but never reached Comfy (e.g. upload failed)."""
         if n <= 0:
             return
         with self.budget_lock:
             d = self._ledger()
-            if judge:
-                d["judge_jobs"] = max(0, int(d.get("judge_jobs", 0)) - n)
+            pid = self._promo_pid(judge)
+            if pid:
+                self._promo_set(d, pid, max(0, self.promo_used(pid, d) - n))
                 save_json(d, self.counter_file)
                 return
             d["jobs"] = max(0, d["jobs"] - n)
@@ -372,7 +436,7 @@ class App:
             d["ip_jobs"][k] = d["ip_jobs"].get(k, [])[:-n] if n else d["ip_jobs"].get(k, [])
             save_json(d, self.counter_file)
 
-    def hosted_run(self, p: "Project", n: int, ip: str, fn, judge: bool = False, trial: str | None = None):
+    def hosted_run(self, p: "Project", n: int, ip: str, fn, judge: bool | str = False, trial: str | None = None):
         """Wrap a paid background action so unsubmitted reservations are refunded (trial: project key)."""
         def submitted():
             return len(p.state.get("prompt_ids", []))
@@ -891,7 +955,7 @@ def create_app(app_state: App):
             except PermissionError as e:
                 raise HTTPException(403, str(e))
             return A.hosted_run(p, n, ip, fn, trial=pkey)
-        judge = hosted == "judge"
+        judge = "judge" if hosted == "judge" else hosted[6:] if isinstance(hosted, str) and hosted.startswith("promo:") else False
         try:
             A.charge_hosted(n, ip, judge=judge)
         except PermissionError as e:
@@ -992,10 +1056,12 @@ def create_app(app_state: App):
                                          "(get one at platform.comfy.org → API keys)")
             return {"ok": True, "trial": t}
         if not (x_comfy_key or "").strip() and (x_judge_code or "").strip():
-            if not A.judge_ok(x_judge_code):
+            pid = A.promo_match(x_judge_code)
+            if not pid:
                 raise HTTPException(403, "that promo code isn't valid")
-            return {"ok": True, "judge": True, "judge_jobs_left": max(0, A.judge_max_jobs - A.judge_used()),
-                    "judge_jobs_total": A.judge_max_jobs}
+            lim = A.promo_limit(pid)
+            return {"ok": True, "judge": True, "judge_jobs_left": max(0, lim - A.promo_used(pid)),
+                    "judge_jobs_total": lim}
         key, hosted = key_or_403(x_comfy_key, x_judge_code)
         try:
             u = ck(key)

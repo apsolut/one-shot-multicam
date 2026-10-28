@@ -15,6 +15,8 @@ primary_region = "fra"
   MULTICAM_HOSTED_KEY_ENV = "COMFY_API_KEY"
   MULTICAM_HOSTED_ACCESS = "judge"     # bring-your-own-key for everyone; the hosted key only with the private judge code
   MULTICAM_JUDGE_MAX_JOBS = "10"       # total jobs the judge code may spend (secret MULTICAM_JUDGE_CODE, never committed)
+  # more promo codes: secret MULTICAM_PROMO_CODES = "CODE:LIMIT,CODE:LIMIT" (per-code counters, hashed, in
+  # /data/hosted_jobs.json "promo_jobs"; remove a code from the secret to revoke it). The floor below still applies.
   MULTICAM_MAX_JOBS = "0"              # no open free quota (free use = the trial runs below)
   MULTICAM_HOSTED_RUNS = "6"           # free trial runs on the hosted key, 1 per visitor; raise to top up (used count: /data/hosted_jobs.json)
   MULTICAM_TRIAL_JOBS_PER_RUN = "10"   # Comfy jobs one free run may use

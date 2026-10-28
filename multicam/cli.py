@@ -448,9 +448,11 @@ def main(argv=None):
                    help="env var holding YOUR Comfy key, used when a visitor pastes none (enables hosted mode)")
     g.add_argument("--hosted-access", choices=["open", "judge"], default=E("MULTICAM_HOSTED_ACCESS") or "open",
                    help="open: visitors without a key use the hosted key (capped). judge: only with the private "
-                        "promo (judge) code in env MULTICAM_JUDGE_CODE; everyone else brings their own key")
+                        "promo codes (env MULTICAM_JUDGE_CODE and/or MULTICAM_PROMO_CODES='CODE:LIMIT,...'); "
+                        "everyone else brings their own key")
     g.add_argument("--judge-max-jobs", type=int, default=_int(E("MULTICAM_JUDGE_MAX_JOBS")) or 10,
-                   help="total jobs the promo (judge) code may spend on the hosted key (default 10)")
+                   help="total jobs the legacy promo code MULTICAM_JUDGE_CODE may spend on the hosted key "
+                        "(default 10; also the default limit of MULTICAM_PROMO_CODES entries without ':LIMIT')")
     g.add_argument("--hosted-runs", type=int, default=_int(E("MULTICAM_HOSTED_RUNS")) or 0,
                    help="free trial runs on the hosted key (global pool, one per visitor; raise it to top up)")
     g.add_argument("--trial-jobs-per-run", type=int, default=_int(E("MULTICAM_TRIAL_JOBS_PER_RUN")) or 10,

@@ -54,14 +54,8 @@ def angle_prompt(preset: str, variant: int = 0) -> tuple[str, str]:
 
 def display_size(video: str | Path) -> tuple[int, int]:
     """Decoded (display) width/height: phone clips often store landscape pixels + a 90-degree rotation."""
-    from .util import run as _run
-    out = _run(["ffprobe", "-v", "error", "-select_streams", "v:0", "-print_format", "json", "-show_streams", str(video)]).stdout
-    st = json.loads(out)["streams"][0]
-    w, h = int(st["width"]), int(st["height"])
-    rot = int(float(st.get("tags", {}).get("rotate", 0) or 0))
-    for sd in st.get("side_data_list", []) or []:
-        rot = int(float(sd.get("rotation", rot) or 0))
-    return (h, w) if abs(rot) % 180 == 90 else (w, h)
+    info = probe(video)
+    return int(info["width"]), int(info["height"])
 
 
 def gen_size(width: int, height: int) -> tuple[int, int]:

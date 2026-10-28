@@ -48,6 +48,11 @@ WEB_DIR = Path(__file__).resolve().parent / "web"
 CANONICAL_ORIGIN = "https://multicam.apsolut.dev"  # public address; the old Fly hostname 301s here
 LEGACY_HOSTS = {"one-shot-multicam.fly.dev"}
 NO_REDIRECT_PREFIXES = ("/api/", "/files/")  # API + job outputs stay put for in-flight clients and health checks
+TERMINAL_JOB = ("success", "error", "non_retryable_error", "lost", "cancelled")
+# a run with no progress (step/job update) for this long is "stale": the UI offers Retry instead of spinning forever
+STALE_S = float(os.environ.get("MULTICAM_STALE_MIN", "40")) * 60
+RESTART_MSG = ("interrupted by a server restart (an app update) during {what}{at}. Nothing was lost that was "
+               "already finished. Tap Retry: finished Comfy jobs are picked up and the render re-runs for free")
 
 
 def workflows_dir() -> Path:
@@ -162,6 +167,8 @@ class App:
         self.pool = ThreadPoolExecutor(max_workers=3)
         self.counter_file = self.data / "hosted_jobs.json"
         self.analyze_sem = threading.Semaphore(1 if self.public_site else 2)  # whisper is CPU-heavy
+        self.live: set[str] = set()  # project ids with a runner thread alive in THIS process
+        self.recovered = self.recover_orphans()
         if self.ttl_minutes:
             threading.Thread(target=self._janitor, daemon=True).start()
 
@@ -495,6 +502,101 @@ class App:
                     self.refund_hosted(n - (submitted() - before), ip, judge)
         return run
 
+    # ---------- restart safety: a deploy/restart kills runner threads but "busy" stays in state.json
+    def mark_orphaned(self, p: Project, reason: str | None = None) -> bool:
+        """busy run with no live thread -> clear busy, running steps + in-flight jobs -> error, keep prompt ids
+        (Retry resumes them). Idempotent; -> True if something was cleared."""
+        with p.lock:
+            what = p.state.get("busy")
+            if not what:
+                return False
+            step = next((k for k, v in p.state.get("steps", {}).items() if v.get("status") == "running"), None)
+            msg = reason or RESTART_MSG.format(what=what, at=f" ({step})" if step else "")
+            for k, v in p.state.get("steps", {}).items():
+                if v.get("status") == "running":
+                    v.update(status="error", msg="interrupted (server restart)", t=time.time())
+            for j in p.state.get("jobs", []):
+                if j.get("status") not in TERMINAL_JOB:
+                    j.update(status="lost", error="server restarted while this job was in flight",
+                             resumable=bool(j.get("prompt_id")))
+            p.state.update(busy=None, error=msg, busy_t=None,
+                           interrupted={"what": what, "step": step, "t": time.time()})
+            p.save()
+        print(f"[multicam] recovered orphaned project {p.state.get('id')}: was busy={what} step={step}", flush=True)
+        return True
+
+    def recover_orphans(self) -> list[str]:
+        """On startup no runner thread can be alive, so every busy project is an orphan of the old process."""
+        out = []
+        for d in sorted(self.data.iterdir()) if self.data.is_dir() else []:
+            st = d / "state.json"
+            if not st.is_file():
+                continue
+            try:
+                if not load_json(st).get("busy"):
+                    continue
+                p = self.get(d.name)
+                if p.id not in self.live and self.mark_orphaned(p):
+                    out.append(p.id)
+            except Exception:  # noqa: BLE001
+                traceback.print_exc()
+        return out
+
+    @staticmethod
+    def last_progress(state: dict) -> float:
+        ts = [state.get("busy_t") or 0]
+        ts += [v.get("t") or 0 for v in state.get("steps", {}).values()]
+        ts += [(j.get("started") or 0) + (j.get("elapsed_s") or 0) for j in state.get("jobs", [])]
+        return max(ts)
+
+    def is_stale(self, p: Project, now: float | None = None) -> bool:
+        if not p.state.get("busy"):
+            return False
+        if p.id not in self.live:
+            return True  # orphan (e.g. state edited by another process): nothing will ever finish it
+        return (now or time.time()) - self.last_progress(p.state) > STALE_S
+
+    def resume(self, p: Project, key: str | None):
+        """Retry after an interruption, never submitting new Comfy jobs: pick up interrupted jobs that
+        finished on Comfy Cloud (download their clip), then re-render for free if every clip is there.
+        Still-missing clips need a normal, confirmed Generate (paid)."""
+        from .comfy import fetch_finished
+        plan = p.edited_plan()
+        starts = {c["id"]: c["start"] for c in plan["chunks"]}
+        got = 0
+        for j in list(p.state.get("jobs", [])):
+            if j.get("kind") != "camera" or j.get("status") == "success" or not j.get("prompt_id") or not key:
+                continue
+            if p.state["clips"].get(j["chunk"], {}).get(j["cam"]):
+                continue
+            out = p.work / "gen" / "clips" / f"{j['uid']}.mp4"
+            try:
+                st = fetch_finished(j["prompt_id"], out, key)
+            except Exception as e:  # noqa: BLE001
+                st = None
+                print(f"[multicam] resume {j['prompt_id']}: {e}", flush=True)
+            p.set_job({"uid": j["uid"], "status": st or j.get("status"), "resumable": st not in TERMINAL_JOB})
+            if st == "success":
+                preset = p.state["cam_stills"].get(j["cam"])
+                extra = ({"synced": True, "engine": "reshoot", "camera": j.get("label", "").rsplit(" · ", 1)[-1]}
+                         if self.engine_of(p) == "reshoot" else None)
+                self.register_clip(p, j["chunk"], j["cam"], out, starts.get(j["chunk"], 0.0), still=preset, extra=extra)
+                got += 1
+        missing = self.estimate(p)["camera_jobs"]
+        if got:
+            p.set_step("cameras", "done", f"{got} finished clip(s) picked up after a restart")
+        with p.lock:
+            p.state.pop("interrupted", None)
+            p.save()
+        if missing and not any(p.state["clips"].values()):
+            raise RuntimeError(f"{len(missing)} clip(s) still missing: tap Generate to run them (paid, shows the cost first)")
+        self.render(p)
+        if missing:
+            with p.lock:
+                p.state["error"] = (f"rendered with what was finished; {len(missing)} clip(s) still missing: "
+                                    "tap Generate to run them (paid, shows the cost first)")
+                p.save()
+
     def _janitor(self):
         while True:
             try:
@@ -514,7 +616,9 @@ class App:
             if not st.exists():
                 continue
             s = load_json(st)
-            if s.get("created", 0) < cutoff and not s.get("busy"):
+            # a run interrupted by a restart gets one more TTL from the interruption, so Retry has time to work
+            ref = max(s.get("created", 0), (s.get("interrupted") or {}).get("t", 0))
+            if ref < cutoff and not s.get("busy"):
                 self.projects.pop(d.name, None)
                 shutil.rmtree(d, ignore_errors=True)
                 gone.append(d.name)
@@ -580,8 +684,10 @@ class App:
         with p.lock:
             if p.state.get("busy"):
                 raise RuntimeError(f"busy: {p.state['busy']}")
-            p.state["busy"], p.state["error"] = what, None
+            p.state["busy"], p.state["error"], p.state["busy_t"] = what, None, time.time()
+            p.state.pop("interrupted", None)
             p.save()
+            self.live.add(p.id)
 
         def runner():
             try:
@@ -598,6 +704,7 @@ class App:
                 with p.lock:
                     p.state["busy"] = None
                     p.save()
+                self.live.discard(p.id)
         threading.Thread(target=runner, daemon=True).start()
 
     # ---------- pipeline steps
@@ -867,6 +974,8 @@ class App:
     # ---------- public state (no secrets ever)
     def public(self, p: Project) -> dict:
         st = copy.deepcopy(p.state)
+        st["stale"] = self.is_stale(p)  # busy but no live thread / no progress for STALE_S: show Retry
+        st["retry"] = bool(st["stale"] or st.get("interrupted"))
         st["source_url"] = p.url(p.root / st["source"])
         st["stills"] = {k: {"url": p.url(p.root / v), "label": STILL_LABELS.get(k, "Your still " + k[-1] if k.startswith("custom_") else k)}
                         for k, v in st["stills"].items()}
@@ -1317,6 +1426,26 @@ def create_app(app_state: App):
         body = await request.json() if (await request.body()) else {}
         try:
             A.run_bg(p, "render", lambda: A.render(p, shake=bool(body.get("shake", False))))
+        except RuntimeError as e:
+            raise HTTPException(409, str(e))
+        return A.public(p)
+
+    @api.post("/api/projects/{pid}/retry")
+    async def retry(pid: str, x_comfy_key: str | None = Header(default=None),
+                    x_judge_code: str | None = Header(default=None), x_pay_mode: str | None = Header(default=None)):
+        """Recover an interrupted or stale run. Free: never submits a new Comfy job. Picks up interrupted
+        jobs that finished on Comfy Cloud, then re-renders; still-missing clips need a confirmed Generate."""
+        p = need_plan(proj(pid))
+        if p.state.get("busy"):
+            if not A.is_stale(p):
+                raise HTTPException(409, f"busy: {p.state['busy']} (still making progress)")
+            A.mark_orphaned(p, "the previous run stopped responding; retrying")
+        try:
+            key = key_or_403(x_comfy_key, x_judge_code, x_pay_mode)[0]  # only to READ finished jobs
+        except HTTPException:
+            key = None
+        try:
+            A.run_bg(p, "render", lambda: A.resume(p, key))
         except RuntimeError as e:
             raise HTTPException(409, str(e))
         return A.public(p)

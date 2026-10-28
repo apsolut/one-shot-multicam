@@ -73,10 +73,32 @@ def mount(api, A, key_or_403, charge_or_403):
         for d in root.iterdir():
             try:
                 w = load_json(d / "web.json")
-                if w.get("created", 0) < cutoff and not w.get("busy"):
+                ref = max(w.get("created", 0), (w.get("interrupted") or {}).get("t", 0))  # grace after a restart
+                if ref < cutoff and not w.get("busy"):
                     shutil.rmtree(d, ignore_errors=True)
             except Exception:  # noqa: BLE001
                 pass
+
+    def recover_orphans() -> list[str]:
+        """Startup: no runner can be alive in a fresh process, so a busy scene is an orphan of a restart/deploy.
+        Clear busy and say so (the buttons come back; finished clips are kept, so re-running skips them)."""
+        out = []
+        for d in sorted(root.iterdir()):
+            try:
+                w = load_json(d / "web.json")
+                if w.get("busy"):
+                    what = w["busy"]
+                    w.update(busy=None, interrupted={"what": what, "t": time.time()},
+                             error=f"interrupted by a server restart (an app update) during {what}. "
+                                   "Finished clips are kept: run it again to continue")
+                    w["log"] = (w.get("log", []) + [f"{time.strftime('%H:%M:%S')} interrupted by a server restart"])[-40:]
+                    save_json(w, d / "web.json")
+                    out.append(d.name)
+                    print(f"[multicam] recovered orphaned scene {d.name}: was busy={what}", flush=True)
+            except Exception:  # noqa: BLE001
+                pass
+        return out
+    recover_orphans()
 
     def run_bg(sid, name, fn):
         if web(sid).get("busy"):

@@ -397,3 +397,22 @@ def cmd_run(workflow_path: str, bindings_path: str, sets: list[str], out_dir: st
         _log(Path(log_path), rec)
     print(f"{rec['status']}: {len(rec['outputs'])} files -> {out_dir}")
     return rec
+
+
+def job_status(prompt_id: str, key=None) -> str | None:
+    """Current status of an already-submitted job (no new submission, free). None if unknown."""
+    import requests
+    r = requests.get(f"{BASE_URL}/api/job/{prompt_id}/status", headers=_headers(key), timeout=60)
+    return r.json().get("status") if r.ok else None
+
+
+def fetch_finished(prompt_id: str, out_path: Path, key=None) -> str | None:
+    """Resume after a server restart: if the Comfy job already finished, download its first video into
+    out_path. Never submits anything. -> the job status ("success" = downloaded), or None if unknown."""
+    st = job_status(prompt_id, key)
+    if st == "success":
+        vids = find_videos(job_detail(prompt_id, key).get("outputs"))
+        if not vids:
+            return "error"
+        download(vids[0], out_path, key)
+    return st

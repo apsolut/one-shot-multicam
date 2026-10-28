@@ -184,6 +184,12 @@ def init(video: str | Path, work: Path, partner: str = "clone", lines: list[str]
           "voice": voice or ("self" if partner == "clone" else "af_heart"),
           "a_look": a_look or "the other speaker", "lines": ls, "stills": {}, "a_clips": {}, "b_clips": {},
           "jobs": [], "created": time.strftime("%Y-%m-%dT%H:%M:%S%z")}
+    if partner == "photo":
+        try:
+            make_originals(sc, work)
+            sc["picks"] = default_picks(sc)
+        except Exception as e:  # noqa: BLE001 - the picker still works with generated stills only
+            print(f"warn: original-photo stills unavailable ({e})")
     save(work, sc)
     return sc
 
@@ -201,9 +207,21 @@ def _ots(sc) -> str:
             f"and shoulder of {sc.get('a_look') or 'another person'}. Shallow depth of field.")
 
 
+# fal Qwen-Image-Edit-2511 Multiple-Angles LoRA: trained on "<sks> [azimuth] [elevation] [distance]" prompts at
+# strength ~0.9. The old free-text "Rotate the camera 45 degrees to the left." is off-format and often comes back
+# with the subject rolled 90 degrees (live bug 2026-10-28: all 3 'single' stills sideways). Every still is also
+# orientation-checked (orient.check_still) before it can be picked automatically.
+SINGLE_ANGLE_PROMPT, SINGLE_ANGLE_LORA = "<sks> front-left quarter view eye-level shot medium shot", 0.9
+
+
+def _who(sc) -> str:
+    """The noun used in prompts. For a real photo the photo decides: never call a woman 'the same man'."""
+    return "person" if sc.get("partner") == "photo" else (sc.get("person") or "person")
+
+
 def still_prompts(sc) -> list[tuple[str, str, float]]:
     """8 Qwen-Image-Edit branches -> [(role, prompt, angle_lora_strength)]. Roles: single/ots/close (+ alternates)."""
-    p = sc.get("person") or "person"
+    p = _who(sc)
     if sc["partner"] == "clone":
         wear, place, _ = _look(sc)
         keep = (f"Keep exactly the same {p} with the same face, same face shape, same eyes, same nose, same facial hair, "
@@ -214,7 +232,7 @@ def still_prompts(sc) -> list[tuple[str, str, float]]:
                 ("close", keep + "Move the camera closer to a tight close-up of the face. Photorealistic film still.", 0.0)]
     else:
         keep = (f"Keep exactly the same {p}: same face, same hair, same clothes, same room and lighting. ")
-        base = [("single", "Rotate the camera 45 degrees to the left.", 1.0),
+        base = [("single", SINGLE_ANGLE_PROMPT, SINGLE_ANGLE_LORA),
                 ("ots", keep + f"The {p} looks toward the right side of the frame, listening." + _ots(sc), 0.0),
                 ("close", keep + f"Move the camera closer to a close-up of the face, the {p} looks toward the right "
                  "side of the frame. Photorealistic.", 0.0)]
@@ -231,7 +249,7 @@ def character_prompt(sc) -> str:
 
 
 def b_visual(sc, shot: str, listening: bool = False) -> str:
-    p = sc.get("person") or "person"
+    p = _who(sc)
     if sc["partner"] == "clone":
         wear, _, place = _look(sc)
         who = f"The same {p} wearing {wear}, {place}"
@@ -417,7 +435,7 @@ def make_stills(sc: dict, work: Path, key=None, seed=None, log=print) -> dict:
         src = _frame(side["path"], 1.4, sd / "src_a_side_flip.png", hflip=True) if side else \
             _frame(sc["source"], load_json(sc["transcript"])["sentences"][0]["end"] + 0.2, sd / "src_a_flip.png", hflip=True)
     elif sc["partner"] == "photo":
-        src = Path(sc["photo"])
+        src = upright_photo(sc, work)
     else:
         src = Path(sc["photo"]) if sc.get("photo") else None
         if src is None:
@@ -442,8 +460,130 @@ def make_stills(sc: dict, work: Path, key=None, seed=None, log=print) -> dict:
     if rec["status"] != "success":
         raise RuntimeError(f"stills job failed: {rec.get('error')}")
     sc["stills"] = {role: str(sd / f"e{i}.png") for i, (role, _, _) in enumerate(roles, 1)}
+    sc["stills_src"] = str(src)
+    check_stills(sc, log=log)
+    sc["picks"] = default_picks(sc, keep=sc.get("picks"))
     save(work, sc)
     return sc["stills"]
+
+
+# ------------------------------------------------------------------ still picker
+def upright_photo(sc: dict, work: Path) -> Path:
+    """The partner photo with its EXIF orientation baked in (phones store sideways pixels + a tag)."""
+    from . import orient as O
+    src = Path(sc["photo"])
+    if O.exif_orientation(src) == 1:
+        return src
+    dst = Path(work).resolve() / "stills" / f"partner_upright{src.suffix.lower() or '.jpg'}"
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    import shutil
+    shutil.copyfile(src, dst)
+    return O.normalize_upload(dst)
+
+
+ORIGINAL_ZOOM = {"single": 1.0, "close": 2.6}  # shots the original photo can play (ots needs A's shoulder)
+
+
+def make_originals(sc: dict, work: Path) -> dict:
+    """Free 'use my original photo' stills: upright 9:16 crops of the partner photo for the single and close-up.
+    Only for a real photo (clone = your own frame, character = no photo). Skips a shot the photo cannot do
+    (no face for a close-up, or too few pixels)."""
+    sc["originals"] = {}
+    if sc.get("partner") != "photo" or not sc.get("photo"):
+        return {}
+    from . import orient as O
+    src = upright_photo(sc, work)
+    for shot, zoom in ORIGINAL_ZOOM.items():
+        out = O.face_crop(src, Path(work).resolve() / "stills" / f"original_{shot}.jpg", zoom=zoom,
+                          min_w=360 if zoom <= 1 else 480)
+        if out:
+            sc["originals"][shot] = str(out)
+    return sc["originals"]
+
+
+def check_stills(sc: dict, log=print) -> dict:
+    """Orientation check of every generated still against its source -> sc['still_checks'] {name: {ok, reason}}."""
+    from . import orient as O
+    src = sc.get("stills_src") or (sc.get("photo") if sc.get("partner") == "photo" else None)
+    checks = {}
+    if src and Path(src).exists():
+        roll = O.face_roll(src)
+        for role, path in sc["stills"].items():
+            if Path(path).exists():
+                ok, why = O.check_still(path, src, source_roll=roll)
+                checks[Path(path).stem] = {"ok": ok, "reason": why}
+    sc["still_checks"] = checks
+    bad = [f"{k} ({v['reason']})" for k, v in checks.items() if not v["ok"]]
+    if bad:
+        log(f"stills: not used automatically: {', '.join(bad)}")
+    return checks
+
+
+def candidates(sc: dict) -> dict[str, list[dict]]:
+    """Picker options per B shot: the original photo first (when it can play that shot), then the generated
+    variants (single, single_2, single_3, ...) with their orientation check."""
+    checks = sc.get("still_checks") or {}
+    out = {}
+    for shot in B_SHOTS:
+        opts = []
+        if (sc.get("originals") or {}).get(shot) and Path(sc["originals"][shot]).exists():
+            opts.append({"name": f"original_{shot}", "path": sc["originals"][shot], "original": True,
+                         "ok": True, "reason": "your original photo"})
+        for role, path in sc["stills"].items():
+            if role.split("_")[0] == shot and Path(path).exists():
+                c = checks.get(Path(path).stem, {"ok": True, "reason": "unchecked"})
+                opts.append({"name": Path(path).stem, "path": path, "original": False, "role": role, **c})
+        out[shot] = opts
+    return out
+
+
+def default_picks(sc: dict, keep: dict | None = None) -> dict:
+    """Original photo where it works, else the first generated variant that passed the orientation check, else
+    nothing (the UI asks for a re-roll). A still that failed the check is never picked automatically."""
+    cand = candidates(sc)
+    picks = {}
+    for shot, opts in cand.items():
+        names = {o["name"]: o for o in opts}
+        if keep and keep.get(shot) in names:  # the user's explicit choice survives a re-check
+            picks[shot] = keep[shot]
+            continue
+        good = [o for o in opts if o["ok"]]
+        if good:
+            picks[shot] = good[0]["name"]
+    return picks
+
+
+def set_pick(sc: dict, shot: str, name: str) -> list[str]:
+    """Choose the still for a B shot; drops the B clips that were made from another still (re-generated next
+    time). Returns the dropped clip keys."""
+    if shot not in B_SHOTS:
+        raise ValueError(f"shot must be one of {B_SHOTS}")
+    if name not in {o["name"] for o in candidates(sc)[shot]}:
+        raise ValueError(f"no still {name!r} for {shot}")
+    sc.setdefault("picks", {})[shot] = name
+    want = Path(pick_path(sc, shot)).name
+    dropped = [k for k, c in sc["b_clips"].items() if c.get("shot") == shot and c.get("still") != want]
+    for k in dropped:
+        sc["b_clips"].pop(k)
+    return dropped
+
+
+def pick_path(sc: dict, shot: str) -> str | None:
+    """The still a B clip of this framing starts from: the explicit pick, else a checked default; never a
+    still that failed the orientation check unless the user picked it."""
+    cand = candidates(sc)
+    opts = {o["name"]: o for o in cand.get(shot, [])}
+    name = (sc.get("picks") or {}).get(shot)
+    if name in opts:
+        return opts[name]["path"]
+    d = default_picks(sc).get(shot)
+    if d:
+        return opts[d]["path"]
+    for other in B_SHOTS:  # nothing usable for this framing: fall back to any good still (original first)
+        d = default_picks(sc).get(other)
+        if d:
+            return {o["name"]: o for o in cand[other]}[d]["path"]
+    return None
 
 
 def _job(sc, kind, rec):
@@ -456,7 +596,7 @@ def make_clips(sc: dict, work: Path, key=None, only: list[str] | None = None, se
                log=print, on_status: Callable[[str, dict], None] | None = None) -> dict:
     """LTX-2.3 ID LoRA: one clip per B line (exact words, B voice) + one B listening clip for L-cuts."""
     work = Path(work).resolve()
-    if not sc["stills"]:
+    if not sc["stills"] and not sc.get("originals"):
         raise SystemExit("no partner stills yet: run `multicam scene stills` first")
     wf, b, _ = _wf("idlora")
     ref = voice_ref(sc, work)
@@ -473,7 +613,9 @@ def make_clips(sc: dict, work: Path, key=None, only: list[str] | None = None, se
 
     def go(t):
         name, shot, prompt, secs, text = t
-        still = sc["stills"].get(shot) or sc["stills"]["single"]
+        still = pick_path(sc, shot)
+        if still is None:
+            raise RuntimeError("no usable partner still (all came back rotated): re-roll the stills")
         s = seed if seed is not None else random.randint(0, 2**48)
         vals = {"image": still, "audio": str(ref), "prompt": prompt, "width": 720, "height": 1280, "fps": 24,
                 "duration": secs, "seed": s}

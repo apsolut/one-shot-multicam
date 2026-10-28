@@ -83,7 +83,7 @@
       $("#scLines").innerHTML = (SC.lines || []).map(lineRow).join("");
       dlg.dataset.done = "1";
     }
-    $("#scStills").innerHTML = Object.entries(SC.stills || {}).map(([k, u]) => `<figure><img src="${u}" alt="${k}"><figcaption>B · ${SHOT_LABEL[k] || k}</figcaption></figure>`).join("");
+    renderStills();
     const e = SC.estimate;
     $("#scEst").innerHTML = e ? (e.n_jobs ? `<b>${e.n_jobs}</b> Comfy jobs ≈ <b>$${e.usd.toFixed(2)}</b> <span class="muted small">(${Object.entries(e.jobs).filter(([, v]) => v).map(([k, v]) => `${v} ${k}`).join(", ")})</span>` : "everything generated — re-render is free") : "";
     $("#scGen").disabled = !!SC.busy || !SC.sentences;
@@ -95,6 +95,24 @@
     if (SC.output && !SC.busy) wfLink($("#scWf"), "scene", SC.id, `${SC.output}|${(SC.jobs || []).length}`);  // ComfyUI graphs it ran
     $("#scEdl").innerHTML = (SC.edl || []).map(s => `<span class="sc-shot-chip ${s.who}" title="${esc(s.words || "")}" style="flex:${s.dur}">${esc(s.cam)}</span>`).join("");
   }
+  // Still picker: one row per B framing. The chosen still is ringed + "✓ using"; your original photo is the
+  // default where it works; a still that came back rotated is never chosen automatically (⚠, still pickable).
+  function renderStills() {
+    const rows = Object.entries(SC.stills || {}).filter(([, opts]) => Array.isArray(opts) && opts.length).map(([shot, opts]) => {
+      const chosen = opts.find(o => o.chosen);
+      const figs = opts.map(o => `<figure class="sc-pick${o.chosen ? " chosen" : ""}${o.ok ? "" : " bad"}" data-shot="${shot}" data-still="${esc(o.name)}" role="button" tabindex="0" aria-pressed="${o.chosen}" title="${esc(o.reason || "")}">
+          <img src="${o.url}" alt="${esc(o.name)}"><figcaption>${o.chosen ? '<b class="badge ok">✓ using</b> ' : ""}${o.original ? "Your original photo" : esc(o.name)}${o.ok ? "" : ` <span class="badge warn">⚠ ${esc(o.reason)}</span>`}</figcaption></figure>`).join("");
+      return `<div class="sc-pick-row"><div class="sc-pick-h">B · ${SHOT_LABEL[shot] || shot}${chosen ? "" : ' <span class="badge warn">nothing usable yet</span>'}</div><div class="sc-pick-opts">${figs}</div></div>`;
+    }).join("");
+    $("#scStills").innerHTML = rows || '<p class="muted small">Partner shots appear here after the first Generate (1 Qwen job). You pick which one each framing uses.</p>';
+    const e = SC.estimate || {};
+    if (!SC.busy && !SC.output) $("#scGen").textContent = e.stage === "stills" ? "Generate partner shots" : "Generate scene with these shots";
+  }
+  $("#scStills").addEventListener("click", async ev => {
+    const f = ev.target.closest(".sc-pick"); if (!f || !SC || SC.busy || f.classList.contains("chosen")) return;
+    try { SC = await api(`/api/scene/${SC.id}/pick`, {json: {shot: f.dataset.shot, still: f.dataset.still}}); render(); toast("Shot chosen"); }
+    catch (e) { toast(e.message, 4000); }
+  });
   async function refresh() {
     clearTimeout(spoll);
     if (!sid()) return;

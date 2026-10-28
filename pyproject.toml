@@ -14,7 +14,7 @@ dependencies = ["faster-whisper>=1.0", "numpy", "requests"]
 
 [project.optional-dependencies]
 music = ["librosa", "opencv-python-headless<5"]
-web = ["fastapi>=0.110", "uvicorn>=0.29", "python-multipart>=0.0.9", "opencv-python-headless<5"]
+web = ["fastapi>=0.110", "uvicorn>=0.29", "python-multipart>=0.0.9", "opencv-python-headless<5", "Pillow>=10"]
 
 [project.scripts]
 multicam = "multicam.cli:main"

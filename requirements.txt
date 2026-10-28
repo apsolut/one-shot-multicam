@@ -4,6 +4,7 @@ requests
 # music mode (plan --music)
 librosa
 opencv-python-headless<5
+Pillow>=10  # EXIF-normalise partner photos, still orientation checks
 # web app (multicam serve)
 fastapi>=0.110
 uvicorn>=0.29

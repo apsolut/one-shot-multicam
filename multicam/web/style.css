@@ -228,3 +228,11 @@ main,.card,.foot,.banner,.note,.consent{overflow-wrap:break-word}
   .foot{padding:10px 14px 32px}
   dialog{padding:18px}
 }
+
+/* scene still picker (fix-rotation) */
+.sc-stills .sc-pick-row{grid-column:1/-1;margin-bottom:10px}.sc-pick-h{font-size:13px;font-weight:600;margin:4px 0}
+.sc-pick-opts{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+.sc-pick{cursor:pointer;border:2px solid transparent;border-radius:12px;padding:2px}
+.sc-pick.chosen{border-color:var(--accent,#9be15d);box-shadow:0 0 0 2px rgba(155,225,93,.35)}
+.sc-pick.bad img{opacity:.45;filter:grayscale(.6)}.sc-pick:focus-visible{outline:2px solid var(--accent,#9be15d)}
+@media (max-width:520px){.sc-pick-opts{grid-template-columns:repeat(2,minmax(0,1fr))}}

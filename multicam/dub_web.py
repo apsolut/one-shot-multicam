@@ -196,10 +196,11 @@ def mount(api, A, key_or_403, charge_or_403):
 
     @api.post("/api/dub/{did}/translate")
     def translate(did: str, request: Request, x_comfy_key: str | None = Header(default=None),
-                  x_judge_code: str | None = Header(default=None)):
+                  x_judge_code: str | None = Header(default=None),
+                       x_pay_mode: str | None = Header(default=None)):
         d = ready(did)
         dp = load_json(d / "dub.json")
-        key, hosted = key_or_403(x_comfy_key, x_judge_code)
+        key, hosted = key_or_403(x_comfy_key, x_judge_code, x_pay_mode)
 
         def work():
             log_fn(did)(f"translating to {D.LANGS[dp['lang']][0]} (Gemma 3 12B, open weights)")
@@ -244,7 +245,8 @@ def mount(api, A, key_or_403, charge_or_403):
 
     @api.post("/api/dub/{did}/generate")
     async def generate(did: str, request: Request, x_comfy_key: str | None = Header(default=None),
-                       x_judge_code: str | None = Header(default=None)):
+                       x_judge_code: str | None = Header(default=None),
+                       x_pay_mode: str | None = Header(default=None)):
         d = ready(did)
         body = await request.json() if (await request.body()) else {}
         dp = load_json(d / "dub.json")
@@ -255,7 +257,7 @@ def mount(api, A, key_or_403, charge_or_403):
             raise HTTPException(400, {"needs_confirm": True, **est})
         if est["jobs"] > max(A.max_jobs_per_run, 12):
             raise HTTPException(400, f"{est['jobs']} jobs exceeds the per-run cap; use a shorter take")
-        key, hosted = key_or_403(x_comfy_key, x_judge_code)
+        key, hosted = key_or_403(x_comfy_key, x_judge_code, x_pay_mode)
         log = log_fn(did)
 
         def work():

@@ -372,25 +372,58 @@ class App:
                 save_json(d, self.counter_file)
 
     # ---------- key handling
-    def resolve_key(self, header_key: str | None, judge_code: str | None = None) -> tuple[str, bool | str]:
+    PAY_MODES = {"key": "key", "promo": "promo", "judge": "promo", "trial": "trial", "free": "trial"}
+
+    def resolve_key(self, header_key: str | None, judge_code: str | None = None,
+                    pay_mode: str | None = None) -> tuple[str, bool | str]:
         """-> (key, False) for the visitor's own key, (operator key, True) in open hosted mode,
-        (operator key, "judge") with the legacy promo code, (operator key, "promo:<id>") with another one."""
-        if header_key and header_key.strip():
-            return header_key.strip(), False
+        (operator key, "judge") with the legacy promo code, (operator key, "promo:<id>") with another one,
+        (operator key, "trial") for a free trial run.
+
+        pay_mode (header X-Pay-Mode, sent by the web UI) is the visitor's explicit choice and always wins:
+        "key" never falls back to the operator's credits, "promo" never to a free run, "trial" never charges
+        the visitor's key. Without it (old clients, API users) the order is: own key > open demo > promo code
+        > free trial, so a key that was sent always beats a promo code and the trial."""
+        own = (header_key or "").strip()
+        code = (judge_code or "").strip()
+        mode = self.PAY_MODES.get((pay_mode or "").strip().lower()) if pay_mode else None
+        if pay_mode and not mode:
+            raise PermissionError(f"unknown payment mode {pay_mode!r} (key, promo or trial)")
+        if mode == "key":
+            if not own:
+                raise PermissionError("you chose your own Comfy Cloud key, but no key was sent from this browser. "
+                                      "Paste it again in the payment sheet (platform.comfy.org → API keys)")
+            return own, False
+        if mode == "promo":
+            if not code:
+                raise PermissionError("you chose a promo code, but none was sent. Enter it again in the payment sheet")
+            return self._promo_key(code)
+        if mode == "trial":
+            if self.hosted:
+                return self.operator_key, True
+            if self.trial_enabled:
+                return self.operator_key, "trial"
+            raise PermissionError("free runs aren't available here. Paste your own Comfy Cloud key "
+                                  "(platform.comfy.org → API keys)")
+        if own:
+            return own, False
         if self.hosted:
             return self.operator_key, True
-        if judge_code and judge_code.strip():
-            pid = self.promo_match(judge_code)
-            if pid == "judge":
-                return self.operator_key, "judge"
-            if pid:
-                return self.operator_key, "promo:" + pid
-            raise PermissionError("that promo code isn't valid. Paste your own Comfy Cloud key instead "
-                                  "(platform.comfy.org → API keys)")
+        if code:
+            return self._promo_key(code)
         if self.trial_enabled:
             return self.operator_key, "trial"  # charge_trial enforces the pool / per-visitor / floor limits
         raise PermissionError("Comfy Cloud API key required: paste your own key "
                               "(get one at platform.comfy.org → API keys)")
+
+    def _promo_key(self, code: str) -> tuple[str, str]:
+        pid = self.promo_match(code)
+        if pid == "judge":
+            return self.operator_key, "judge"
+        if pid:
+            return self.operator_key, "promo:" + pid
+        raise PermissionError("that promo code isn't valid. Paste your own Comfy Cloud key instead "
+                              "(platform.comfy.org → API keys)")
 
     def hosted_used(self) -> int:
         return self._ledger()["jobs"]
@@ -924,9 +957,9 @@ def create_app(app_state: App):
                                 else "still analyzing your video (transcribe + plan); try again in a few seconds")
         return p
 
-    def key_or_403(k, judge_code=None):
+    def key_or_403(k, judge_code=None, pay_mode=None):
         try:
-            return A.resolve_key(k, judge_code)
+            return A.resolve_key(k, judge_code, pay_mode)
         except PermissionError as e:
             raise HTTPException(403, str(e))
 
@@ -1057,7 +1090,8 @@ def create_app(app_state: App):
 
     @api.post("/api/check-key")
     def check_key(request: Request, x_comfy_key: str | None = Header(default=None),
-                  x_judge_code: str | None = Header(default=None)):
+                  x_judge_code: str | None = Header(default=None),
+                   x_pay_mode: str | None = Header(default=None)):
         from .comfy import ComfyError, balance_usd, check_key as ck
         if not (x_comfy_key or "").strip() and not (x_judge_code or "").strip() and not A.hosted:
             t = A.trial_status(A.client_ip(request), request.cookies.get(VISITOR_COOKIE))
@@ -1072,7 +1106,7 @@ def create_app(app_state: App):
             lim = A.promo_limit(pid)
             return {"ok": True, "judge": True, "judge_jobs_left": max(0, lim - A.promo_used(pid)),
                     "judge_jobs_total": lim}
-        key, hosted = key_or_403(x_comfy_key, x_judge_code)
+        key, hosted = key_or_403(x_comfy_key, x_judge_code, x_pay_mode)
         try:
             u = ck(key)
         except ComfyError as e:
@@ -1182,7 +1216,8 @@ def create_app(app_state: App):
 
     @api.post("/api/projects/{pid}/generate")
     async def generate(pid: str, request: Request, x_comfy_key: str | None = Header(default=None),
-                   x_judge_code: str | None = Header(default=None)):
+                   x_judge_code: str | None = Header(default=None),
+                   x_pay_mode: str | None = Header(default=None)):
         p = need_plan(proj(pid))
         body = await request.json()
         est = A.estimate(p)
@@ -1190,7 +1225,7 @@ def create_app(app_state: App):
             raise HTTPException(400, {"needs_confirm": True, **est})
         if est["jobs"] > A.max_jobs_per_run:
             raise HTTPException(400, f"{est['jobs']} jobs exceeds the per-run cap ({A.max_jobs_per_run})")
-        key, hosted = key_or_403(x_comfy_key, x_judge_code)
+        key, hosted = key_or_403(x_comfy_key, x_judge_code, x_pay_mode)
         if p.state.get("busy"):
             raise HTTPException(409, f"busy: {p.state['busy']}")
         fn = charge_or_403(request, est["jobs"], hosted, p, lambda: A.generate(p, key))
@@ -1202,14 +1237,15 @@ def create_app(app_state: App):
 
     @api.post("/api/projects/{pid}/angles")
     async def angles(pid: str, request: Request, x_comfy_key: str | None = Header(default=None),
-                   x_judge_code: str | None = Header(default=None)):
+                   x_judge_code: str | None = Header(default=None),
+                   x_pay_mode: str | None = Header(default=None)):
         """Only (re)generate the 8 Qwen angle stills (1 job)."""
         p = proj(pid)
         body = await request.json() if (await request.body()) else {}
         if not body.get("confirm"):
             from .comfy import job_cost
             raise HTTPException(400, {"needs_confirm": True, "jobs": 1, "usd": job_cost("angles")})
-        key, hosted = key_or_403(x_comfy_key, x_judge_code)
+        key, hosted = key_or_403(x_comfy_key, x_judge_code, x_pay_mode)
         if p.state.get("busy"):
             raise HTTPException(409, f"busy: {p.state['busy']}")
         fn = charge_or_403(request, 1, hosted, p, lambda: A._gen_angles(p, key))
@@ -1221,7 +1257,8 @@ def create_app(app_state: App):
 
     @api.post("/api/projects/{pid}/reroll")
     async def reroll(pid: str, request: Request, x_comfy_key: str | None = Header(default=None),
-                   x_judge_code: str | None = Header(default=None)):
+                   x_judge_code: str | None = Header(default=None),
+                   x_pay_mode: str | None = Header(default=None)):
         p = need_plan(proj(pid))
         body = await request.json()
         plan = p.edited_plan()
@@ -1234,7 +1271,7 @@ def create_app(app_state: App):
         if not body.get("confirm"):
             from .comfy import job_cost
             raise HTTPException(400, {"needs_confirm": True, "jobs": 1, "usd": job_cost(A.engine_of(p))})
-        key, hosted = key_or_403(x_comfy_key, x_judge_code)
+        key, hosted = key_or_403(x_comfy_key, x_judge_code, x_pay_mode)
         still = body.get("still") or p.state["cam_stills"].get(cam)
         from .reshoot import ANGLES
         if A.engine_of(p) == "reshoot":

@@ -271,7 +271,8 @@ def mount(api, A, key_or_403, charge_or_403):
 
     @api.post("/api/scene/{sid}/generate")
     async def generate(sid: str, request: Request, x_comfy_key: str | None = Header(default=None),
-                       x_judge_code: str | None = Header(default=None)):
+                       x_judge_code: str | None = Header(default=None),
+                       x_pay_mode: str | None = Header(default=None)):
         d = wpath(sid)
         body = await request.json() if (await request.body()) else {}
         sc = S.load(d)
@@ -293,7 +294,7 @@ def mount(api, A, key_or_403, charge_or_403):
             raise HTTPException(400, {"needs_confirm": True, **est})
         if est["n_jobs"] > max(A.max_jobs_per_run, 9):
             raise HTTPException(400, f"{est['n_jobs']} jobs exceeds the per-run cap")
-        key, hosted = key_or_403(x_comfy_key, x_judge_code)
+        key, hosted = key_or_403(x_comfy_key, x_judge_code, x_pay_mode)
         log = log_fn(sid)
 
         def work():

@@ -24,7 +24,25 @@ def run(cmd: list[str], quiet: bool = True) -> subprocess.CompletedProcess:
     return proc
 
 
+def stream_rotation(stream: dict) -> int:
+    """Display rotation of an ffprobe video stream in degrees, normalized to 0/90/180/270
+    (display-matrix side data wins over the legacy `rotate` tag)."""
+    rot = 0.0
+    try:
+        rot = float((stream.get("tags") or {}).get("rotate", 0) or 0)
+    except (TypeError, ValueError):
+        pass
+    for sd in stream.get("side_data_list") or []:
+        if "rotation" in sd:
+            try:
+                rot = float(sd["rotation"] or 0)
+            except (TypeError, ValueError):
+                pass
+    return int(round(rot / 90.0)) * 90 % 360
+
+
 def probe(path: str | Path) -> dict:
+    """Duration, upright (display) width/height, fps, audio info; `rotation` when the stream carries one."""
     need("ffprobe")
     out = run(["ffprobe", "-v", "error", "-print_format", "json", "-show_format", "-show_streams", str(path)]).stdout
     info = json.loads(out)
@@ -33,7 +51,13 @@ def probe(path: str | Path) -> dict:
     res = {"duration": float(info["format"]["duration"])}
     if v:
         num, den = v.get("r_frame_rate", "30/1").split("/")
-        res.update(width=int(v["width"]), height=int(v["height"]), fps=float(num) / float(den or 1))
+        w, h = int(v["width"]), int(v["height"])
+        rot = stream_rotation(v)
+        if rot % 180 == 90:  # phone clips: landscape pixels + a 90-degree display matrix; ffmpeg autorotates
+            w, h = h, w      # on decode, so everything downstream must see the upright (display) size
+        res.update(width=w, height=h, fps=float(num) / float(den or 1))
+        if rot:
+            res["rotation"] = rot
     if a:
         res.update(sample_rate=int(a["sample_rate"]), channels=int(a.get("channels", 2)), audio_codec=a["codec_name"])
     return res

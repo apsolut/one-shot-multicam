@@ -31,7 +31,7 @@
     const f = w.fit, warn = f && !f.ok;
     return `<div class="db-line"><div class="db-src">${w.start.toFixed(1)}–${w.end.toFixed(1)}s · ${esc(w.text)}</div>
       <textarea class="db-text" maxlength="400" placeholder="translation (exact words to speak)">${esc(w.translation)}</textarea>
-      <div class="db-fit ${warn ? "" : "ok"}">${f ? (warn ? `⚠ ${esc(f.hint)} (×${f.ratio})` : `fits (×${f.ratio})`) : ""}${w.dubbed ? " · dubbed ✓" : ""}</div></div>`;
+      <div class="db-fit ${warn ? "" : "ok"}">${f ? (warn ? `${esc(f.hint)} (×${f.ratio})` : `fits (×${f.ratio})`) : ""}${w.dubbed ? " · dubbed" : ""}</div></div>`;
   }
   const collect = () => $$("#dbLines .db-text").map(t => t.value.trim());
   $("#dbLines").addEventListener("input", () => { markEmpty(); if (DB) textDraft.set("d", DB.id, $$("#dbLines .db-text").map(t => t.value)); });

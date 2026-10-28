@@ -145,7 +145,7 @@ function render() {
   $("#jobs").innerHTML = (S.jobs || []).slice().reverse().map(j => `<div class="job ${j.status}"><div style="flex:1;min-width:0"><div>${esc(j.label)}</div>
     ${["success", "error", "non_retryable_error", "lost", "cancelled"].includes(j.status) ? "" : '<div class="bar"></div>'}</div>
     <div class="st">${esc(j.status)} · ${jobSecs(j)}s${j.status === "success" && j.prompt_id ? ` · <a href="/api/projects/${S.id}/workflow/${encodeURIComponent(j.prompt_id)}" download title="the exact ComfyUI API graph this job ran">workflow</a>` : ""}</div></div>`).join("");
-  $("#err").hidden = !S.error; $("#err").textContent = S.error ? "⚠ " + S.error : "";
+  $("#err").hidden = !S.error; $("#err").textContent = S.error ? S.error : "";
   if (S.plan) { renderCams(); renderEstimate(); $("#planCard").hidden = false; }
   if (S.renders?.length) renderResult();
   $("#generate").disabled = $("#renderFree").disabled = $("#anglesBtn").disabled = !!busy || !S.plan;
@@ -154,8 +154,8 @@ function render() {
 function renderCams() {
   $("#anglesRow").hidden = reshoot();
   const eng = `<div class="seg engine" id="engineSel">
-      <button data-engine="reshoot" class="${reshoot() ? "on" : ""}">🎥 Re-shoot <small>follows your real motion & lips · recommended</small></button>
-      <button data-engine="idlora" class="${reshoot() ? "" : "on"}">🖼 Classic <small>Qwen still + ID LoRA</small></button></div>`;
+      <button data-engine="reshoot" class="${reshoot() ? "on" : ""}">Re-shoot <small>follows your real motion & lips · recommended</small></button>
+      <button data-engine="idlora" class="${reshoot() ? "" : "on"}">Classic <small>Qwen still + ID LoRA</small></button></div>`;
   if (reshoot()) {
     const presets = Object.entries(cfg.reshoot_angles || {});
     $("#engine").innerHTML = eng;
@@ -187,7 +187,7 @@ function renderEstimate() {
   $("#estimate").innerHTML = `<div><div class="big">${has ? `≈ $${e.usd.toFixed(2)}` : "$0.00"}</div>
     <small>${has ? `${e.jobs} Comfy Cloud job${e.jobs > 1 ? "s" : ""} × ~$${e.per_job_usd.toFixed(3)} · ${e.angle_jobs ? "1 angle job + " : ""}${e.camera_jobs.length} ${e.engine === "reshoot" ? "re-shoot" : "camera"} clip${e.camera_jobs.length === 1 ? "" : "s"}` : "every insert already has a clip — rendering is free"}</small></div>
     <small>${S.plan.shots.filter(s => s.chunk && s.cam !== "A").length} AI inserts · ${S.plan.duration.toFixed(1)}s</small>`;
-  $("#generate").textContent = !has ? "Generate (nothing to do)" : demoOut(e.jobs) ? "🔑 Paste your Comfy key to generate" : `Generate · $${e.usd.toFixed(2)}`;
+  $("#generate").textContent = !has ? "Generate (nothing to do)" : demoOut(e.jobs) ? "Paste your Comfy key to generate" : `Generate · $${e.usd.toFixed(2)}`;
   $("#generate").style.display = has ? "" : "none";
 }
 
@@ -237,7 +237,7 @@ async function wfLink(el, kind, id, stamp) {
   if (!n) return;
   el.href = n === 1 ? r.workflows[0].url : r.zip;
   el.setAttribute("download", n === 1 ? `multicam_${r.workflows[0].name}` : "multicam-comfyui-workflows.zip");
-  el.textContent = n === 1 ? "⬇ ComfyUI workflow" : `⬇ ComfyUI workflows (${n}, zip)`;
+  el.textContent = n === 1 ? "ComfyUI workflow" : `ComfyUI workflows (${n}, zip)`;
   el.title = "The exact ComfyUI API graph(s) this project ran on Comfy Cloud — open in ComfyUI or re-run them";
 }
 let shownSrc = null;
@@ -292,7 +292,7 @@ function renderShotPanel() {
     <div class="meta">${al ? (al.status === "ok" ? `lip-sync: ${al.method || "words"} · offset ${al.offset >= 0 ? "+" : ""}${(+al.offset).toFixed(2)}s · speed ×${(+al.speed).toFixed(2)}` : `align: ${esc(al.status)} — ${esc(al.reason || "")}`) : "not aligned yet"}</div>
     <div class="camsel">${["B", "C", "A"].map(c => `<button data-cam="${c}" class="${s.cam === c ? "on" : ""}">${c === "A" ? "Drop (use A)" : `CAM ${c}`}${c !== "A" && !clips[c] ? " · needs clip" : ""}</button>`).join("")}</div>
     <div class="camsel">
-      <button data-act="reroll" ${s.cam === "A" ? "disabled" : ""}>🎲 Re-roll CAM ${s.cam === "A" ? s.planned_cam : s.cam} · $${jobUsd().toFixed(2)}</button>
+      <button data-act="reroll" ${s.cam === "A" ? "disabled" : ""}>Re-roll CAM ${s.cam === "A" ? s.planned_cam : s.cam} · $${jobUsd().toFixed(2)}</button>
       <select id="rerollStill" ${s.cam === "A" ? "disabled" : ""}>${(reshoot() ? Object.entries(cfg.reshoot_angles || {}) : Object.entries(S.stills || {})).map(([k, v]) =>
         `<option value="${k}" ${k === S.cam_stills[s.cam] ? "selected" : ""}>angle: ${esc(v.label)}</option>`).join("")}</select>
       ${s.planned_cam !== s.cam ? `<button data-cam="${s.planned_cam}">↺ Reset</button>` : ""}
@@ -319,10 +319,10 @@ $("#shareBtn").onclick = async () => {
   try { const r = await api(`/api/projects/${S.id}/share`, {json: {title: S.name}});
     const box = $("#share"); box.hidden = false;
     box.innerHTML = `<b>Share bundle ready</b><span class="muted small">Self-contained page + mp4. Upload the folder anywhere static (GitHub Pages, Netlify, S3).</span>
-      <div class="row gap"><a class="btn" href="${r.page}" target="_blank">Open page</a><a class="btn" href="${r.zip}" download>⬇ .zip</a></div>
+      <div class="row gap"><a class="btn" href="${r.page}" target="_blank">Open page</a><a class="btn" href="${r.zip}" download>Download .zip</a></div>
       <a class="btn" href="${r.x_intent}" target="_blank" rel="noopener">Post on X · #OpenSourceHiggsfield</a>`;
   } catch (e) { toast(e.message, 4000); }
-  b.disabled = false; b.textContent = "↗ Share";
+  b.disabled = false; b.textContent = "Share";
 };
 
 function renderBanner() {
@@ -331,23 +331,23 @@ function renderBanner() {
   if (cfg.public && cfg.trial) {
     const t = cfg.trial, url = cfg.get_key_url || "https://platform.comfy.org/profile/api-keys";
     const open = t.runs_left > 0 && !t.used_by_you;
-    if (cfg.max_upload_s) $("#dropHint").textContent = `Up to ${cfg.max_upload_s} s, you talking to camera (or performing). Your own face, or someone who consented.`;
-    $("#keyNote").innerHTML = `${open ? "🎁 <b>Optional while free runs last:</b> leave it empty to use your free run." : "🔑 <b>Bring your own key:</b> generation runs on <b>your</b> Comfy Cloud credits."} Get a key at <a href="${url}" target="_blank" rel="noopener">platform.comfy.org → API keys</a>. It's saved only in <b>this browser</b> (localStorage) and sent per request to this server, which forwards it to Comfy Cloud and <b>never stores or logs it</b>. <a href="#" id="keyForget">Forget key</a>`;
+    if (cfg.max_upload_s) $("#dropHint").textContent = `Vertical selfie video, up to ${cfg.max_upload_s} s.`;
+    $("#keyNote").innerHTML = `${open ? "<b>Optional while free runs last:</b> leave it empty to use your free run." : "<b>Bring your own key:</b> generation runs on <b>your</b> Comfy Cloud credits."} Get a key at <a href="${url}" target="_blank" rel="noopener">platform.comfy.org → API keys</a>. It's saved only in <b>this browser</b> (localStorage) and sent per request to this server, which forwards it to Comfy Cloud and <b>never stores or logs it</b>. <a href="#" id="keyForget">Forget key</a>`;
     $("#keyForget").onclick = e => { e.preventDefault(); localStorage.removeItem(KEY_LS); renderKey(); toast("Key removed from this browser"); };
     b.hidden = false; b.classList.toggle("out", !open && !t.used_by_you);
     b.innerHTML = open
-      ? `🎁 <b>${t.runs_left} of ${t.runs_total} free runs left</b> · one per visitor · clips up to ${cfg.max_upload_s || 30} s${cfg.ttl_minutes ? ` · deleted after ${cfg.ttl_minutes} min` : ""} · or <a href="#keyCard" id="bannerKey">use your own Comfy key</a>`
+      ? `<b>${t.runs_left} of ${t.runs_total} free runs left</b> · one per visitor · <a href="#keyCard" id="bannerKey">or use your own key</a>`
       : t.used_by_you
-        ? `🎁 <b>You're using your free run</b> (${t.runs_left} of ${t.runs_total} left for others) · for more, <a href="#keyCard" id="bannerKey">use your own Comfy key</a>${cfg.judge_code ? " or a judge code" : ""}`
+        ? `<b>You're using your free run</b> (${t.runs_left} of ${t.runs_total} left for others) · for more, <a href="#keyCard" id="bannerKey">use your own Comfy key</a>${cfg.judge_code ? " or a judge code" : ""}`
         : `<b>The free runs are used up (0 of ${t.runs_total} left).</b> <a href="#keyCard" id="bannerKey"><b>Paste your own Comfy Cloud key</b></a> (<a href="${url}" target="_blank" rel="noopener">get one</a>)${cfg.judge_code ? " or a judge code" : ""} to generate. Upload, analyze, plan, edit and render stay free, or <a href="${cfg.repo_url}" target="_blank" rel="noopener">run it yourself</a>.`;
     $("#bannerKey").onclick = e => { e.preventDefault(); $("#keyCard").classList.add("attention"); $("#keyCard").scrollIntoView({behavior: "smooth", block: "center"}); $("#key").focus(); };
     return;
   }
   if (cfg.public && cfg.byok_only) {
     const per = (cfg.cost_usd?.[cfg.engine] ?? cfg.cost_per_job_usd ?? 0.05), url = cfg.get_key_url || "https://platform.comfy.org/profile/api-keys";
-    $("#keyNote").innerHTML = `🔑 <b>Bring your own key:</b> generation runs on <b>your</b> Comfy Cloud credits. Get a key at <a href="${url}" target="_blank" rel="noopener">platform.comfy.org → API keys</a>. It's saved only in <b>this browser</b> (localStorage) and sent per request to this server, which forwards it to Comfy Cloud and <b>never stores or logs it</b>. Free steps (transcribe, plan, edit, render) don't need it. <a href="#" id="keyForget">Forget key</a>`;
+    $("#keyNote").innerHTML = `<b>Bring your own key:</b> generation runs on <b>your</b> Comfy Cloud credits. Get a key at <a href="${url}" target="_blank" rel="noopener">platform.comfy.org → API keys</a>. It's saved only in <b>this browser</b> (localStorage) and sent per request to this server, which forwards it to Comfy Cloud and <b>never stores or logs it</b>. Free steps (transcribe, plan, edit, render) don't need it. <a href="#" id="keyForget">Forget key</a>`;
     $("#keyForget").onclick = e => { e.preventDefault(); localStorage.removeItem(KEY_LS); renderKey(); toast("Key removed from this browser"); };
-    if (cfg.max_upload_s) $("#dropHint").textContent = `Up to ${cfg.max_upload_s} s, you talking to camera (or performing). Your own face, or someone who consented.`;
+    if (cfg.max_upload_s) $("#dropHint").textContent = `Vertical selfie video, up to ${cfg.max_upload_s} s.`;
     b.hidden = false; b.classList.remove("out");
     b.innerHTML = `<b>Bring your own Comfy Cloud key.</b> Try the free steps (upload, analyze, plan, edit, render) right away; to generate AI cameras,
       <a href="#keyCard" id="bannerKey"><b>paste your own key</b></a> (<a href="${url}" target="_blank" rel="noopener">get one</a>) — ≈ $${per.toFixed(3)} per clip, ≈ $${(4 * per).toFixed(2)} per video, billed by Comfy.
@@ -355,16 +355,16 @@ function renderBanner() {
     $("#bannerKey").onclick = e => { e.preventDefault(); $("#keyCard").classList.add("attention"); $("#keyCard").scrollIntoView({behavior: "smooth", block: "center"}); $("#key").focus(); };
     return;
   }
-  if (cfg.hosted) $("#keyNote").innerHTML = `${(cfg.hosted_jobs_left ?? 0) > 0 ? "🔒 Optional here: leave it empty to use the capped demo credits." : "🔑 <b>Required now</b>: the free demo credits are used up — get a key at <a href=\"https://platform.comfy.org/profile/api-keys\" target=\"_blank\" rel=\"noopener\">platform.comfy.org → API keys</a>."} If you paste your own key it's saved only in <b>this browser</b> (localStorage) and sent per request to this server, which forwards it to Comfy Cloud and <b>never stores or logs it</b>. <a href="#" id="keyForget">Forget key</a>`,
+  if (cfg.hosted) $("#keyNote").innerHTML = `${(cfg.hosted_jobs_left ?? 0) > 0 ? "Optional here: leave it empty to use the capped demo credits." : "<b>Required now</b>: the free demo credits are used up — get a key at <a href=\"https://platform.comfy.org/profile/api-keys\" target=\"_blank\" rel=\"noopener\">platform.comfy.org → API keys</a>."} If you paste your own key it's saved only in <b>this browser</b> (localStorage) and sent per request to this server, which forwards it to Comfy Cloud and <b>never stores or logs it</b>. <a href="#" id="keyForget">Forget key</a>`,
     $("#keyForget").onclick = e => { e.preventDefault(); localStorage.removeItem(KEY_LS); renderKey(); toast("Key removed from this browser"); };
-  if (cfg.max_upload_s) $("#dropHint").textContent = `Up to ${cfg.max_upload_s} s, you talking to camera (or performing). Your own face, or someone who consented.`;
+  if (cfg.max_upload_s) $("#dropHint").textContent = `Vertical selfie video, up to ${cfg.max_upload_s} s.`;
   if (!cfg.hosted) { b.hidden = true; return; }
   const left = cfg.hosted_jobs_left ?? 0, tot = cfg.hosted_jobs_total || 1;
   b.hidden = false;
   b.classList.toggle("out", left <= 0);
   const per = (cfg.cost_usd?.[cfg.engine] ?? cfg.cost_per_job_usd ?? 0.05);
   if (left <= 0) {
-    b.innerHTML = `<b>Free demo runs are used up.</b> 🔑 <a href="#keyCard" id="bannerKey"><b>Paste your own Comfy Cloud key</b></a> to keep going
+    b.innerHTML = `<b>Free demo runs are used up.</b> <a href="#keyCard" id="bannerKey"><b>Paste your own Comfy Cloud key</b></a> to keep going
       (≈ $${per.toFixed(2)} per clip, ≈ $${(4 * per).toFixed(2)} per video, billed to you by Comfy; the key stays in your browser) —
       or <a href="${cfg.repo_url}" target="_blank" rel="noopener">run Multicam yourself</a>. Free steps (analyze, plan, edit, render) still work.`;
     $("#bannerKey").onclick = e => { e.preventDefault(); $("#keyCard").classList.add("attention"); $("#keyCard").scrollIntoView({behavior: "smooth", block: "center"}); $("#key").focus(); };

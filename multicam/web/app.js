@@ -6,6 +6,13 @@ const STEP_NAMES = {transcribe: "Transcribe", plan: "Plan cuts", angles: "Genera
   cameras: "Generate cameras", align: "Align lip-sync", render: "Render"};
 let cfg = {}, S = null, mode = "talk", file = null, sel = null, polling = null;
 
+// typed text survives a refresh: localStorage per project (kind "p" | "s" | "d" | "new" for the home form)
+const textDraft = {
+  k: (kind, id) => `multicam.text.${kind}.${id}`,
+  get(kind, id) { try { return JSON.parse(localStorage.getItem(this.k(kind, id)) || "null"); } catch { return null; } },
+  set(kind, id, v) { try { localStorage.setItem(this.k(kind, id), JSON.stringify(v)); } catch { /* quota / private mode */ } },
+  clear(kind, id) { localStorage.removeItem(this.k(kind, id)); },
+};
 const toast = (msg, ms = 2600) => { const t = $("#toast"); t.textContent = msg; t.classList.add("on");
   clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove("on"), ms); };
 const fmt = t => `${Math.floor(t / 60)}:${(t % 60).toFixed(1).padStart(4, "0")}`;
@@ -62,6 +69,7 @@ function renderKey() {
   else if (cfg.trial) { b.textContent = "free runs used · paste your key"; b.className = "badge bad"; }
   else if (cfg.byok_only && cfg.public) { b.textContent = "required to generate"; b.className = "badge bad"; }
   else { b.textContent = "not set"; b.className = "badge"; }
+  window.uxSync?.();
 }
 $("#key").addEventListener("change", e => { const v = e.target.value.trim();
   v ? localStorage.setItem(KEY_LS, v) : localStorage.removeItem(KEY_LS); renderKey(); });
@@ -96,7 +104,8 @@ drop.addEventListener("drop", e => setFile(e.dataTransfer.files[0]));
 $("#file").onchange = e => setFile(e.target.files[0]);
 $("#fileCam").onchange = e => setFile(e.target.files[0]);  // phones: record a new take with the front camera
 let fileDur = null;
-const canStart = () => { $("#start").disabled = !(file && $("#consent").checked && !(cfg.max_upload_s && fileDur > cfg.max_upload_s + 0.5)); };
+const canStart = () => { $("#start").disabled = !(file && $("#consent").checked && !(cfg.max_upload_s && fileDur > cfg.max_upload_s + 0.5));
+  window.uxSync?.(); };  // ux.js: step states, the reason under the button, the preview
 $("#consent").onchange = canStart;
 function setFile(f) {
   if (!f) return; file = f; fileDur = null;
@@ -118,7 +127,7 @@ $("#start").onclick = async () => {
   const b = $("#start"); b.disabled = true; b.textContent = "Uploading…";
   try { S = await api("/api/projects", {body: fd}); location.hash = "p=" + S.id; render(); poll(); }
   catch (e) { toast(e.message, 4000); }
-  b.disabled = false; b.textContent = "Analyze — free";
+  b.disabled = false; b.textContent = "Analyze my clip — free"; canStart();
 };
 
 const TERMINAL = ["success", "error", "non_retryable_error", "lost", "cancelled"];
@@ -327,10 +336,10 @@ function renderBanner() {
     $("#keyForget").onclick = e => { e.preventDefault(); localStorage.removeItem(KEY_LS); renderKey(); toast("Key removed from this browser"); };
     b.hidden = false; b.classList.toggle("out", !open && !t.used_by_you);
     b.innerHTML = open
-      ? `🎁 <b>${t.runs_left} of ${t.runs_total} free runs left.</b> One free run per visitor: one video in any mode (Talk, Music, Scene or Dub), clips up to ${cfg.max_upload_s || 30} s${cfg.ttl_minutes ? `, deleted after ${cfg.ttl_minutes} min` : ""}. After that, <a href="#keyCard" id="bannerKey"><b>paste your own Comfy Cloud key</b></a> (<a href="${url}" target="_blank" rel="noopener">get one</a>)${cfg.judge_code ? " or a judge code" : ""}.`
+      ? `🎁 <b>${t.runs_left} of ${t.runs_total} free runs left</b> · one per visitor · clips up to ${cfg.max_upload_s || 30} s${cfg.ttl_minutes ? ` · deleted after ${cfg.ttl_minutes} min` : ""} · or <a href="#keyCard" id="bannerKey">use your own Comfy key</a>`
       : t.used_by_you
-        ? `🎁 <b>You're using your free run</b> on one project (${t.runs_left} of ${t.runs_total} left for others). For more, <a href="#keyCard" id="bannerKey"><b>paste your own Comfy Cloud key</b></a> (<a href="${url}" target="_blank" rel="noopener">get one</a>)${cfg.judge_code ? " or a judge code" : ""}.`
-        : `<b>The free runs are used up (0 of ${t.runs_total} left).</b> 🔑 <a href="#keyCard" id="bannerKey"><b>Paste your own Comfy Cloud key</b></a> (<a href="${url}" target="_blank" rel="noopener">get one</a>)${cfg.judge_code ? " or a judge code" : ""} to generate. Free steps (upload, analyze, plan, edit, render) still work, or <a href="${cfg.repo_url}" target="_blank" rel="noopener">run it yourself</a>.`;
+        ? `🎁 <b>You're using your free run</b> (${t.runs_left} of ${t.runs_total} left for others) · for more, <a href="#keyCard" id="bannerKey">use your own Comfy key</a>${cfg.judge_code ? " or a judge code" : ""}`
+        : `<b>The free runs are used up (0 of ${t.runs_total} left).</b> <a href="#keyCard" id="bannerKey"><b>Paste your own Comfy Cloud key</b></a> (<a href="${url}" target="_blank" rel="noopener">get one</a>)${cfg.judge_code ? " or a judge code" : ""} to generate. Upload, analyze, plan, edit and render stay free, or <a href="${cfg.repo_url}" target="_blank" rel="noopener">run it yourself</a>.`;
     $("#bannerKey").onclick = e => { e.preventDefault(); $("#keyCard").classList.add("attention"); $("#keyCard").scrollIntoView({behavior: "smooth", block: "center"}); $("#key").focus(); };
     return;
   }

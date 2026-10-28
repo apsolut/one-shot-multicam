@@ -56,6 +56,7 @@
     if (want && v.dataset.src !== want) { v.src = want; v.dataset.src = want; }
     if (DB.output) $("#dbDownload").href = DB.output;
     $("#dbTake").hidden = !DB.dubbed_take; if (DB.dubbed_take) $("#dbTake").href = DB.dubbed_take;
+    if (!DB.busy && (DB.translated || DB.output)) wfLink($("#dbWf"), "dub", DB.id, `${DB.output || ""}|${(DB.windows || []).filter(w => w.dubbed).length}|${DB.translated}`);
   }
   async function refresh() {
     clearTimeout(dpoll);

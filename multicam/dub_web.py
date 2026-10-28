@@ -27,7 +27,14 @@ class _Shim:
 
     def __init__(self, d: Path, lang: str):
         self.d, self.lang = d, lang
-        self.work = d  # project identity for free trial runs (App.project_key)
+        self.work = d  # project identity for free trial runs (App.project_key); workflows/ lives here
+
+    @property
+    def workflow_ids(self):
+        try:
+            return load_json(self.d / "dub.json").get("prompt_ids", [])
+        except Exception:  # noqa: BLE001
+            return []
 
     @property
     def state(self):
@@ -196,7 +203,14 @@ def mount(api, A, key_or_403, charge_or_403):
 
         def work():
             log_fn(did)(f"translating to {D.LANGS[dp['lang']][0]} (Gemma 3 12B, open weights)")
-            out = D.translate([w["text"] for w in dp["windows"]], dp["lang"], key=key)
+            pids: list = []
+            try:
+                out = D.translate([w["text"] for w in dp["windows"]], dp["lang"], key=key, prompt_ids=pids)
+            finally:
+                if pids:
+                    c0 = load_json(d / "dub.json")
+                    c0["prompt_ids"] = c0.get("prompt_ids", []) + pids
+                    save_json(c0, d / "dub.json")
             cur = load_json(d / "dub.json")
             for w, t in zip(cur["windows"], out):
                 w["translation_mt"] = w["translation"] = t
@@ -246,11 +260,20 @@ def mount(api, A, key_or_403, charge_or_403):
 
         def work():
             cur = load_json(d / "dub.json")
-            dubbed = D.make_dubbed_take(d / "source.mp4", d, cur, key=key, log=log)
-            save_json(cur, d / "dub.json")
+            try:
+                dubbed = D.make_dubbed_take(d / "source.mp4", d, cur, key=key, log=log)
+            finally:
+                save_json(cur, d / "dub.json")  # keeps clips + prompt_ids even if a window failed
             script = " ".join(w["translation"] for w in cur["windows"])
-            D.multicam_from_dub(dubbed, d / "mc", cur["lang"], script, key=key, log=log, preset=A.render_preset,
-                                model=A.whisper_model, seams=[w["start"] for w in cur["windows"][1:]])
+            pids = cur.setdefault("prompt_ids", [])
+            try:
+                D.multicam_from_dub(dubbed, d / "mc", cur["lang"], script, key=key, log=log, preset=A.render_preset,
+                                    model=A.whisper_model, seams=[w["start"] for w in cur["windows"][1:]],
+                                    prompt_ids=pids)
+            finally:
+                c2 = load_json(d / "dub.json")
+                c2["prompt_ids"] = list(dict.fromkeys(c2.get("prompt_ids", []) + pids))
+                save_json(c2, d / "dub.json")
             log("done")
         run_bg(did, "generate", charge_or_403(request, est["jobs"], hosted, _Shim(d, dp["lang"]), work))
         return public(did)

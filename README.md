@@ -73,6 +73,9 @@ Now each insert is a **video-to-video re-shoot** of the matching 5 s of the real
 
 Needs Python 3.10+ and `ffmpeg` on PATH. No local GPU: generation runs on Comfy Cloud.
 
+> **Let your AI set it up:** hand [`docs/AI_GUIDED_INSTALL.md`](docs/AI_GUIDED_INSTALL.md) to Claude, Cursor or
+> another coding agent. It walks through local setup and your own Fly.io deploy, with a check after each step.
+
 ```bash
 git clone https://github.com/apsolut/one-shot-multicam && cd one-shot-multicam
 python3 -m venv .venv && . .venv/bin/activate
@@ -575,6 +578,24 @@ multicam -C work assemble --clips-dir work/gen/clips --shake --out final.mp4
   8 stills come out: close-up, wide-angle, ±45°, ±90°, low angle and aerial. Seeds stay at the
   template defaults.
 - **Measured cost:** 1 Qwen job (8 stills) plus 3 ID LoRA 5 s clips cost about $0.13 in total.
+
+## Every job ships its ComfyUI workflow
+
+Every finished job in the web app has a **⬇ ComfyUI workflow** link: the exact API-format graph Multicam
+submitted to Comfy Cloud for that clip (a per-job link in Talk/Music, and a zip in the result card when there
+are several, including Scene and Dub). The same files are saved in the project folder under
+`workflows/NN_<kind>_<prompt_id>.json`. Open one in ComfyUI or POST it to `/api/prompt` to re-run or modify that shot.
+API: `GET /api/{projects|scene|dub}/<id>/workflows` (list), `…/workflow/<prompt_id>` (one JSON), `…/workflows.zip`.
+
+## Next
+
+- **MCP server, so your own agent can drive Multicam.** A small `multicam mcp` server, using the same FastAPI
+  endpoints, would expose tools like `analyze(video)`, `get_plan`, `set_cameras`, `estimate`, `generate`,
+  `dub(lang)`, `scene(script)`, `status` and `download(kind="video"|"workflows")`. Claude, Cursor or any
+  MCP client could then cut, re-shoot and dub clips from a chat ("make a 3-camera German version of
+  this take, under $1"). Your own Comfy key would stay in the server's env. The building blocks (stateless
+  HTTP API, cost estimate before every paid step, downloadable workflows) are already in place.
+- Per-shot re-roll in the UI. Longer clips with chunked whisper. More languages for Dub.
 
 ## Limitations
 

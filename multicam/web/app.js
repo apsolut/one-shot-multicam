@@ -135,7 +135,7 @@ function render() {
     return `<li class="${st.status || "pending"}"><div class="t"><span class="dot"></span>${n}</div><div class="m" title="${esc(st.msg)}">${esc(st.msg || st.status || "")}</div></li>`; }).join("");
   $("#jobs").innerHTML = (S.jobs || []).slice().reverse().map(j => `<div class="job ${j.status}"><div style="flex:1;min-width:0"><div>${esc(j.label)}</div>
     ${["success", "error", "non_retryable_error", "lost", "cancelled"].includes(j.status) ? "" : '<div class="bar"></div>'}</div>
-    <div class="st">${esc(j.status)} · ${jobSecs(j)}s</div></div>`).join("");
+    <div class="st">${esc(j.status)} · ${jobSecs(j)}s${j.status === "success" && j.prompt_id ? ` · <a href="/api/projects/${S.id}/workflow/${encodeURIComponent(j.prompt_id)}" download title="the exact ComfyUI API graph this job ran">workflow</a>` : ""}</div></div>`).join("");
   $("#err").hidden = !S.error; $("#err").textContent = S.error ? "⚠ " + S.error : "";
   if (S.plan) { renderCams(); renderEstimate(); $("#planCard").hidden = false; }
   if (S.renders?.length) renderResult();
@@ -215,6 +215,22 @@ $("#impClip").onchange = async e => { const fd = new FormData(); fd.append("cam"
   S = await api(`/api/projects/${S.id}/clips`, {body: fd}); render(); toast("Clip imported"); };
 
 // ---------- result + editor
+// "Download ComfyUI workflow": the exact API graph(s) a project submitted to Comfy Cloud (zip if several)
+const _wfSeen = {};
+async function wfLink(el, kind, id, stamp) {
+  if (!el || !id) return;
+  const k = `${kind}/${id}`;
+  if (_wfSeen[k] === stamp) return;
+  _wfSeen[k] = stamp;
+  const r = await api(`/api/${kind}/${id}/workflows`).catch(() => null);
+  const n = r?.workflows?.length || 0;
+  el.hidden = !n;
+  if (!n) return;
+  el.href = n === 1 ? r.workflows[0].url : r.zip;
+  el.setAttribute("download", n === 1 ? `multicam_${r.workflows[0].name}` : "multicam-comfyui-workflows.zip");
+  el.textContent = n === 1 ? "⬇ ComfyUI workflow" : `⬇ ComfyUI workflows (${n}, zip)`;
+  el.title = "The exact ComfyUI API graph(s) this project ran on Comfy Cloud — open in ComfyUI or re-run them";
+}
 let shownSrc = null;
 function renderResult() {
   $("#resultCard").hidden = false;
@@ -223,6 +239,7 @@ function renderResult() {
   setPlayerSrc();
   $("#download").href = $("#labels").checked ? r.labeled_url : r.clean_url;
   $("#download").setAttribute("download", `multicam_v${r.v}${$("#labels").checked ? "_labeled" : ""}.mp4`);
+  wfLink($("#wfDownload"), "projects", S.id, `${r.v}|${(S.jobs || []).length}`);
   renderTimeline();
   const dirty = (S.edits_t || 0) > (r.t || 0);
   $("#rerender").disabled = !!S.busy || !dirty;

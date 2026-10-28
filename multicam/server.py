@@ -841,8 +841,31 @@ def create_app(app_state: App):
         except PermissionError as e:
             raise HTTPException(403, str(e))
 
+    from .comfy import export_workflows, set_workflow_archive
+    set_workflow_archive(A.data / "workflows")
+
+    def wf_dir(p) -> Path:
+        return (getattr(p, "root", None) or p.work) / "workflows"
+
+    def wf_ids(p) -> list:
+        ids = getattr(p, "workflow_ids", None)
+        return list(ids) if ids is not None else list(p.state.get("prompt_ids", []))
+
+    def with_workflow_export(p, fn):
+        """After a paid action, save the exact API graphs it submitted into <project>/workflows/."""
+        def run():
+            try:
+                fn()
+            finally:
+                try:
+                    export_workflows(wf_ids(p), wf_dir(p))
+                except Exception:  # noqa: BLE001
+                    traceback.print_exc()
+        return run
+
     def charge_or_403(request, n, hosted, p, fn):
         """Reserve hosted budget (if the operator's key is used) and return the background callable."""
+        fn = with_workflow_export(p, fn)
         if not hosted:
             return fn
         ip = A.client_ip(request)
@@ -886,6 +909,62 @@ def create_app(app_state: App):
                 "get_key_url": "https://platform.comfy.org/profile/api-keys",
                 "engine": A.engine, "cost_usd": {e: job_cost(e) for e in (*ENGINES, "angles")},
                 "reshoot_angles": {k: {"label": v[0], "variants": v[1]} for k, v in ANGLES.items()}}
+
+    def _wf_target(kind: str, oid: str):
+        """-> (project dir for workflows/, prompt ids) for a Talk/Music project, a Scene or a Dub."""
+        if kind == "projects":
+            p = proj(oid)
+            return wf_dir(p), wf_ids(p)
+        if not oid.isalnum():
+            raise HTTPException(404, "not found")
+        d = A.data / ("scenes" if kind == "scene" else "dubs") / oid
+        if not (d / "web.json").exists():
+            raise HTTPException(404, "not found")
+        if kind == "scene":
+            from . import scene as _S
+            ids = [j.get("prompt_id") for j in _S.load(d).get("jobs", [])] if (d / "scene.json").exists() else []
+        else:
+            ids = load_json(d / "dub.json").get("prompt_ids", []) if (d / "dub.json").exists() else []
+        return d / "workflows", ids
+
+    def _wf_files(kind, oid):
+        dest, ids = _wf_target(kind, oid)
+        files = export_workflows(ids, dest)
+        if not files:
+            raise HTTPException(404, "no ComfyUI workflows yet: they appear once a Comfy Cloud job has run")
+        return files
+
+    for _kind in ("projects", "scene", "dub"):
+        def _list(oid: str, _k=_kind):
+            dest, ids = _wf_target(_k, oid)
+            files = export_workflows(ids, dest)
+            return {"workflows": [{"name": f.name, "prompt_id": f.stem.rsplit("_", 1)[-1],
+                                   "url": f"/api/{_k}/{oid}/workflow/{f.stem.rsplit('_', 1)[-1]}"} for f in files],
+                    "zip": f"/api/{_k}/{oid}/workflows.zip" if files else None}
+
+        def _one(oid: str, prompt_id: str, _k=_kind):
+            for f in _wf_files(_k, oid):
+                if f.stem.endswith("_" + prompt_id):
+                    return FileResponse(f, media_type="application/json", filename=f"multicam_{f.name}")
+            raise HTTPException(404, "no workflow for that job")
+
+        def _zip(oid: str, _k=_kind):
+            files = _wf_files(_k, oid)
+            if len(files) == 1:
+                return FileResponse(files[0], media_type="application/json", filename=f"multicam_{files[0].name}")
+            z = files[0].parent.parent / "workflows.zip"
+            with zipfile.ZipFile(z, "w", zipfile.ZIP_DEFLATED) as zf:
+                for f in files:
+                    zf.write(f, f"multicam-comfyui-workflows/{f.name}")
+                zf.writestr("multicam-comfyui-workflows/README.txt",
+                            "ComfyUI API-format graphs, exactly as Multicam submitted them to Comfy Cloud (one per job).\n"
+                            "Load one in ComfyUI (Workflow > Open, or drag it in) or POST it to /api/prompt as {\"prompt\": <graph>}.\n"
+                            "Uploaded inputs (the reference clip) are referenced by their Comfy Cloud file name.\n")
+            return FileResponse(z, media_type="application/zip", filename="multicam-comfyui-workflows.zip")
+
+        api.get(f"/api/{_kind}/{{oid}}/workflows")(_list)
+        api.get(f"/api/{_kind}/{{oid}}/workflow/{{prompt_id}}")(_one)
+        api.get(f"/api/{_kind}/{{oid}}/workflows.zip")(_zip)
 
     @api.post("/api/check-key")
     def check_key(request: Request, x_comfy_key: str | None = Header(default=None),

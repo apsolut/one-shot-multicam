@@ -118,7 +118,7 @@
       <div class="sc-edl" id="scEdl"></div>
       <video id="scPlayer" controls playsinline preload="metadata"></video>
       <div class="row gap"><label class="switch"><input type="checkbox" id="scLabels"><span></span>Speaker / camera labels</label>
-      <a class="btn" id="scDownload" download>⬇ Download</a></div>
+      <a class="btn" id="scDownload" download>⬇ Download</a><a class="btn ghost" id="scWf" hidden>⬇ ComfyUI workflow</a></div>
     </div>
   </section>
 
@@ -135,7 +135,7 @@
     <div id="dbResult" hidden>
       <video id="dbPlayer" controls playsinline preload="metadata"></video>
       <div class="row gap"><label class="switch"><input type="checkbox" id="dbLabels"><span></span>Camera labels</label>
-      <a class="btn" id="dbDownload" download>⬇ Download</a><a class="btn ghost" id="dbTake" download>Dubbed take only</a></div>
+      <a class="btn" id="dbDownload" download>⬇ Download</a><a class="btn ghost" id="dbTake" download>Dubbed take only</a><a class="btn ghost" id="dbWf" hidden>⬇ ComfyUI workflow</a></div>
     </div>
   </section>
 
@@ -181,6 +181,7 @@
         <div class="row gap">
           <a class="btn" id="download" download>⬇ Download</a>
           <button class="btn" id="shareBtn">↗ Share</button>
+          <a class="btn ghost" id="wfDownload" hidden>⬇ ComfyUI workflow</a>
         </div>
         <div class="share" id="share" hidden></div>
       </div>

@@ -92,6 +92,7 @@
     $("#scResult").hidden = !SC.output;
     if (want && v.dataset.src !== want) { v.src = want; v.dataset.src = want; }
     if (SC.output) $("#scDownload").href = SC.output;
+    if (SC.output && !SC.busy) wfLink($("#scWf"), "scene", SC.id, `${SC.output}|${(SC.jobs || []).length}`);  // ComfyUI graphs it ran
     $("#scEdl").innerHTML = (SC.edl || []).map(s => `<span class="sc-shot-chip ${s.who}" title="${esc(s.words || "")}" style="flex:${s.dur}">${esc(s.cam)}</span>`).join("");
   }
   async function refresh() {

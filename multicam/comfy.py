@@ -114,6 +114,69 @@ def patch_workflow(workflow: dict, bindings: dict, values: dict) -> dict:
     return wf
 
 
+# Workflow archive: every graph submitted to Comfy Cloud is also written to <dir>/<prompt_id>.json (the API
+# graph only; keys travel in headers, never in it), so the web app can offer "Download ComfyUI workflow" for
+# each finished job. Process-wide (works from any worker thread); the server sets it to <data>/workflows.
+_ARCHIVE: dict = {"dir": None, "keep_s": 2 * 86400}
+
+
+def set_workflow_archive(dirpath, keep_s: float = 2 * 86400):
+    _ARCHIVE["dir"] = Path(dirpath) if dirpath else None
+    _ARCHIVE["keep_s"] = keep_s
+
+
+def archived_workflow(prompt_id: str) -> Path | None:
+    d = _ARCHIVE["dir"]
+    if not d or not prompt_id or not all(c.isalnum() or c == "-" for c in prompt_id):
+        return None
+    f = d / f"{prompt_id}.json"
+    return f if f.exists() else None
+
+
+def workflow_kind(workflow: dict) -> str:
+    """Short label for a graph (from its models), used in exported file names."""
+    blob = json.dumps(workflow).lower()
+    for needle, name in (("lipdub", "lipdub"), ("crossview", "crossview-reshoot"), ("id-lora", "idlora"),
+                         ("idlora", "idlora"), ("textgenerate", "translate"), ("multiple-angles", "qwen-angles"),
+                         ("qwen", "qwen-edit"), ("ltx", "ltx")):
+        if needle in blob:
+            return name
+    return "workflow"
+
+
+def export_workflows(prompt_ids, dest) -> list[Path]:
+    """Copy the archived graphs of these jobs into dest as <nn>_<kind>_<prompt_id>.json (idempotent)."""
+    dest = Path(dest)
+    out = []
+    for n, pid in enumerate([p for p in dict.fromkeys(prompt_ids or []) if p], 1):
+        src = archived_workflow(pid)
+        if not src:
+            continue
+        existing = list(dest.glob(f"*_{pid}.json")) if dest.exists() else []
+        if existing:
+            out.append(existing[0]); continue
+        dest.mkdir(parents=True, exist_ok=True)
+        f = dest / f"{n:02d}_{workflow_kind(json.loads(src.read_text()))}_{pid}.json"
+        f.write_text(src.read_text())
+        out.append(f)
+    return out
+
+
+def _save_submitted(workflow: dict, prompt_id: str):
+    d = _ARCHIVE["dir"]
+    if not d:
+        return
+    try:
+        d.mkdir(parents=True, exist_ok=True)
+        (d / f"{prompt_id}.json").write_text(json.dumps(workflow, indent=1))
+        cutoff = time.time() - _ARCHIVE["keep_s"]
+        for f in d.glob("*.json"):
+            if f.stat().st_mtime < cutoff:
+                f.unlink(missing_ok=True)
+    except OSError:
+        pass  # never fail a paid job because the copy couldn't be written
+
+
 def submit(workflow: dict, key=None) -> str:
     import requests
     r = requests.post(f"{BASE_URL}/api/prompt", headers=_headers(key), json={"prompt": workflow}, timeout=120)
@@ -122,6 +185,7 @@ def submit(workflow: dict, key=None) -> str:
     body = r.json()
     if body.get("node_errors"):
         raise ComfyError(f"workflow rejected (node_errors): {json.dumps(body['node_errors'])[:1500]}")
+    _save_submitted(workflow, body["prompt_id"])  # the graph only: keys travel in headers, never in it
     return body["prompt_id"]
 
 

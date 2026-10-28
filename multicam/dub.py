@@ -96,10 +96,12 @@ def parse_numbered(text: str, n: int) -> list[str]:
     return [out.get(i + 1, "") for i in range(n)]
 
 
-def translate(lines: list[str], lang: str, key=None) -> list[str]:
+def translate(lines: list[str], lang: str, key=None, prompt_ids: list | None = None) -> list[str]:
     """Translate lines with Gemma 3 12B on Comfy Cloud (open weights). Cheap: one short text job."""
     from .comfy import ComfyError, job_detail, submit, wait
     pid = submit(translate_workflow(lines, lang), key)
+    if prompt_ids is not None:
+        prompt_ids.append(pid)
     st = wait(pid, key, poll=2.0)
     det = job_detail(pid, key)
     if st != "success":
@@ -235,6 +237,8 @@ def make_dubbed_take(video: str | Path, work: Path, dp: dict, key=None, seed=Non
         log(f"{w['id']}: dubbing {w['start']:.1f}-{w['end']:.1f}s into {LANGS[lang][0]} (LipDub)")
         rec = run_dub_job(video, w, w["translation"], lang, out / f"{w['id']}.mp4", wf, b, key=key, seed=seed,
                           speaker=speaker)
+        if rec.get("prompt_id"):
+            dp.setdefault("prompt_ids", []).append(rec["prompt_id"])
         if not rec.get("output"):
             raise RuntimeError(f"{w['id']}: {rec['status']} {(rec.get('error') or '')[:300]}")
         clips[w["id"]] = str(Path(rec["output"]).relative_to(work))
@@ -246,7 +250,8 @@ def make_dubbed_take(video: str | Path, work: Path, dp: dict, key=None, seed=Non
 
 def multicam_from_dub(dubbed: Path, mc: Path, lang: str, script: str, key=None, seed=None,
                       log: Callable[[str], None] = print, preset: str = "medium", model: str = "small",
-                      seams: list[float] | None = None, color_match: float = 0.6) -> dict:
+                      seams: list[float] | None = None, color_match: float = 0.6,
+                      prompt_ids: list | None = None) -> dict:
     """The dubbed take becomes a normal multicam source: transcribe in the target language (aligned to the
     reviewed script), plan cuts, CrossView re-shoots for B/C, assemble -> <mc>/multicam(_labeled).mp4.
     `seams` (window starts after the first) get a camera cut over them (see hide_seams); inserts are
@@ -278,6 +283,8 @@ def multicam_from_dub(dubbed: Path, mc: Path, lang: str, script: str, key=None, 
         log(f"{cid}: re-shooting CAM {cam} ({phrase})")
         rec = run_reshoot_job(dubbed, chunks[cid]["start"], preset_name, variant, gen / f"{cid}_{cam}.mp4", wf, b,
                               key=key, seed=seed)
+        if prompt_ids is not None and rec.get("prompt_id"):
+            prompt_ids.append(rec["prompt_id"])
         if rec["status"] != "success":
             raise RuntimeError(f"{cid}: {rec['status']} {(rec.get('error') or '')[:300]}")
         clips[cid] = {"path": f"{cid}_{cam}.mp4", "angle": cam, "src_start": chunks[cid]["start"], "synced": True,

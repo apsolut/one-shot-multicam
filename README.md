@@ -200,7 +200,7 @@ video model, and Qwen only makes the stills.
 
 ![The CrossView re-shoot graph in ComfyUI: your real 5 s take is the IC-LoRA reference, the real audio is frozen into the audio latent, the prompt is only a camera move, then a x2 latent upscale](docs/img/workflow-crossview.jpg)
 
-Open `workflows/*_ui.json` in ComfyUI to see or tweak the exact graphs. If you run them by hand
+Drag `workflows/*_ui.json` into ComfyUI to view and edit the exact graphs (every workflow has one; `*_api.json` is what the app submits). If you run them by hand
 in the ComfyUI app, use **Cameras & cost → Bring your own stills / clips** in the web app to
 import the results and render for free. Re-shoot clips (from `crossview_ui.json` or `multicam reshoot`)
 are time-locked to the source: import them with `synced=true` (API `POST …/clips`) to skip re-alignment.

@@ -3,8 +3,36 @@
 These are the exact ComfyUI graphs the app submits to Comfy Cloud, in **API format** (`*_api.json`: what
 `POST /prompt` takes). Each one has a `*_bindings.json` next to it that maps the app's inputs to node ids
 (`"seed": [["24", "noise_seed"], ["50", "noise_seed"]]` means "write the seed into node 24 and node 50").
-Every other input keeps the value in the file. Some workflows also ship a `*_ui.json` (the editor format,
-with notes) that you can open in the ComfyUI editor.
+Every other input keeps the value in the file.
+
+**Two files per workflow.** Drag `*_ui.json` into ComfyUI to view and edit the node graph. `*_api.json` is what the
+app submits.
+
+| Graph (drag into ComfyUI) | What you see |
+|---|---|
+| [`crossview_ui.json`](crossview_ui.json) | The CrossView re-shoot, annotated: reference video and real audio, models, camera prompt, stage 1, stage 2 (×2 upscale), decode |
+| [`idlora_ui.json`](idlora_ui.json) | The official Comfy Cloud "LTX-2.3: ID LoRA" template (the sampling graph is a subgraph) |
+| [`qwen_angles_ui.json`](qwen_angles_ui.json) | The official Comfy Cloud "Qwen 1 Click Multiple Character Angles" template (8 angle subgraphs) |
+| [`scene_edit_ui.json`](scene_edit_ui.json) | The Scene partner-stills graph flattened: input images on top, one group per edit branch (`p1..p8` → `e1..e8`), SaveImage outputs |
+| [`dub_ui.json`](dub_ui.json) | The LipDub/DubIt graph in stage groups: inputs → models + LoRAs → prompt + conditioning → sampling (2 stages) → decode + output |
+| [`translate_ui.json`](translate_ui.json) | Gemma 3 12B `TextGenerate` → Preview Any |
+
+In every graph, the nodes the app sets on each job are yellow and their titles say `app sets: …`. Each node also
+keeps its API id in Properties → `api_id`, and a notes node at the top explains the graph. The UI files were built
+and checked with the official ComfyUI frontend (1.58.1), loaded with Comfy Cloud's node definitions:
+
+- The frontend converts each `*_api.json` itself, so the widget order comes from the real node definitions.
+- Each `*_ui.json` was loaded back and converted to a prompt, and it matched its `*_api.json` input for input and
+  link for link. The only additions are optional inputs the frontend fills with their defaults:
+  - `CreateVideo`: `bit_depth=auto`, `color_space=sRGB`, `codec=none`
+  - `LTXAddVideoICLoRAGuide`: `use_streaming=false`, `tile_frames=97`
+  - `SaveVideo`: `format.codec=auto`
+  - `TextGenerate`: `mtp=auto`
+- `tests/test_workflows_ui.py` repeats the check offline. `tools/workflow_ui/` rebuilds and re-checks the files.
+
+Seeds in the generated graphs are set to *fixed*, so queuing one as-is reproduces the submitted values. If you
+open the graph in ComfyUI and export it with *Export (API)*, node ids become plain integers. Keep using the
+committed `*_api.json` and its bindings with the app.
 
 **Everything here is open weights.** There are no partner or closed API nodes. You can run every graph on your
 own GPU in ComfyUI, or on Comfy Cloud.

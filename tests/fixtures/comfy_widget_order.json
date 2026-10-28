@@ -1,0 +1,163 @@
+{
+ "CFGGuider": [
+  "cfg"
+ ],
+ "CFGNorm": [
+  "strength",
+  "pre_cfg"
+ ],
+ "CLIPLoader": [
+  "clip_name",
+  "type",
+  "device"
+ ],
+ "CLIPTextEncode": [
+  "text"
+ ],
+ "CheckpointLoaderSimple": [
+  "ckpt_name"
+ ],
+ "ComfySwitchNode": [
+  "switch"
+ ],
+ "CreateVideo": [
+  "fps",
+  "bit_depth",
+  "color_space",
+  "codec"
+ ],
+ "EmptyLTXVLatentVideo": [
+  "width",
+  "height",
+  "length",
+  "batch_size"
+ ],
+ "FluxKontextImageScale": [],
+ "FluxKontextMultiReferenceLatentMethod": [
+  "reference_latents_method"
+ ],
+ "GetVideoComponents": [],
+ "KSampler": [
+  "seed",
+  "control_after_generate",
+  "steps",
+  "cfg",
+  "sampler_name",
+  "scheduler",
+  "denoise"
+ ],
+ "KSamplerSelect": [
+  "sampler_name"
+ ],
+ "LTXAVTextEncoderLoader": [
+  "text_encoder",
+  "ckpt_name",
+  "device"
+ ],
+ "LTXAddVideoICLoRAGuide": [
+  "frame_idx",
+  "strength",
+  "latent_downscale_factor",
+  "crop",
+  "use_tiled_encode",
+  "tile_size",
+  "tile_overlap",
+  "use_streaming",
+  "tile_frames"
+ ],
+ "LTXICLoRALoaderModelOnly": [
+  "lora_name",
+  "strength_model"
+ ],
+ "LTXVAudioVAEDecode": [],
+ "LTXVAudioVAEEncode": [],
+ "LTXVAudioVAELoader": [
+  "ckpt_name"
+ ],
+ "LTXVConcatAVLatent": [],
+ "LTXVConditioning": [
+  "frame_rate"
+ ],
+ "LTXVCropGuides": [],
+ "LTXVEmptyLatentAudio": [
+  "frames_number",
+  "frame_rate",
+  "batch_size"
+ ],
+ "LTXVLatentUpsampler": [],
+ "LTXVSeparateAVLatent": [],
+ "LTXVSetAudioRefTokens": [],
+ "LatentUpscaleModelLoader": [
+  "model_name"
+ ],
+ "LoadImage": [
+  "image",
+  "upload"
+ ],
+ "LoadVideo": [
+  "file",
+  "upload"
+ ],
+ "LoraLoaderModelOnly": [
+  "lora_name",
+  "strength_model"
+ ],
+ "ManualSigmas": [
+  "sigmas"
+ ],
+ "ModelSamplingAuraFlow": [
+  "shift",
+  "sampling"
+ ],
+ "PreviewAny": [],
+ "PrimitiveBoolean": [
+  "value"
+ ],
+ "PrimitiveFloat": [
+  "value"
+ ],
+ "PrimitiveInt": [
+  "value",
+  "control_after_generate"
+ ],
+ "RandomNoise": [
+  "noise_seed",
+  "control_after_generate"
+ ],
+ "SamplerCustomAdvanced": [],
+ "SaveImage": [
+  "filename_prefix"
+ ],
+ "SaveVideo": [
+  "filename_prefix",
+  "format",
+  "format.codec",
+  "codec"
+ ],
+ "TextEncodeQwenImageEditPlus": [
+  "prompt"
+ ],
+ "TextGenerate": [
+  "prompt",
+  "max_length",
+  "sampling_mode",
+  "thinking",
+  "use_default_template",
+  "mtp"
+ ],
+ "UNETLoader": [
+  "unet_name",
+  "weight_dtype"
+ ],
+ "VAEDecode": [],
+ "VAEDecodeTiled": [
+  "tile_size",
+  "overlap",
+  "temporal_size",
+  "temporal_overlap"
+ ],
+ "VAEEncode": [],
+ "VAELoader": [
+  "vae_name"
+ ]
+}

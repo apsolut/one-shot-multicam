@@ -1,5 +1,5 @@
 // Dub mode — same take in another language, then a multicam edit. Uses helpers from app.js ($, $$, api, toast,
-// confirmBox, esc, key, judge, canPay, file, mode).
+// confirmBox, paidConfirm, payMissing, esc, key, judge, canPay, file, mode).
 (() => {
   let DB = null, dcfg = null, dpoll = null;
   const did = () => (location.hash.match(/d=([0-9a-f]+)/) || [])[1];
@@ -80,8 +80,7 @@
   }
   function show() { $("#uploadCard").hidden = true; $(".hero").hidden = true; $("#dubCard").hidden = false; refresh();
     $("#dubCard").scrollIntoView({behavior: "smooth"}); }
-  const ownKey = () => { toast("Paste your own Comfy Cloud key first (step 1) — get one at platform.comfy.org → API keys", 4500);
-    openPay(); };
+  const ownKey = () => payMissing();
   async function save() { DB = await api(`/api/dub/${DB.id}/lines`, {json: {translations: collect()}}); textDraft.clear("d", DB.id); $("#dbLines").dataset.sig = ""; render(); }
 
   $("#dbSave").onclick = () => save().then(() => toast("Saved")).catch(e => toast(e.message));
@@ -97,7 +96,7 @@
       if (!(DB.windows || []).every(w => w.translation)) return toast("Translate (or type) every line first");
       if (!canPay()) return ownKey();
       const e = DB.estimate;
-      const ok = await confirmBox(`Dub into ${DB.lang_name}?`, `<p><b>${e.windows}</b> LipDub windows (≈$${e.lipdub_usd.toFixed(2)}) + <b>${e.inserts}</b> CrossView re-shoots (≈$${e.reshoot_usd.toFixed(2)}) ≈ <b>$${e.usd.toFixed(2)}</b>.</p><p class="note">Only changed lines are re-dubbed on a second run. Then a free render.</p>`, "Dub");
+      const ok = await paidConfirm(`Dub into ${DB.lang_name}?`, `<p><b>${e.windows}</b> LipDub windows (≈$${e.lipdub_usd.toFixed(2)}) + <b>${e.inserts}</b> CrossView re-shoots (≈$${e.reshoot_usd.toFixed(2)}) ≈ <b>$${e.usd.toFixed(2)}</b>.</p><p class="note">Only changed lines are re-dubbed on a second run. Then a free render.</p>`, "Dub");
       if (!ok) return;
       DB = await api(`/api/dub/${DB.id}/generate`, {json: {confirm: true}, withKey: true}); render(); refresh();
       if (cfg.trial) refreshCfg();

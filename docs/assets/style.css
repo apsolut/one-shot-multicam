@@ -54,21 +54,22 @@ input:focus,textarea:focus,select:focus{border-color:var(--acc-line);box-shadow:
 textarea{width:100%;resize:vertical;margin-top:8px}
 button,.btn{cursor:pointer;border:1px solid var(--line2);background:transparent;border-radius:12px;padding:10px 16px;font-weight:600;
   text-decoration:none;display:inline-flex;align-items:center;justify-content:center;gap:6px;transition:.15s;white-space:nowrap;color:var(--text)}
-button:hover:not(:disabled),.btn:hover{border-color:var(--line3);background:rgba(255,255,255,.05)}
+@media (hover:hover){button:hover:not(:disabled),.btn:hover{border-color:var(--line3);background:rgba(255,255,255,.05)}}
 button:focus-visible,.btn:focus-visible,summary:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
 button:disabled{opacity:.5;cursor:not-allowed}
 .secondary{background:transparent;border:1px solid var(--line2)}
 .ghost,button.ghost,.btn.ghost{background:transparent;border-color:transparent;color:var(--muted)}
-.ghost:hover:not(:disabled){color:var(--text);background:rgba(255,255,255,.05);border-color:transparent}
+@media (hover:hover){.ghost:hover:not(:disabled){color:var(--text);background:rgba(255,255,255,.05);border-color:transparent}}
 .primary,button.primary,.btn.primary{border:1px solid var(--cta);background:var(--cta);color:var(--cta-ink);border-radius:999px;font-weight:600;padding:12px 22px}
-.primary:hover:not(:disabled),.btn.primary:hover{background:#e5e5e5;border-color:#e5e5e5}
+@media (hover:hover){.primary:hover:not(:disabled),.btn.primary:hover{background:#e5e5e5;border-color:#e5e5e5}}
 button.primary:disabled{opacity:1;background:var(--panel2);color:var(--muted);border:1px solid var(--line2)}
 .wide,button.wide{width:100%}
 button.primary.wide{padding:15px 22px;font-size:16px}
 .note{color:var(--muted);font-size:13px;margin:10px 0 0}.note b{color:var(--text)}
 .muted{color:var(--muted)}.small{font-size:13px}
 .drop{display:block;border:2px dashed var(--line3);border-radius:16px;padding:28px 22px;cursor:pointer;transition:.15s;background:var(--panel2)}
-.drop:hover,.drop.over{border-color:var(--acc);background:#1b1c12}
+.drop.over{border-color:var(--acc);background:#1b1c12}
+@media (hover:hover){.drop:hover{border-color:var(--acc);background:#1b1c12}}
 #step1[data-state=active] .drop{border-color:var(--acc-line)}
 .drop-in{display:flex;gap:16px;align-items:center}.drop-in small{color:var(--muted)}
 .drop-ic{width:52px;height:52px;border-radius:14px;display:grid;place-items:center;background:var(--text);color:var(--bg);flex:none}
@@ -112,7 +113,7 @@ button.primary.wide{padding:15px 22px;font-size:16px}
 .estimate .big{font-size:24px;font-weight:800;letter-spacing:-.02em}
 .estimate small{color:var(--muted)}
 .filebtn{border:1px solid var(--line2);border-radius:12px;padding:10px 14px;cursor:pointer;background:transparent;font-weight:600;font-size:14px;display:inline-flex;align-items:center;justify-content:center;gap:6px}
-.filebtn:hover{background:rgba(255,255,255,.05)}
+@media (hover:hover){.filebtn:hover{background:rgba(255,255,255,.05)}}
 .result{display:grid;grid-template-columns:minmax(240px,340px) minmax(0,1fr);gap:22px;align-items:start}
 .editor{min-width:0}
 .newp{font-size:13px;padding:7px 12px}
@@ -136,7 +137,7 @@ button.primary.wide{padding:15px 22px;font-size:16px}
 .seg-shot .w{font-weight:500;opacity:.85;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
 .seg-shot.sel{outline:2px solid #fff;outline-offset:-2px;z-index:1}
 .seg-shot.nc:after{content:"needs clip";position:absolute;right:4px;top:3px;font-size:9px;background:rgba(0,0,0,.5);color:#ffd28a;padding:1px 4px;border-radius:4px}
-.seg-shot:hover{filter:brightness(1.12)}
+@media (hover:hover){.seg-shot:hover{filter:brightness(1.12)}}
 .playhead-wrap{position:relative}
 .ruler{position:relative;height:20px;font-size:10.5px;color:var(--dim)}
 .ruler span{position:absolute;top:3px;transform:translateX(-50%)}
@@ -261,7 +262,7 @@ body.in-project .stage-card{display:none}
 .modes{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:12px}
 .modes button{flex-direction:column;align-items:stretch;justify-content:flex-start;text-align:left;white-space:normal;gap:6px;padding:8px 8px 12px;
   border-radius:14px;background:var(--panel2);border:1px solid var(--line);min-width:0;color:var(--text)}
-.modes button:hover:not(:disabled){background:var(--raise);border-color:var(--line2)}
+@media (hover:hover){.modes button:hover:not(:disabled){background:var(--raise);border-color:var(--line2)}}
 .modes button.on{border:2px solid var(--acc);padding:7px 7px 11px;background:var(--panel2);box-shadow:0 0 0 4px var(--acc-soft)}
 .mt-media{position:relative;display:block;height:84px;border-radius:9px;overflow:hidden;background:#000}
 .mt-media video{width:100%;height:100%;object-fit:cover;display:block;opacity:.9}
@@ -367,7 +368,7 @@ select.big{font-size:16px;padding:13px 44px 13px 15px}
 .choice{background:transparent;border:0;padding:0;gap:10px}
 .choice button{display:flex;align-items:center;justify-content:flex-start;gap:10px;text-align:left;padding:12px;min-height:64px;
   background:var(--panel2);border:1.5px solid var(--line3);border-radius:14px;color:var(--text);position:relative}
-.choice button:hover:not(.on){background:var(--raise);border-color:#5c5c5c}
+@media (hover:hover){.choice button:hover:not(.on){background:var(--raise);border-color:#5c5c5c}}
 .choice button.on{background:#1b1c12;border:2px solid var(--acc);padding:11.5px;box-shadow:0 0 0 3px var(--acc-soft)}
 .choice button.on:after{content:"✓";position:absolute;top:6px;right:8px;width:20px;height:20px;border-radius:50%;display:grid;place-items:center;
   background:var(--acc);color:var(--acc-ink);font-size:12px;font-weight:900}
@@ -404,7 +405,7 @@ select.big{font-size:16px;padding:13px 44px 13px 15px}
 @keyframes camflash{0%{box-shadow:0 0 0 0 rgba(240,254,104,.9);border-color:var(--acc);background:rgba(240,254,104,.22)}100%{box-shadow:0 0 0 10px rgba(240,254,104,0)}}
 .filled-note{margin:8px 2px 0;color:var(--acc);font-weight:700;font-size:14px}
 button.suggest{border:1.5px solid var(--acc-line);color:var(--text);background:var(--panel2);font-weight:700}
-button.suggest:hover:not(:disabled){background:var(--raise);border-color:var(--acc)}
+@media (hover:hover){button.suggest:hover:not(:disabled){background:var(--raise);border-color:var(--acc)}}
 button .ic{width:17px;height:17px;fill:var(--acc);flex:none}
 /* loading labels for start buttons */
 button.is-loading{position:relative;cursor:progress;opacity:1!important}
@@ -436,7 +437,7 @@ button.is-loading::before{content:"";width:15px;height:15px;border-radius:50%;bo
 .jp-err-m{font-size:14px;color:var(--text);line-height:1.5;max-height:9em;overflow:auto;overflow-wrap:anywhere;background:rgba(0,0,0,.22);border-radius:10px;padding:10px 12px}
 .jp-actions{display:flex;gap:10px;flex-wrap:wrap}
 .jp-retry{background:#ff8a8a;color:#2a0707;border:0;font-weight:800;border-radius:999px;padding:10px 20px}
-.jp-retry:hover{background:#ffa3a3}
+@media (hover:hover){.jp-retry:hover{background:#ffa3a3}}
 .jp-actions .ghost{color:#ffd0d0}
 .jp-note{font-size:12.5px;color:var(--muted)}
 /* ===== resume card (home, top) ===== */
@@ -489,7 +490,7 @@ body.in-project.stage-idle .stage-card{display:grid}
 .sc-pick-opts{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:10px}
 .sc-pick{position:relative;display:flex;flex-direction:column;align-items:stretch;gap:6px;padding:6px;min-width:0;text-align:left;white-space:normal;
   background:var(--panel2);border:1.5px solid var(--line3);border-radius:14px;color:var(--text);cursor:pointer}
-.sc-pick:hover:not(.chosen){background:var(--raise);border-color:#5c5c5c}
+@media (hover:hover){.sc-pick:hover:not(.chosen){background:var(--raise);border-color:#5c5c5c}}
 .sc-pick img{width:100%;aspect-ratio:9/16;object-fit:cover;border-radius:9px;display:block;background:#000}
 .sc-pick.chosen{background:#1b1c12;border:2px solid var(--acc);padding:5.5px;box-shadow:0 0 0 3px var(--acc-soft)}
 .sc-pick.chosen:after{content:"✓";position:absolute;top:10px;right:10px;width:22px;height:22px;border-radius:50%;display:grid;place-items:center;

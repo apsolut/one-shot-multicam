@@ -175,8 +175,8 @@
       if (!SC.lines.length) return toast("Write at least one line for B");
       const e = SC.estimate;
       if (e.n_jobs) {
-        if (!canPay()) return needOwnKey(e.n_jobs);
-        const ok = await confirmBox("Generate the scene?", `<p><b>${e.n_jobs}</b> Comfy Cloud jobs ≈ <b>$${e.usd.toFixed(2)}</b>: ${Object.entries(e.jobs).filter(([, v]) => v).map(([k, v]) => `${v}× ${k}`).join(", ")}.</p><p class="note">Partner stills (Qwen-Image-Edit), B's lines (LTX-2.3 ID LoRA, exact words), your side angle (CrossView re-shoot). Then a free render.</p>`, "Generate");
+        if (!canPay()) return payMissing();
+        const ok = await paidConfirm("Generate the scene?", `<p><b>${e.n_jobs}</b> Comfy Cloud jobs ≈ <b>$${e.usd.toFixed(2)}</b>: ${Object.entries(e.jobs).filter(([, v]) => v).map(([k, v]) => `${v}× ${k}`).join(", ")}.</p><p class="note">Partner stills (Qwen-Image-Edit), B's lines (LTX-2.3 ID LoRA, exact words), your side angle (CrossView re-shoot). Then a free render.</p>`, "Generate");
         if (!ok) return;
       }
       SC = await api(`/api/scene/${SC.id}/generate`, {json: {confirm: true}, withKey: true}); render(); refresh();

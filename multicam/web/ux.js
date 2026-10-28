@@ -8,7 +8,7 @@
     talk: {loop: "ex_talk.mp4", full: "ex_talk.mp4", wide: false, chips: [["A", "Real take"], ["B", "AI · side"], ["C", "AI · wide"]],
       cap: "Camera A is your real take. B and C are AI re-shoots of the same moment."},
     music: {loop: "ex_talk.mp4", full: "ex_talk.mp4", wide: false, chips: [["A", "Real take"], ["B", "AI · side"], ["C", "AI · wide"]],
-      cap: "The Talk cut engine, timed to your lyrics. A Music sample is coming."},
+      cap: "Example from Talk mode. Music uses the same AI cameras, cut on the beat of your song. A Music sample is coming."},
     scene: {loop: "ex_scene.mp4", full: "ex_scene.mp4", wide: false, chips: [["A", "Real take"], ["A", "AI · side"], ["B", "AI · single"], ["B", "AI · over the shoulder"]],
       cap: "One take becomes a two-person scene: you, and your other self answering."},
     dub: {loop: "ex_dub.mp4", full: "ex_dub.mp4", wide: true, chips: [["EN", "Original"], ["DE", "Dubbed"], ["ES", "Dubbed"], ["HR", "Experimental"]],
@@ -16,7 +16,7 @@
   };
   const NOTE = {
     talk: "Talk: nothing to set, the defaults work. Add your exact script under Advanced for word-perfect cuts.",
-    music: "Music: add your lyrics with times under Advanced for the best cuts (recommended).",
+    music: "Music: upload a clip with the song audible, like you singing or lip-syncing (5–30 s). Cuts land on the beat, your real audio stays. Lyrics under Advanced are optional.",
     scene: "Scene: choose who answers you. Everything else has a sensible default.",
     dub: "Dub: pick the language. Speak English in your take.",
   };
@@ -35,12 +35,21 @@
     }
     return null;
   }
+  // the stage (right column) only exists on wide screens; on phones/tablets it is display:none, so a result must
+  // never be loaded into it there (it used to autoplay with sound behind the visible player: double audio)
+  const wideStage = window.matchMedia("(min-width: 981px)");
   function stageResult() {
     const r = resultVideo();
     document.body.classList.toggle("has-result", !!r);
-    if (!r) { if (sv.dataset.result) { delete sv.dataset.result; sv.dataset.src = ""; stage(); } return; }
+    if (!r || !wideStage.matches) {
+      if (sv.dataset.result) { sv.pause(); delete sv.dataset.result; sv.dataset.src = ""; sv.removeAttribute("src"); sv.load(); stage(); }
+      else if (r && !sv.paused) sv.pause();
+      return;
+    }
     const src = r.v.getAttribute("src");
     if (sv.dataset.src !== src) {
+      r.v.pause();  // the in-card copy is hidden on desktop: it must not keep playing
+      sv.pause(); sv.autoplay = false;  // a result never starts by itself: the visitor presses play
       sv.dataset.src = src; sv.dataset.result = "1"; sv.src = src; sv.muted = false; sv.controls = true; sv.loop = false;
       $("#stageTag").textContent = "Your result"; $("#stageTabs").hidden = true; $("#stagePlay").hidden = true;
       $("#stageFrame").classList.toggle("wide", r.v.videoWidth > r.v.videoHeight);
@@ -52,11 +61,36 @@
     $("#stageChips").hidden = !html;
   }
   window.uxStageResult = stageResult;
+  wideStage.addEventListener("change", () => stageResult());
+
+  // ---------- one video with sound at a time (Scene, Talk, Dub, Music, examples)
+  // a video that starts playing with sound pauses every other video; muted preview loops paused that way
+  // resume once nothing with sound plays. Hidden tab: everything pauses.
+  function soundPlaying(except) { return $$("video").some(v => v !== except && !v.paused && !v.muted); }
+  function soloSound(e) {
+    const v = e.target;
+    if (!(v instanceof HTMLVideoElement) || v.paused || v.muted) return;
+    $$("video").forEach(o => { if (o !== v && !o.paused) { if (o.muted && o.loop) o.dataset.resume = "1"; o.pause(); } });
+  }
+  function resumeLoops(e) {
+    const v = e.target;
+    if (!(v instanceof HTMLVideoElement) || v.muted || soundPlaying() || document.hidden) return;
+    $$("video[data-resume]").forEach(o => { delete o.dataset.resume; if (o.offsetParent && o.muted) o.play().catch(() => {}); });
+  }
+  document.addEventListener("play", soloSound, true);
+  document.addEventListener("volumechange", soloSound, true);
+  document.addEventListener("pause", resumeLoops, true);
+  document.addEventListener("ended", resumeLoops, true);
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) $$("video").forEach(v => { if (!v.paused) { if (v.muted && v.loop) v.dataset.resume = "1"; v.pause(); } });
+    else if (!soundPlaying()) $$("video[data-resume]").forEach(o => { delete o.dataset.resume; if (o.offsetParent && o.muted) o.play().catch(() => {}); });
+  });
+  window.uxSoundPlaying = soundPlaying;
   function stage() {
     if (sv.dataset.result) return;
     const ex = EX[mode] || EX.talk;
     $("#stageTabs").hidden = !mine;
-    $$("#stageTabs button").forEach(b => b.classList.toggle("on", b.dataset.v === view));
+    $$("#stageTabs button").forEach(b => { b.classList.toggle("on", b.dataset.v === view); b.setAttribute("aria-pressed", b.dataset.v === view); });
     const showMine = view === "mine" && mine;
     const src = showMine ? mine : MEDIA + (playingFull ? ex.full : ex.loop);
     $("#stageTag").textContent = showMine ? "Your clip" : `Example output · ${NAME[mode]}`;
@@ -67,7 +101,9 @@
     $("#stagePlay").hidden = !!showMine;
     if (sv.dataset.src !== src) { sv.dataset.src = src; sv.src = src; }
     sv.muted = !(playingFull && !showMine); sv.controls = !!(showMine || playingFull); sv.loop = !playingFull;
-    sv.play?.().catch(() => {});
+    // only the muted example loop starts by itself, and only while the stage is actually on screen
+    if (sv.muted && !playingFull && $("#stageCard").offsetParent && !soundPlaying()) sv.play?.().catch(() => {});
+    else if (!$("#stageCard").offsetParent) sv.pause();
   }
   function playExample() {
     view = "ex"; playingFull = true; stage(); sv.currentTime = 0; sv.muted = false; sv.play().catch(() => {});
@@ -116,12 +152,14 @@
   $("#keyForget2").onclick = () => $("#keyForget")?.click();
   function payPill() {
     const t = cfg.trial, el = $("#payPillT"), pill = $("#payPill");
-    let txt, out = false;
-    if (key()) txt = "Your key";
-    else if (judge() && cfg.judge_code) txt = `Promo code${judgeLeft != null ? ` · ${judgeLeft}` : ""}`;
-    else if (t) { txt = t.used_by_you ? "Free run · yours" : t.runs_left > 0 ? `Free run · ${t.runs_left}/${t.runs_total}` : "Add a key"; out = !t.used_by_you && t.runs_left <= 0; }
-    else if (cfg.hosted) { const l = cfg.hosted_jobs_left ?? 0; txt = l > 0 ? `Demo · ${l} jobs` : "Add a key"; out = l <= 0; }
-    else txt = "Your key";
+    // the chip names exactly what the next Generate will charge (payMode in app.js), or what is missing
+    let txt, out = !canPay();
+    const m = payMode();
+    if (m === "key") txt = key() ? "Your key" : "Add a key";
+    else if (m === "judge") txt = judge() ? `Promo code${judgeLeft != null ? ` · ${judgeLeft}` : ""}` : "Enter promo code";
+    else if (t) txt = t.used_by_you ? "Free run · yours" : t.runs_left > 0 ? `Free run · ${t.runs_left}/${t.runs_total}` : "Add a key";
+    else { const l = cfg.hosted_jobs_left ?? 0; txt = l > 0 ? `Demo · ${l} jobs` : "Add a key"; }
+    pill.dataset.pay = m;
     el.textContent = txt; pill.classList.toggle("out", out);
     pill.setAttribute("aria-label", `Payment: ${txt}. Change`);
   }
@@ -156,11 +194,15 @@
     $("#accFree").hidden = a !== "free"; $("#accKey").hidden = a !== "key"; $("#accJudge").hidden = a !== "judge";
   }
   window.uxAccess = setAccess;
-  let picked = false;  // until the visitor picks, follow the config (free run while it lasts)
-  $$("#access button").forEach(b => b.onclick = () => { picked = true; setAccess(b.dataset.a); });
+  // a click on a segment is the visitor's explicit payment choice (persisted, it wins over the defaults);
+  // until then the switch shows the default: saved key, else promo code, else the free run (payMode in app.js)
+  const pick = a => { setPayPick(a); setAccess(a); renderKey(); };
+  $$("#access button").forEach(b => b.onclick = () => pick(b.dataset.a));
   const keyEl = $("#key"), keyFocus = keyEl.focus.bind(keyEl);
-  keyEl.focus = (...a) => { picked = true; setAccess("key"); keyFocus(...a); };  // "paste your key" prompts land on a visible field
-  document.addEventListener("click", e => { if (e.target.closest("#bannerKey")) { picked = true; setAccess("key"); } }, true);
+  keyEl.focus = (...a) => { setAccess("key"); keyFocus(...a); };  // "paste your key" prompts land on a visible field
+  const judgeEl = $("#judge"), judgeFocus = judgeEl.focus.bind(judgeEl);
+  judgeEl.focus = (...a) => { setAccess("judge"); judgeFocus(...a); };
+  document.addEventListener("click", e => { if (e.target.closest("#bannerKey")) setAccess("key"); }, true);
   function syncAccess() {
     const hasFree = !!(cfg.trial || cfg.hosted), t = cfg.trial;
     $('#access [data-a="free"]').hidden = !hasFree;
@@ -169,21 +211,21 @@
     $("#accFreeN").textContent = t ? `${t.used_by_you ? "in use" : `${t.runs_left} of ${t.runs_total} left`}` : cfg.hosted ? `${cfg.hosted_jobs_left ?? "∞"} jobs left` : "";
     $('#access [data-a="free"]').disabled = hasFree && !freeOk();
     $("#accFreeNote").innerHTML = key()
-      ? `A key is saved in this browser, so it will be used instead. <a href="#" id="accForget">Forget the key</a> to use the free run.`
+      ? `Free run selected: your saved key stays in this browser and will <b>not</b> be charged. Pick “My Comfy key” to pay with it again.`
       : t ? `Nothing to paste. One free run per visitor: one video in any mode, up to ${t.jobs_per_run} Comfy jobs.`
         : "Nothing to paste: uses the capped public demo credits.";
-    const fg = $("#accForget"); if (fg) fg.onclick = e => { e.preventDefault(); localStorage.removeItem(KEY_LS); renderKey(); toast("Key removed from this browser"); };
-    if (!picked || access === null || (access === "free" && !freeOk() && !key()) || (access === "judge" && !cfg.judge_code))
-      setAccess(key() ? "key" : judge() && cfg.judge_code ? "judge" : freeOk() ? "free" : "key");
+    // the switch always shows the mode that will be charged, unless a prompt just opened another pane
+    if (!$("#paySheet").contains(document.activeElement) || access === null) setAccess(payMode());
     // the counter next to Generate
     const r = $("#runsLeft");
     r.hidden = false;
-    if (key()) r.textContent = "Using your key";
-    else if (judge()) r.textContent = `Promo code${judgeLeft != null ? ` · ${judgeLeft} jobs left` : ""}`;
-    else if (t) r.textContent = t.used_by_you ? "Your free run" : `${t.runs_left} of ${t.runs_total} free runs left`;
-    else if (cfg.hosted) r.textContent = `${cfg.hosted_jobs_left ?? "∞"} demo jobs left`;
+    const m = payMode();
+    if (m === "key") r.textContent = key() ? "Pays with your key" : "Add your key to generate";
+    else if (m === "judge") r.textContent = judge() ? `Pays with promo code${judgeLeft != null ? ` · ${judgeLeft} jobs left` : ""}` : "Enter your promo code";
+    else if (t) r.textContent = t.used_by_you ? "Pays with your free run" : `Free run · ${t.runs_left} of ${t.runs_total} left`;
+    else if (cfg.hosted) r.textContent = `Demo credits · ${cfg.hosted_jobs_left ?? "∞"} jobs left`;
     else r.hidden = true;
-    r.classList.toggle("out", !!t && !trialOk() && !key() && !judge());
+    r.classList.toggle("out", !canPay());
     payPill();
   }
 
@@ -201,15 +243,17 @@
   function setStep(el, st, label) { el.dataset.state = st; $(".step-st", el).textContent = label;
     $(".step-b", el).inert = st === "locked"; }
   function sync() {
-    const s1 = !!file && $("#consent").checked && !over(), w2 = step2Why(), s2 = s1 && !w2;
+    placeConsent();
+    // the own-face box never locks a step or greys Analyze: an unticked tap shows the error on the box (app.js)
+    const s1 = !!file && !over(), w2 = step2Why(), s2 = s1 && !w2;
     setStep($("#step1"), s1 ? "done" : "active", s1 ? "Done" : "");
     setStep($("#step2"), !s1 ? "locked" : w2 ? "active" : "done", !s1 ? "Finish step 1" : w2 ? "" : "Ready");
     setStep($("#step3"), s2 ? "active" : "locked", s2 ? "" : "Finish steps 1–2");
     $("#step3 .step-b").inert = false;  // keep the button + access choice readable; the button carries the reason
     const why = !file ? "Add a clip in step 1, or press “Try with sample clip”." : over() ? `Your clip is longer than ${cfg.max_upload_s} s. Trim it and add it again.`
-      : !$("#consent").checked ? "Tick the consent box in step 1." : w2 ? w2 + "." : "";
+      : w2 ? w2 + "." : "";
     const btn = $("#start");
-    if (btn.textContent !== "Uploading…") btn.disabled = !!why;
+    if (btn.textContent !== "Uploading…") btn.disabled = !!why;  // no file / too long / step 2 missing; never the consent box
     $("#startWhy").textContent = why ? "ⓘ " + why : "Ready. This step is free.";
     $("#startWhy").classList.toggle("ok", !why);
     $("#modeNote").textContent = NOTE[mode];
@@ -219,6 +263,15 @@
     syncAccess(); stage(); place();
   }
   window.uxSync = sync;
+
+  // ---------- own-face box: in step 1 on desktop, directly above the Analyze button on phones/tablets (one column)
+  const narrow = window.matchMedia("(max-width: 980px)");
+  function placeConsent() {
+    const row = $("#consentRow"), go = $("#step3 .go");
+    if (narrow.matches) { if (row.nextElementSibling !== go) go.before(row); }
+    else if (row.parentElement !== $("#step1 .step-b")) $("#step1 .step-b").append(row);
+  }
+  narrow.addEventListener("change", () => sync());
 
   // ---------- home vs project layout: the access card sits in step 3 on home, on top in a project
   function place() {
@@ -404,7 +457,8 @@
           <div class="jp-title sm">${n ? `${n} Comfy job${n === 1 ? "" : "s"} ≈ $${e.usd.toFixed(2)}` : "Everything generated · re-render is free"}</div>
           <div class="jp-detail">Nothing is spent until you confirm the cost.</div>`;
       } else P.hidden = true;
-      if (sv.paused && matchMedia("(min-width:981px)").matches) sv.play().catch(() => {});
+      // only the muted example loop is restarted here; never a result (sound) and never over a playing video
+      if (sv.paused && sv.muted && !sv.dataset.result && !playingFull && matchMedia("(min-width:981px)").matches && !soundPlaying() && !document.hidden) sv.play().catch(() => {});
     } else { P.hidden = true; document.body.classList.remove("stage-idle"); }
   }
   window.addEventListener("focus", () => { if (!prevKey && document.title.startsWith("Done ·")) setTimeout(() => { document.title = BASE_TITLE; }, 4000); });
@@ -470,7 +524,7 @@
   function histRender() {
     const list = histGet();
     $("#historyEmpty").hidden = !!list.length; $("#historyClear").hidden = !list.length;
-    $("#historyList").innerHTML = list.map(x => `<li><a class="hist-row" href="#${x.hash}">
+    $("#historyList").innerHTML = list.map(x => `<li><a class="hist-row" href="#${x.hash}"${location.hash === "#" + x.hash ? ' aria-current="page"' : ""}>
       <span class="hist-th">${x.thumb ? `<img src="${esc(x.thumb)}" alt="" loading="lazy" onerror="this.remove()">` : `<i>${esc((NAME[x.mode] || x.mode || "?")[0])}</i>`}</span>
       <span class="hist-t"><b>${esc(x.name || NAME[x.mode] || "Project")}</b><small>${esc(NAME[x.mode] || x.mode || "")} · ${esc(H.ago(x.t))}${x.busy ? " · still working" : ""}</small></span>
       <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></a></li>`).join("");

@@ -25,12 +25,29 @@
   function state() {
     let txt = "Free run";
     try {
-      if (localStorage.getItem("multicam.comfyKey")) txt = "Your key";
-      else if (localStorage.getItem("multicam.judgeCode")) txt = "Promo code";
+      // same order as payMode() in app.js: an explicit pick, else a saved key, else a promo code, else free
+      const pick = localStorage.getItem("multicam.payMode");
+      const k = localStorage.getItem("multicam.comfyKey"), c = localStorage.getItem("multicam.judgeCode");
+      if (pick === "key") txt = k ? "Your key" : "Add a key";
+      else if (pick === "judge") txt = c ? "Promo code" : "Enter promo code";
+      else if (pick === "free") txt = "Free run";
+      else if (k) txt = "Your key";
+      else if (c) txt = "Promo code";
       const h = JSON.parse(localStorage.getItem("multicam.history") || "[]");
       const dot = document.getElementById("histDot"); if (dot) dot.hidden = !(Array.isArray(h) && h.some(x => x && x.busy));
     } catch (e) { /* storage blocked */ }
     const t = document.getElementById("payPillT"); if (t) t.textContent = txt;
   }
   window.MCSubpage = {home: HOME, pages: PAGES, mount(el, active, title) { el.outerHTML = header(active, title); state(); }};
+})();
+// one video with sound at a time on these pages too (a muted twin, e.g. "Play both in sync", keeps playing);
+// a hidden tab pauses everything
+(() => {
+  const vids = () => [...document.querySelectorAll("video")];
+  const solo = e => { const v = e.target;
+    if (!(v instanceof HTMLVideoElement) || v.paused || v.muted) return;
+    vids().forEach(o => { if (o !== v && !o.paused && !o.muted) o.pause(); }); };
+  document.addEventListener("play", solo, true);
+  document.addEventListener("volumechange", solo, true);
+  document.addEventListener("visibilitychange", () => { if (document.hidden) vids().forEach(v => v.pause()); });
 })();

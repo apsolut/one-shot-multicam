@@ -114,7 +114,7 @@
       <button type="button" data-mode="music" aria-pressed="false">
         <span class="mt-media"><span class="mt-badge beta">Beta</span><img src="/gallery/media/th_music.jpg" alt="" loading="lazy"><span class="mt-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg></span></span>
         <span class="mt-name">Music</span>
-        <span class="mt-desc">Cuts timed to your lyrics</span>
+        <span class="mt-desc">Cuts on the beat of your song</span>
       </button>
     </div>
 
@@ -122,9 +122,10 @@
       <li class="step" id="step1" data-state="active">
         <div class="step-h"><span class="step-n" aria-hidden="true"><i>1</i></span>
           <div class="step-t"><h3>Upload or record your clip <span class="req">Required</span></h3>
-          <p class="step-sub" id="dropHint">Vertical selfie video, 10–60 s.</p></div>
+          <p class="step-sub" id="dropHint">Vertical selfie video.</p></div>
           <span class="step-st" id="step1St"></span></div>
         <div class="step-b">
+          <p class="file-err" id="fileErr" role="alert"></p>
           <label class="drop" id="drop">
             <input type="file" id="file" accept="video/*" hidden>
             <div class="drop-in">
@@ -138,7 +139,10 @@
             <button type="button" class="secondary" id="sampleBtn">Try with sample clip</button>
             <button type="button" class="ghost" id="exampleBtn"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l11-6.5z"/></svg>See an example</button>
           </div>
-          <label class="consent"><input type="checkbox" id="consent" required aria-required="true"><span>This is <b>my own face</b>, or I have the person's explicit permission. <span class="req">Required</span></span></label>
+          <div class="consent-own" id="consentRow">
+            <p class="consent-err" id="consentErr" role="alert"></p>
+            <label class="consent" for="consent"><input type="checkbox" id="consent" required aria-required="true" aria-invalid="false" aria-describedby="consentErr"><span class="consent-txt">This is my own face, or I have permission from the person in the video.</span></label>
+          </div>
         </div>
       </li>
 
@@ -180,7 +184,7 @@
             <div class="adv-b">
               <div id="scriptBox" class="field"><span class="field-l">Exact script <span class="opt">makes cuts word-perfect</span></span>
                 <textarea id="script" rows="3" placeholder="Paste what you say. Whisper timings get snapped to it."></textarea></div>
-              <div id="lyricsBox" class="field" hidden><span class="field-l">Lyrics with times <span class="opt">recommended for music</span></span>
+              <div id="lyricsBox" class="field" hidden><span class="field-l">Lyrics with times <span class="opt">optional · one line each, seconds or m:ss</span></span>
                 <textarea id="lyrics" rows="3" placeholder="3.2-5.0=never gonna give you up&#10;9.1-11.0=never gonna let you down"></textarea></div>
               <div id="scAdv" class="scene-opts" hidden>
                 <span id="scVoiceRow" class="field"><span class="field-l">Partner voice</span><select id="scVoice"></select></span>
@@ -201,6 +205,7 @@
           <div class="go">
             <button class="primary wide" id="start" disabled>Analyze my clip — free</button>
             <span class="runs" id="runsLeft" hidden></span>
+            <a class="btn req-runs" id="reqRunsGo" href="mailto:multicam@apsolut.dev" hidden>Request more runs</a>
           </div>
           <p class="why" id="startWhy" role="status"></p>
         </div>
@@ -219,15 +224,17 @@
     <div class="acc-pane" id="accKey" hidden>
       <div class="row">
         <input id="key" type="password" autocomplete="off" spellcheck="false" placeholder="comfyui-…  (platform.comfy.org → API keys)" aria-label="Comfy Cloud API key">
-        <button type="button" class="ghost" id="keyToggle" title="Show / hide" aria-label="Show or hide key"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12z"/><circle cx="12" cy="12" r="2.8"/></svg></button>
+        <button type="button" class="ghost" id="keyToggle" title="Show / hide" aria-label="Show key" aria-pressed="false"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12z"/><circle cx="12" cy="12" r="2.8"/></svg></button>
         <button type="button" class="secondary" id="keyCheck">Check</button>
       </div>
       <p class="key-line">Your key stays in this browser and is sent per request. Never stored or logged. <button type="button" class="linkish" id="keyForget2">Forget key</button></p>
       <details class="how-keys"><summary>How keys are handled</summary><p class="note" id="keyNote">Saved only in <b>this browser</b> (localStorage). It's sent per request to your local Multicam server, which forwards it to Comfy Cloud and <b>never stores or logs it</b>. Free steps (transcribe, plan, align, render, edit) don't need it. <a href="#" id="keyForget">Forget key</a></p></details>
     </div>
     <div id="judgeBox" hidden><div class="acc-pane" id="accJudge" hidden>
-      <div class="row"><input id="judge" type="password" autocomplete="off" spellcheck="false" placeholder="Enter promo code" aria-label="Promo code">
+      <div class="row"><input id="judge" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="Enter promo code" aria-label="Promo code" aria-invalid="false" aria-describedby="judgeSt">
       <button type="button" class="secondary" id="judgeCheck">Use code</button></div>
+      <p class="promo-st" id="judgeSt" aria-live="polite" hidden></p>
+      <a class="btn req-runs" id="reqRunsPromo" href="mailto:multicam@apsolut.dev" hidden>Request more runs</a>
       <p class="note small">Have a promo code? It runs a few generations on our credits, no Comfy key needed.</p>
     </div></div>
   </section>
@@ -285,6 +292,7 @@
     <ol class="steps" id="steps"></ol>
     <div class="jobs" id="jobs"></div>
     <div class="err" id="err" hidden></div>
+    <div class="row gap wrap" id="retryRow" hidden><button class="primary" id="retryBtn" data-loading="Retrying…">Retry — free</button><span class="muted small">picks up finished camera jobs and re-renders; never starts a new paid job</span></div>
   </section>
 
   <section class="card" id="planCard" hidden>
@@ -352,7 +360,7 @@
         <span class="stage-tag" id="stageTag">Example output · Talk</span>
         <div class="stage-tabs" id="stageTabs" hidden><button type="button" data-v="mine">Your clip</button><button type="button" data-v="ex" class="on">Example</button></div>
       </div>
-      <div class="stage-frame" id="stageFrame"><video id="stageVideo" muted loop playsinline autoplay preload="metadata"></video></div>
+      <div class="stage-frame" id="stageFrame"><video id="stageVideo" muted loop playsinline preload="metadata"></video></div>
       <div class="stage-chips" id="stageChips" aria-label="Cameras in this edit"></div>
       <p class="stage-cap" id="stageCap"></p>
       <button type="button" class="secondary wide" id="stagePlay"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l11-6.5z"/></svg>Play with sound</button>
@@ -368,7 +376,9 @@
 <aside class="sheet" id="paySheet" hidden role="dialog" aria-modal="true" aria-labelledby="payH">
   <div class="sheet-h"><h2 id="payH">Pay for AI cameras</h2><button type="button" class="ghost sheet-x" aria-label="Close"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
   <p class="pay-reason" id="payReason" role="status" hidden></p>
+  <div class="req-runs-box" id="reqRunsBox" hidden><p>Out of runs? Ask for a couple more and keep testing.</p><a class="btn req-runs solo" id="reqRunsSheet" href="mailto:multicam@apsolut.dev">Request more runs</a></div>
   <div id="paySlot"></div>
+  <p class="req-runs-note">Need more runs? <a id="reqRunsMail" href="mailto:multicam@apsolut.dev">Email multicam@apsolut.dev</a></p>
 </aside>
 <aside class="sheet" id="histSheet" hidden role="dialog" aria-modal="true" aria-labelledby="historyH">
   <div class="sheet-h"><h2 id="historyH">Your recent runs</h2><div class="row"><button type="button" class="linkish" id="historyClear">Clear</button><button type="button" class="ghost sheet-x" aria-label="Close"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div></div>

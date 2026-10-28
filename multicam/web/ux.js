@@ -145,6 +145,18 @@
   $$("#mode button").forEach(b => b.addEventListener("click", () => { playingFull = false; if (!mine) view = "ex"; setTimeout(sync); }));
   $$("#scPartner button").forEach(b => b.addEventListener("click", () => setTimeout(sync)));
   ["#scPhoto", "#scPhotoConsent", "#dubLang"].forEach(s => $(s).addEventListener("change", sync));
+  // partner photo drop zone: same pattern as the video upload; thumbnail + check once filled
+  const pd = $("#scPhotoDrop"), pin = $("#scPhoto");
+  ["dragover", "dragenter"].forEach(ev => pd.addEventListener(ev, e => { e.preventDefault(); pd.classList.add("over"); }));
+  ["dragleave", "drop"].forEach(ev => pd.addEventListener(ev, e => { e.preventDefault(); pd.classList.remove("over"); }));
+  pd.addEventListener("drop", e => { if (e.dataTransfer.files[0]) { pin.files = e.dataTransfer.files; pin.dispatchEvent(new Event("change")); } });
+  let photoUrl = null;
+  pin.addEventListener("change", () => {
+    const f = pin.files[0], box = $("#scPhotoFile");
+    if (photoUrl) URL.revokeObjectURL(photoUrl); photoUrl = f ? URL.createObjectURL(f) : null;
+    pd.classList.toggle("filled", !!f); $("#scPhotoEmpty").hidden = !!f; box.hidden = !f;
+    box.innerHTML = f ? `<img src="${photoUrl}" alt="partner photo"><div style="flex:1;min-width:0"><b>${esc(f.name)}</b><br><small class="muted">${(f.size / 1e6).toFixed(1)} MB · click to replace</small></div><span class="ok-check" aria-label="added">✓</span>` : "";
+  });
   if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) $$("#mode video").forEach(v => { v.removeAttribute("autoplay"); v.pause(); });
   sync();
 })();

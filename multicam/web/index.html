@@ -88,21 +88,28 @@
           <span class="step-st" id="step2St"></span></div>
         <div class="step-b">
           <div id="dubOpts" class="scene-opts" hidden>
-            <label class="field"><span class="field-l">Dub into <span class="req">Required</span></span><select id="dubLang"></select></label>
-            <p class="note">Speak English in your take. Your face and voice, new lip motion (LTX-2.3 LipDub), then a multicam edit.</p>
+            <label class="field"><span class="field-l">Dub into <span class="req">Required</span></span><select id="dubLang" class="big"></select></label>
+            <p class="note">Your face and voice, new lip motion (LTX-2.3 LipDub), then a multicam edit.</p>
           </div>
           <div id="sceneOpts" class="scene-opts" hidden>
             <div class="field"><span class="field-l">Who answers you? <span class="req">Required</span></span>
-            <div class="seg" id="scPartner">
-              <button type="button" data-p="clone" class="on">🪞 Your other self</button>
-              <button type="button" data-p="photo">🖼 Person from a photo</button>
-              <button type="button" data-p="character">✨ AI character</button>
+            <div class="seg choice" id="scPartner" role="radiogroup" aria-label="Who answers you">
+              <button type="button" data-p="clone" class="on" role="radio"><span class="ch-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="9" r="3"/><circle cx="16" cy="9" r="3"/><path d="M2.5 20a5.5 5.5 0 0 1 11 0M10.5 20a5.5 5.5 0 0 1 11 0"/></svg></span><span class="ch-t"><b>Your other self</b><small>you, new look, your voice</small></span></button>
+              <button type="button" data-p="photo" role="radio"><span class="ch-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-9 9"/></svg></span><span class="ch-t"><b>Person from a photo</b><small>needs a photo + consent</small></span></button>
+              <button type="button" data-p="character" role="radio"><span class="ch-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/></svg></span><span class="ch-t"><b>AI character</b><small>describe anyone</small></span></button>
             </div></div>
             <div id="scCloneBox" class="field"><span class="field-l">Other-self look</span>
               <select id="scLook"></select><input id="scLookCustom" hidden placeholder="wardrobe; place and light, e.g. a red suit; a neon bar at night"></div>
             <div id="scPhotoBox" class="field" hidden>
               <span class="field-l">Partner photo <span class="req">Required</span></span>
-              <label class="filebtn secondary">Choose photo<input type="file" id="scPhoto" accept="image/*" hidden></label>
+              <label class="drop drop-sm" id="scPhotoDrop">
+                <input type="file" id="scPhoto" accept="image/*" hidden>
+                <div class="drop-in" id="scPhotoEmpty">
+                  <div class="drop-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 16V4M6 10l6-6 6 6M4 20h16"/></svg></div>
+                  <div><b>Drop the partner's photo here</b> or <u>browse</u><br><small>JPG or PNG, face clearly visible, looking at the camera.</small></div>
+                </div>
+                <div class="drop-file" id="scPhotoFile" hidden></div>
+              </label>
               <label class="consent"><input type="checkbox" id="scPhotoConsent" required aria-required="true"><span><b>Only photos of people who consented.</b> I have this person's explicit permission to generate video of them speaking (or the image is AI-generated). <span class="req">Required</span></span></label>
             </div>
             <div id="scCharBox" class="field" hidden><span class="field-l">Describe the character</span><textarea id="scChar" rows="2" placeholder="a fictional podcast host in her 30s, dark curly hair, mustard sweater"></textarea></div>

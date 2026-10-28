@@ -355,3 +355,30 @@ body.in-project #keyCard{background:var(--panel);margin:16px 0}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 .modes button.on .mt-name:after{content:"✓";margin-left:6px;color:var(--cta);font-weight:800}
+
+/* ===== step 2 legibility pass: real option cards, light form controls, photo drop zone ===== */
+input:not([type=checkbox]):not([type=radio]),textarea,select{background-color:#2b2d35;border:1px solid #7a7c8a;color:var(--text)}
+input:hover:not([type=checkbox]):not([type=radio]),textarea:hover,select:hover{border-color:#a3a5b2}
+select{appearance:none;-webkit-appearance:none;padding-right:40px;cursor:pointer;font-weight:550;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23f6f5f1' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 13px center;background-size:16px}
+select option{background:#2b2d35;color:var(--text)}
+select.big{font-size:16px;padding:13px 44px 13px 15px}
+.choice{background:transparent;border:0;padding:0;gap:10px}
+.choice button{display:flex;align-items:center;justify-content:flex-start;gap:10px;text-align:left;padding:12px;min-height:64px;
+  background:#2b2d35;border:1.5px solid #7a7c8a;border-radius:14px;color:var(--text);position:relative}
+.choice button:hover:not(.on){background:#33353f;border-color:#b3b5c2}
+.choice button.on{background:#2a3320;border:2px solid var(--cta);padding:11.5px;box-shadow:0 0 0 3px var(--cta-soft)}
+.choice button.on:after{content:"✓";position:absolute;top:6px;right:8px;width:20px;height:20px;border-radius:50%;display:grid;place-items:center;
+  background:var(--cta);color:var(--cta-ink);font-size:12px;font-weight:900}
+.ch-ic{width:34px;height:34px;flex:none;border-radius:10px;display:grid;place-items:center;background:#3a3c46;color:var(--text)}
+.choice button.on .ch-ic{background:var(--cta);color:var(--cta-ink)}
+.ch-ic svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.ch-t{display:grid;gap:1px;min-width:0;padding-right:16px}.ch-t b{font-size:14px;color:var(--text)}.ch-t small{font-size:12px;color:#c9c8d1;font-weight:500;margin:0}
+.drop-sm{padding:18px}
+.drop.filled{border:2px solid var(--cta);background:#2a3320}
+#scPhotoBox .drop:not(.filled){border-color:var(--cta-line)}
+.drop-file .ok-check{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;background:var(--cta);color:var(--cta-ink);font-weight:900;flex:none}
+#scPhotoFile img{width:72px;height:72px;object-fit:cover;border-radius:12px;display:block}
+#scPhotoFile{margin-top:0}
+@media (max-width:560px){.choice button{min-height:56px}}

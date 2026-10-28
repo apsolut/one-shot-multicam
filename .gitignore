@@ -29,3 +29,9 @@ venv/
 screens/
 build/
 dist/
+# share image + icons (small, served by the app and Pages)
+!multicam/web/og.png
+!multicam/web/favicon-32.png
+!multicam/web/apple-touch-icon.png
+!docs/assets/favicon-32.png
+!docs/assets/apple-touch-icon.png

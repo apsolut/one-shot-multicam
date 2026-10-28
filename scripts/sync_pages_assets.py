@@ -19,7 +19,8 @@ ROOT = Path(__file__).resolve().parent.parent
 WEB = ROOT / "multicam" / "web"
 DEST = ROOT / "docs" / "assets"
 # source (relative to multicam/web) -> same relative path under docs/assets
-FILES = ["style.css", "polish.css", "subpage.js", "fonts/InterVariable.woff2"]
+FILES = ["style.css", "polish.css", "subpage.js", "fonts/InterVariable.woff2",
+         "favicon.svg", "favicon-32.png", "apple-touch-icon.png"]
 
 
 def stale() -> list[str]:

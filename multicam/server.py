@@ -12,6 +12,7 @@ Security model
 import copy
 import json
 import mimetypes
+import os
 import shutil
 import threading
 import time
@@ -27,6 +28,7 @@ from .util import load_json, probe, save_json
 
 # StaticFiles/FileResponse guess types from the platform table, which lacks .woff2 on slim images
 mimetypes.add_type("font/woff2", ".woff2")
+mimetypes.add_type("image/svg+xml", ".svg")
 mimetypes.add_type("font/woff", ".woff")
 
 STEPS = ["transcribe", "plan", "angles", "cameras", "align", "render"]
@@ -1303,6 +1305,46 @@ def create_app(app_state: App):
     mount_scene(api, A, key_or_403, charge_or_403)
     from .dub_web import mount as mount_dub  # Dub mode: /api/dub/...
     mount_dub(api, A, key_or_403, charge_or_403)
+
+    from fastapi.responses import PlainTextResponse, Response
+
+    def _site(request: Request) -> str:
+        """Public origin for robots/sitemap: MULTICAM_SITE_URL, else the request's own (proxy-aware) origin."""
+        env = os.environ.get("MULTICAM_SITE_URL", "").strip().rstrip("/")
+        if env:
+            return env
+        proto = request.headers.get("x-forwarded-proto", request.url.scheme).split(",")[0].strip()
+        return f"{proto}://{request.headers.get('host', request.url.netloc)}"
+
+    @api.api_route("/robots.txt", methods=["GET", "HEAD"], include_in_schema=False)
+    def robots(request: Request):
+        return PlainTextResponse(f"User-agent: *\nAllow: /\n\nSitemap: {_site(request)}/sitemap.xml\n",
+                                 headers={"Cache-Control": "public, max-age=3600"})
+
+    @api.api_route("/sitemap.xml", methods=["GET", "HEAD"], include_in_schema=False)
+    def sitemap(request: Request):
+        base = _site(request)
+        urls = "".join(f"<url><loc>{base}{u}</loc><changefreq>weekly</changefreq><priority>{pr}</priority></url>"
+                       for u, pr in (("/", "1.0"), ("/gallery/", "0.8")))
+        xml = ('<?xml version="1.0" encoding="UTF-8"?>\n'
+               f'<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">{urls}</urlset>\n')
+        return Response(xml, media_type="application/xml", headers={"Cache-Control": "public, max-age=3600"})
+
+    @api.api_route("/favicon.ico", methods=["GET", "HEAD"], include_in_schema=False)
+    def favicon_ico():  # browsers and crawlers ask for it blindly; the 32 px PNG is a valid answer
+        return FileResponse(WEB_DIR / "favicon-32.png", media_type="image/png",
+                            headers={"Cache-Control": "public, max-age=604800"})
+
+    _CACHED = {"/og.png", "/favicon.svg", "/favicon-32.png", "/apple-touch-icon.png",
+               "/gallery/assets/favicon.svg", "/gallery/assets/favicon-32.png", "/gallery/assets/apple-touch-icon.png"}
+
+    @api.middleware("http")
+    async def static_cache(request: Request, call_next):
+        """Share image + icons are fetched by every crawler/unfurler: let browsers and CDNs keep them for a week."""
+        resp = await call_next(request)
+        if request.url.path in _CACHED and resp.status_code == 200:
+            resp.headers["Cache-Control"] = "public, max-age=604800"
+        return resp
 
     docs = REPO_ROOT / "docs"
     if docs.is_dir():  # the static gallery (same files GitHub Pages serves)

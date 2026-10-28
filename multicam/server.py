@@ -510,6 +510,8 @@ class App:
             p.set_step("transcribe", "done", f"{len(tr['words'])} words, {len(tr['sentences'])} sentences")
             p.set_step("plan", "running", "")
             P = PlanParams()
+            from .continuity import is_wide
+            P.silent_only = [c for c in ("B", "C") if is_wide(p.state["cam_stills"].get(c))]  # wides: silence only
             plan = make_plan(tr, p.work / "plan.json", P)
             plan["angle_names"].update({"B": STILL_TO_PROMPT[p.state["cam_stills"]["B"]],
                                         "C": STILL_TO_PROMPT[p.state["cam_stills"]["C"]]})
@@ -579,7 +581,7 @@ class App:
 
     def _reshoot_job(self, p: Project, chunk_id: str, cam: str, key: str):
         from .comfy import load_bindings
-        from .reshoot import ANGLES, insert_ordinals, run_reshoot_job
+        from .reshoot import ANGLES, camera_seed, insert_ordinals, run_reshoot_job
         wfd = workflows_dir()
         plan = p.edited_plan()
         ch = next(c for c in plan["chunks"] if c["id"] == chunk_id)
@@ -596,6 +598,7 @@ class App:
         rec = run_reshoot_job(p.root / p.state["source"], ch["start"], preset, variant, out,
                               json.loads((wfd / "crossview_api.json").read_text()),
                               load_bindings(wfd / "crossview_bindings.json"), key=key, work_dir=p.work / "gen" / "refs",
+                              seed=None if hist else camera_seed(p.state.get("id", str(p.root)), cam),  # one set per cam
                               on_status=lambda r: p.set_job({"uid": uid, "status": r["status"],
                                                              "prompt_id": r.get("prompt_id"), "label": f"{label} · {r['camera']}",
                                                              "elapsed_s": round(time.time() - r["started"], 1),

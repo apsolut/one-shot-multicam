@@ -231,6 +231,10 @@ def mount(api, A, key_or_403, charge_or_403):
                     sc["stills"], sc["b_clips"] = {}, {}  # partner look changed: regenerate
                     sc["still_checks"], sc["picked"] = {}, False
                     sc["picks"] = S.default_picks(sc)  # keeps the original-photo defaults
+        if body.get("posture") in S.POSTURES and body["posture"] != sc.get("posture"):  # partner mirrors A
+            sc["posture"], sc["stills"], sc["b_clips"] = body["posture"], {}, {}
+            sc["still_checks"], sc["picked"] = {}, False
+            sc["picks"] = S.default_picks(sc)
         if body.get("voice") and body["voice"] != sc.get("voice") and (body["voice"] in S.VOICES or body["voice"] == "self"):
             sc["voice"] = body["voice"]
             sc["b_clips"] = {}

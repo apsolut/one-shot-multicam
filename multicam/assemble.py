@@ -129,7 +129,10 @@ def assemble(plan: dict, out: str | Path, clips_json=None, clips_dir=None, video
              labels=False, shake=False, shake_px=10.0, cut_lead_frames=0,
              width=None, height=None, fps=None, crf=18, align=True, transcript=None,
              align_cache=None, clips=None, max_long: int | None = None, preset: str = "medium",
-             a_label: str = "real", color_match: float = 0.0) -> list[dict]:
+             a_label: str = "real", color_match: float = 0.0, continuity: bool = True,
+             silent_only: list[str] | None = None, lip_check: bool = True, log=print) -> list[dict]:
+    """continuity: never show a wide, or an insert whose mouth doesn't move, over speech (continuity.py);
+    needs the transcript. The decisions are returned on the shots as s["guard"]."""
     need("ffmpeg")
     video = str(Path(video or plan["source"]).resolve())
     vinfo = probe(video)
@@ -152,6 +155,10 @@ def assemble(plan: dict, out: str | Path, clips_json=None, clips_dir=None, video
             if s.pop("align", None) is not None:
                 s["offset"] = 0.0
             s["speed"] = 1.0
+    if continuity and transcript is not None:
+        from .continuity import guard_shots
+        plan, _ = guard_shots(plan, clips, transcript.get("words", []), video=video, silent_only=silent_only,
+                              check=lip_check, log=log)
     total_frames = int(round(vinfo["duration"] * fps))
     shots = resolve_shots(plan, clips, fps)
     # audio-safe hard cuts: shift video cut points earlier by N frames; audio is never touched

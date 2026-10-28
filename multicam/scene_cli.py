@@ -24,7 +24,7 @@ def cmd(a):
     if a.scmd == "init":
         sc = S.init(a.video, work, partner=a.partner, lines=a.line, look=a.look, photo=a.photo, character=a.character,
                     voice=a.voice, person=a.person, a_look=a.a_look, script=a.script, suggest=a.suggest,
-                    transcript=a.transcript)
+                    transcript=a.transcript, posture=a.posture, set_mode=a.set)
         if a.a_clips:
             S.import_a_clips(sc, work, a.a_clips)
         show(sc)
@@ -108,6 +108,10 @@ def add_parser(sub):
     q.add_argument("--line", action="append", help="'N:text' or 'N@ots:text' = B answers after A's sentence N (0-based), optional framing single|ots|close; repeatable")
     q.add_argument("--suggest", action="store_true", help="pre-fill B's lines from the transcript")
     q.add_argument("--look", default="night", help="clone look: night|noir|office|studio or free text")
+    q.add_argument("--posture", choices=["seated", "standing"], default=None,
+                   help="partner posture (default: read from the source frame; the partner mirrors A)")
+    q.add_argument("--set", choices=["same", "look"], default="same",
+                   help="same = partner in A's room and light (default, matching set); look = the look's own room")
     q.add_argument("--photo", help="partner photo (only photos of people who consented)")
     q.add_argument("--character", help="fictional partner description (partner=character)")
     q.add_argument("--voice", help="B voice: self (clone default), a Kokoro sample name (af_heart...) or a wav path")

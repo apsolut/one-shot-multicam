@@ -299,7 +299,7 @@ def multicam_from_dub(dubbed: Path, mc: Path, lang: str, script: str, key=None, 
     log("assembling the multicam edit (free)")
     out = {}
     for lab, name in ((False, "multicam.mp4"), (True, "multicam_labeled.mp4")):
-        assemble(pl, mc / name, clips_json=clips_path, video=dubbed, labels=lab, shake=True, transcript=tr,
+        assemble(pl, mc / name, clips_json=clips_path, video=dubbed, labels=lab, shake=False, transcript=tr,
                  align_cache=mc / "align_cache", preset=preset, a_label="lip-dub (AI)", color_match=color_match)
         out[name] = mc / name
     return out

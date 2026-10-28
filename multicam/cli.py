@@ -184,7 +184,7 @@ def cmd_demo(a):
     name = a.name
     for out, labels in ((root / f"{name}.mp4", False), (root / f"{name}_labeled.mp4", True)):
         shots = assemble(p, out, clips=clips, video=video, labels=labels,
-                         shake=not a.no_shake, cut_lead_frames=a.cut_lead_frames, align=not a.no_align)
+                         shake=a.shake and not a.no_shake, cut_lead_frames=a.cut_lead_frames, align=not a.no_align)
         print(f"  wrote {out}")
     for s in shots:
         print_shot(s)
@@ -409,6 +409,7 @@ def main(argv=None):
     p = sub.add_parser("demo", help="analyze+plan+prep on selfie.mp4, assemble with run7 profile clip")
     p.add_argument("--root", default="."); p.add_argument("--model", default="small")
     p.add_argument("--no-script", action="store_true", help="use raw ASR words instead of the known script")
+    p.add_argument("--shake", action="store_true", help="synthetic handheld shake on inserts (off by default)")
     p.add_argument("--no-shake", action="store_true"); p.add_argument("--cut-lead-frames", type=int, default=0)
     p.add_argument("--no-align", action="store_true"); p.add_argument("--name", default="demo_v5", help="output basename")
     _add_plan_args(p); p.set_defaults(fn=cmd_demo)

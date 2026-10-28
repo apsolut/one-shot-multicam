@@ -794,7 +794,7 @@ class App:
         p.set_step("cameras", "done", f"{len(todo)} clip(s) generated")
         self.render(p)
 
-    def render(self, p: Project, shake: bool = True):
+    def render(self, p: Project, shake: bool = False):
         from .align import align_plan
         from .assemble import assemble, load_clips
         src = p.root / p.state["source"]
@@ -810,7 +810,7 @@ class App:
                 if c.get("still") in BURN_NAMES:
                     s["label_name"] = BURN_NAMES[c["still"]]
                 cj[s["chunk"]] = {"path": str(p.root / c["file"]), "angle": s["cam"], "src_start": c["src_start"],
-                                  "synced": bool(c.get("synced"))}
+                                  "synced": bool(c.get("synced")), "preset": c.get("still")}  # "wide" -> pull-back
             else:
                 s["align"] = {"status": "missing", "reason": f"no CAM {s['cam']} clip for {s['chunk']} yet"}
         save_json(cj, p.work / "clips.json")
@@ -1316,7 +1316,7 @@ def create_app(app_state: App):
         p = need_plan(proj(pid))
         body = await request.json() if (await request.body()) else {}
         try:
-            A.run_bg(p, "render", lambda: A.render(p, shake=body.get("shake", True)))
+            A.run_bg(p, "render", lambda: A.render(p, shake=bool(body.get("shake", False))))
         except RuntimeError as e:
             raise HTTPException(409, str(e))
         return A.public(p)

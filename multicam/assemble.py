@@ -71,6 +71,21 @@ def color_lut(video, clip, src_start: float, strength: float = 0.6) -> str:
     return "lutrgb=" + ":".join(expr)
 
 
+PULLBACK_PRESETS = ("wide",)
+
+
+def pullback_filter(n_frames: int, zoom: float = 1.14) -> str:
+    """A smooth camera pull-back over one insert: zoom eases (ease-in-out, cosine) from `zoom` to 1.0 across
+    n_frames. perspective= resamples per frame with cubic interpolation at sub-pixel corner positions, so there are
+    no integer crop steps (zoompan/crop jitter); output size, fps and audio are untouched. `in` is this filter
+    instance's own frame counter (one instance per shot), clamped at the last frame."""
+    last = max(1, int(n_frames) - 1)
+    z = f"({zoom:.4f}+(1-{zoom:.4f})*(0.5-0.5*cos(PI*min(in/{last}\\,1))))"
+    lo_x, hi_x, lo_y, hi_y = (f"W/2-W/(2*{z})", f"W/2+W/(2*{z})", f"H/2-H/(2*{z})", f"H/2+H/(2*{z})")
+    return (f"perspective=x0='{lo_x}':y0='{lo_y}':x1='{hi_x}':y1='{lo_y}':"
+            f"x2='{lo_x}':y2='{hi_y}':x3='{hi_x}':y3='{hi_y}':interpolation=cubic:eval=frame")
+
+
 def resolve_shots(plan: dict, clips: dict, fps: float) -> list[dict]:
     """Attach clips to inserts; fall back to A when a clip is missing or doesn't cover the shot."""
     out = []
@@ -107,7 +122,7 @@ def resolve_shots(plan: dict, clips: dict, fps: float) -> list[dict]:
                     s["trimmed"] = True
                 if cs >= 0 and ce <= dur + 1e-3:
                     s.update(src="generated", clip=c["path"], clip_start=round(cs, 4), clip_end=round(ce, 4),
-                             speed=speed)
+                             speed=speed, preset=c.get("preset") or c.get("still"))
                 else:
                     print(f"warn: shot {s['i']} ({s['cam']} {s['start']}-{s['end']}) outside clip range; using A")
             if s["src"] == "real":
@@ -126,13 +141,15 @@ def resolve_shots(plan: dict, clips: dict, fps: float) -> list[dict]:
 
 
 def assemble(plan: dict, out: str | Path, clips_json=None, clips_dir=None, video=None,
-             labels=False, shake=False, shake_px=10.0, cut_lead_frames=0,
+             labels=False, shake=False, shake_px=10.0, cut_lead_frames=0, pullback=True, pullback_zoom=1.14,
              width=None, height=None, fps=None, crf=18, align=True, transcript=None,
              align_cache=None, clips=None, max_long: int | None = None, preset: str = "medium",
              a_label: str = "real", color_match: float = 0.0, continuity: bool = True,
              silent_only: list[str] | None = None, lip_check: bool = True, log=print) -> list[dict]:
     """continuity: never show a wide, or an insert whose mouth doesn't move, over speech (continuity.py);
-    needs the transcript. The decisions are returned on the shots as s["guard"]."""
+    needs the transcript. The decisions are returned on the shots as s["guard"].
+    shake: synthetic handheld wobble on inserts (off by default: it read as jitter, and CrossView output is locked off).
+    pullback: Wide-preset inserts get a real camera pull-back (pullback_filter), since the model's wide is static."""
     need("ffmpeg")
     video = str(Path(video or plan["source"]).resolve())
     vinfo = probe(video)
@@ -221,6 +238,8 @@ def assemble(plan: dict, out: str | Path, clips_json=None, clips_dir=None, video
                           f"y='(ih-oh)/2+{a*0.8:.1f}*sin(2*PI*t*0.41+0.7)+{a*0.35:.1f}*sin(2*PI*t*2.07)'")
             else:
                 chain += f",{cover}"
+            if pullback and s.get("preset") in PULLBACK_PRESETS:
+                chain += "," + pullback_filter(n, pullback_zoom)
         chain += f",setsar=1,format=yuv420p,tpad=stop_mode=clone:stop={n},trim=end_frame={n},setpts=PTS-STARTPTS"
         if labels and font:
             name = s.get("label_name") or plan.get("angle_names", {}).get(s["cam"], "")

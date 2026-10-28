@@ -71,7 +71,7 @@ Approved direction: the SaaS Ideator spec, locked by Alek.
     - Dub: a 3/4 frame from the dubbed take.
     - They are static JPGs (`th_*.jpg`, about 10–14 KB each). The old 240px looping magenta crops are gone.
 12. **Example player**:
-    - The examples are now **clean unlabeled exports** (`ex_talk.mp4` from `demo_v6.mp4`, `ex_scene.mp4` from the unlabeled `scene_clone_talk_to_yourself_v2.mp4`, 540×960). The old ones were 240px loops with burned-in "CAM A real".
+    - The examples are now **clean unlabeled exports** (`ex_talk.mp4` from `demo_v6.mp4`, `ex_scene.mp4` from the unlabeled `scene_clone_talk_to_yourself_v4.mp4` (B seated in the same room), 540×960; the gallery Dub item also shows `ex_dub_de.mp4`, the unlabeled German multicam v3). The old ones were 240px loops with burned-in "CAM A real".
     - Camera names are UI chips under the player (A Real take · B AI side · C AI wide).
     - In a Scene or Dub project, the finished video moves into this right-column player (Frame.io), with chips built from the cut list.
 13. **Progress panel (Synthesia)**: a preview (the chosen partner still), one 4px white bar, one status line and elapsed/ETA in tabular numbers. Mobile keeps the one-line collapsed bar. Errors use a neutral card with a red dot, the message in a well, and Retry as the white pill.

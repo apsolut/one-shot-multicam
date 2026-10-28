@@ -38,6 +38,7 @@
 .ba figcaption{display:flex;justify-content:space-between;align-items:center;margin-bottom:var(--s2);font-size:var(--t-sm);color:var(--muted)}
 .ba video,.one video{width:100%;aspect-ratio:9/16;border-radius:var(--r-md);border:1px solid var(--line);background:#000;display:block}
 .one{max-width:360px}.one.wide{max-width:720px}.one.wide video{aspect-ratio:auto}
+.one figure{margin:0}.one figcaption{margin-bottom:var(--s2);font-size:var(--t-sm);color:var(--muted)}.one.more{margin-top:var(--s5)}
 .ctrl{display:flex;gap:var(--s3);align-items:center;margin-top:var(--s4);flex-wrap:wrap}
 .tl{display:flex;height:28px;border-radius:var(--r-sm);overflow:hidden;margin-top:var(--s4);border:1px solid var(--line);position:relative;max-width:720px}
 .tl div{font-size:11px;font-weight:600;display:flex;align-items:center;padding-left:6px;border-right:1px solid var(--bg);color:var(--text);background:var(--raise)}
@@ -88,7 +89,8 @@ document.getElementById("repo2").href = G.repo;
 // the grid: one card per example (Talk items from config.js + the Scene and Dub examples)
 const EXTRA = [
   {id: "scene", mode: "Scene", badge: "new", title: "Talk to your other self", line: "One take becomes a two-person scene", thumb: "media/th_scene.jpg", video: "media/ex_scene.mp4"},
-  {id: "dub", mode: "Dub", badge: "new", title: "Same take, three languages", line: "German, Spanish and Croatian, new lip motion", thumb: "media/th_dub.jpg", video: "media/ex_dub.mp4", wide: true},
+  {id: "dub", mode: "Dub", badge: "new", title: "Same take, three languages", line: "German, Spanish and Croatian, new lip motion", thumb: "media/th_dub.jpg", video: "media/ex_dub.mp4", wide: true, cap: "4 languages · side by side",
+   more: {video: "media/ex_dub_de.mp4", poster: "media/poster_dub_de.jpg", cap: "German · full multicam cut (newest)"}},
 ];
 const cards = [...G.items.map((it, k) => ({id: "item-" + k, mode: "Talk", title: it.title.replace(/ · “.*$/, ""), line: k ? "Animated stills, 4 AI inserts" : "Re-shoot engine, 4 AI inserts", thumb: k ? "media/th_music.jpg" : "media/th_talk.jpg"})), ...EXTRA];
 const grid = document.getElementById("grid");
@@ -108,7 +110,8 @@ document.getElementById("items").innerHTML = G.items.map((it, k) => `<section cl
   <div class="meta">${it.cost}. Grey = real camera.</div>
   ${it.compare ? `<details><summary>v0.1 animated stills (left) vs v0.2 re-shoot (right)</summary>${vid(it.compare)}</details>` : ""}
   ${it.sync ? `<details><summary>Lip-sync check: real (left) vs aligned AI insert (right)</summary>${vid(it.sync)}</details>` : ""}
-  </section>`).join("") + EXTRA.map(x => `<section class="g-sec" id="${x.id}"><h2>${x.mode} · ${x.title}</h2><p class="sub">${x.line}.</p><div class="one ${x.wide ? "wide" : ""}">${vid(x.video, x.thumb)}</div></section>`).join("");
+  </section>`).join("") + EXTRA.map(x => `<section class="g-sec" id="${x.id}"><h2>${x.mode} · ${x.title}</h2><p class="sub">${x.line}.</p><div class="one ${x.wide ? "wide" : ""}">${x.more ? `<figure><figcaption>${x.cap}</figcaption>${vid(x.video, x.thumb)}</figure>` : vid(x.video, x.thumb)}</div>
+  ${x.more ? `<div class="one more"><figure><figcaption>${x.more.cap}</figcaption>${vid(x.more.video, x.more.poster)}</figure></div>` : ""}</section>`).join("");
 document.querySelectorAll(".item[data-k]").forEach(el => {
   const it = G.items[+el.dataset.k], [a, b] = el.querySelectorAll(".ba video"), ph = el.querySelector(".ph"), D = it.cuts[it.cuts.length - 1][2];
   el.querySelector(".sync").onclick = () => { if (!a || !b) return; a.currentTime = b.currentTime = 0; a.muted = true; a.play(); b.play(); };

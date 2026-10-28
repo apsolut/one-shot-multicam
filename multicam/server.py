@@ -11,6 +11,7 @@ Security model
 
 import copy
 import json
+import mimetypes
 import shutil
 import threading
 import time
@@ -23,6 +24,10 @@ from urllib.parse import quote
 
 from . import __version__
 from .util import load_json, probe, save_json
+
+# StaticFiles/FileResponse guess types from the platform table, which lacks .woff2 on slim images
+mimetypes.add_type("font/woff2", ".woff2")
+mimetypes.add_type("font/woff", ".woff")
 
 STEPS = ["transcribe", "plan", "angles", "cameras", "align", "render"]
 STILL_TO_PROMPT = {"closeup": "closeup", "wide": "wide", "right45": "side", "left45": "side",

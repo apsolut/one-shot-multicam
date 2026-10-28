@@ -141,7 +141,8 @@ function render() {
   $("#progressCard").hidden = !Object.values(S.steps || {}).some(st => st.status && st.status !== "pending") && !S.busy && !(S.jobs || []).length;
   $(".hero").hidden = $("#uploadCard").hidden = true; $("#newProject").hidden = false;
   const busy = S.busy;
-  $("#busyBadge").textContent = busy ? `${busy}…` : (S.error ? "error" : "idle");
+  $("#busyBadge").textContent = busy ? `${busy}…` : S.error ? "error" : S.plan ? "Analyzed" : "";  // never a bare "idle"
+  $("#busyBadge").hidden = !$("#busyBadge").textContent;
   $("#busyBadge").className = "badge " + (busy ? "warn" : S.error ? "bad" : "ok");
   $("#steps").innerHTML = Object.entries(STEP_NAMES).map(([k, n]) => { const st = S.steps[k] || {};
     return `<li class="${st.status || "pending"}"><div class="t"><span class="dot"></span>${n}</div><div class="m" title="${esc(st.msg)}">${esc(st.msg || st.status || "")}</div></li>`; }).join("");
@@ -177,8 +178,8 @@ function angleTile(cam, k, v, on) {
 function renderCams() {
   $("#anglesRow").hidden = reshoot();
   const eng = `<div class="seg engine" id="engineSel">
-      <button data-engine="reshoot" class="${reshoot() ? "on" : ""}">Re-shoot <small>follows your real motion & lips · recommended</small></button>
-      <button data-engine="idlora" class="${reshoot() ? "" : "on"}">Classic <small>Qwen still + ID LoRA</small></button></div>`;
+      <button type="button" data-engine="reshoot" class="${reshoot() ? "on" : ""}" aria-pressed="${reshoot()}"><span class="seg-l">Re-shoot<span class="seg-tag">Recommended</span></span><small>Follows your real motion and lips</small></button>
+      <button type="button" data-engine="idlora" class="${reshoot() ? "" : "on"}" aria-pressed="${!reshoot()}"><span class="seg-l">Classic</span><small>Still image + ID LoRA</small></button></div>`;
   if (reshoot()) {
     const presets = Object.entries(cfg.reshoot_angles || {});
     $("#engine").innerHTML = eng;

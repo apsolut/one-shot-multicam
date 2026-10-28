@@ -39,20 +39,20 @@
         <span class="mt-name">Talk</span>
         <span class="mt-desc">New angles, cut on your words</span>
       </button>
-      <button type="button" data-mode="music" aria-pressed="false">
-        <span class="mt-media"><img src="/gallery/media/th_music.jpg" alt="" loading="lazy"></span>
-        <span class="mt-name">Music <small>beta</small></span>
-        <span class="mt-desc">Cuts timed to your lyrics</span>
-      </button>
       <button type="button" data-mode="scene" aria-pressed="false">
-        <span class="mt-media"><img src="/gallery/media/th_scene.jpg" alt="" loading="lazy"></span>
-        <span class="mt-name">Scene <small>new</small></span>
+        <span class="mt-media"><span class="mt-badge new">New</span><img src="/gallery/media/th_scene.jpg" alt="" loading="lazy"></span>
+        <span class="mt-name">Scene</span>
         <span class="mt-desc">A two-person scene with you</span>
       </button>
       <button type="button" data-mode="dub" aria-pressed="false">
-        <span class="mt-media"><img src="/gallery/media/th_dub.jpg" alt="" loading="lazy"></span>
-        <span class="mt-name">Dub <small>new</small></span>
+        <span class="mt-media"><span class="mt-badge new">New</span><img src="/gallery/media/th_dub.jpg" alt="" loading="lazy"></span>
+        <span class="mt-name">Dub</span>
         <span class="mt-desc">Another language, new lip motion</span>
+      </button>
+      <button type="button" data-mode="music" aria-pressed="false">
+        <span class="mt-media"><span class="mt-badge beta">Beta</span><img src="/gallery/media/th_music.jpg" alt="" loading="lazy"></span>
+        <span class="mt-name">Music</span>
+        <span class="mt-desc">Cuts timed to your lyrics</span>
       </button>
     </div>
 
@@ -294,6 +294,10 @@
       <p class="stage-cap" id="stageCap"></p>
       <button type="button" class="secondary wide" id="stagePlay"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l11-6.5z"/></svg>Play with sound</button>
     </div>
+    <section class="history" id="historyCard" hidden aria-labelledby="historyH">
+      <div class="hist-h"><h2 id="historyH">Your recent runs</h2><button type="button" class="linkish" id="historyClear">Clear</button></div>
+      <ol class="hist-list" id="historyList"></ol>
+    </section>
   </aside>
 </main>
 
@@ -312,6 +316,7 @@
 <script src="app.js"></script>
 <script src="scene.js"></script>
 <script src="dub.js"></script>
+<script src="history.js"></script>
 <script src="ux.js"></script>
 </body>
 </html>

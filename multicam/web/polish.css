@@ -299,3 +299,30 @@ dialog::backdrop{backdrop-filter:none}
 .seg.choice{background:transparent;border:0;padding:0;border-radius:0}
 @media (min-width:981px){body.has-result #scEdl{display:none}}
 .sc-del .i{width:14px;height:14px}
+
+/* ---------- mode badges: top-left of the thumbnail. NEW = solid lime pill; BETA = quiet dark pill ---------- */
+.mt-badge{position:absolute;left:8px;top:8px;z-index:1;font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;
+  line-height:1;padding:4px 7px;border-radius:var(--r-pill)}
+.mt-badge.new{background:var(--acc);color:var(--acc-ink)}
+.mt-badge.beta{background:rgba(26,26,26,.88);color:var(--text);border:1px solid rgba(255,255,255,.3)}
+
+/* ---------- "Your recent runs": quiet compact list (right column on desktop, under the flow on mobile) ---------- */
+.history{margin-top:var(--s5);padding:var(--s4);border:1px solid var(--line);border-radius:var(--r-md);background:transparent}
+.hist-h{display:flex;align-items:baseline;justify-content:space-between;gap:var(--s2);margin-bottom:var(--s2)}
+.hist-h h2{font-size:var(--t-xs);font-weight:500;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:0}
+button.linkish{border:0;background:transparent;padding:2px 4px;font-size:var(--t-sm);color:var(--muted);text-decoration:underline;text-decoration-color:var(--line3);text-underline-offset:3px;min-height:0}
+button.linkish:hover:not(:disabled){color:var(--text);background:transparent}
+.hist-list{list-style:none;margin:0;padding:0;display:grid}
+.hist-list li+li{border-top:1px solid var(--line)}
+.hist-row{display:flex;align-items:center;gap:var(--s3);padding:var(--s2) 2px;text-decoration:none;color:var(--text);border-radius:var(--r-sm)}
+.hist-row:hover .hist-t b{text-decoration:underline;text-decoration-color:var(--line3);text-underline-offset:3px}
+.hist-row .i{color:var(--dim);margin-left:auto}
+.hist-th{width:30px;height:40px;flex:none;border-radius:6px;overflow:hidden;background:var(--panel2);border:1px solid var(--line);display:grid;place-items:center}
+.hist-th img{width:100%;height:100%;object-fit:cover;display:block}
+.hist-th i{font-style:normal;font-size:var(--t-xs);font-weight:600;color:var(--muted)}
+.hist-t{display:grid;min-width:0}
+.hist-t b{font-size:var(--t-base);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hist-t small{font-size:var(--t-xs);color:var(--dim)}
+body.in-project .history{display:none}
+.seg.choice button{border-radius:var(--r-md)}
+#drop:has(#dropFile:not([hidden])){border:1px solid var(--line2)}

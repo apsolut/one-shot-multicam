@@ -393,5 +393,39 @@
     window.addEventListener("hashchange", () => { C.hidden = true; }, {once: true});
   }
   setTimeout(resumeCard, 600);
+
+  // ---------- "Your recent runs": every project / scene / dub link this browser opened or created (max 10)
+  const H = window.MCHistory;
+  const histGet = () => H.parse(localStorage.getItem(H.LS));
+  const histSet = l => { try { localStorage.setItem(H.LS, JSON.stringify(l)); } catch { /* private mode / full */ } };
+  function histRecord() {
+    const m = location.hash.match(/([psd])=([0-9a-f]+)/); if (!m) return;
+    const hash = `${m[1]}=${m[2]}`, list = histGet(), cur = list[0];
+    const md = m[1] === "s" ? "scene" : m[1] === "d" ? "dub" : (S?.id === m[2] ? S.mode : null);
+    const name = m[1] === "p" ? (S?.id === m[2] ? S.name : "") : m[1] === "d" ? (window.uxDub?.lang_name ? `into ${window.uxDub.lang_name}` : "") : "";
+    const im = $(".sc-pick.chosen img") || $("#scPhotoFile img") || $("#cams .still img");
+    const thumb = im && /^\/api\//.test(im.getAttribute("src") || "") ? im.getAttribute("src").split("?")[0] : "";
+    if (cur?.hash === hash && (!md || cur.mode === md) && (!name || cur.name === name) && (!thumb || cur.thumb === thumb)) return;
+    if (cur?.hash === hash && Date.now() - cur.t < 1500 && !md && !name && !thumb) return;
+    histSet(H.add(list, {hash, mode: md, name, thumb}));
+  }
+  setInterval(histRecord, 1500);
+  function histRender() {
+    const C = $("#historyCard"), list = histGet();
+    if (location.hash.match(/[psd]=/) || !list.length) { C.hidden = true; return; }
+    C.hidden = false;
+    $("#historyList").innerHTML = list.map(x => `<li><a class="hist-row" href="#${x.hash}">
+      <span class="hist-th">${x.thumb ? `<img src="${esc(x.thumb)}" alt="" loading="lazy" onerror="this.remove()">` : `<i>${esc((NAME[x.mode] || x.mode || "?")[0])}</i>`}</span>
+      <span class="hist-t"><b>${esc(x.name || NAME[x.mode] || "Project")}</b><small>${esc(NAME[x.mode] || x.mode || "")} · ${esc(H.ago(x.t))}</small></span>
+      <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></a></li>`).join("");
+  }
+  async function histPrune() {  // drop links whose project is gone (public projects expire after the TTL)
+    const list = histGet(); if (!list.length) return;
+    const gone = (await Promise.all(list.map(x => fetch(H.apiPath(x.hash)).then(r => r.status === 404 ? x.hash : null).catch(() => null)))).filter(Boolean);
+    if (gone.length) { histSet(H.drop(histGet(), gone)); histRender(); }
+  }
+  $("#historyClear").onclick = () => { histSet([]); histRender(); };
+  window.addEventListener("hashchange", () => { histRecord(); histRender(); if (!location.hash.match(/[psd]=/)) histPrune(); });
+  histRecord(); histRender(); if (!location.hash.match(/[psd]=/)) histPrune();
   sync();
 })();

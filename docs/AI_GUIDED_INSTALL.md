@@ -5,7 +5,7 @@
 > with checks after each step. You'll only be asked for your Comfy Cloud API key (and, for Fly, to log in).
 >
 > **For the agent:** follow the steps in order and run the **Check** after each one. Never print,
-> echo, log or commit API keys, Fly tokens or the judge code. Pass them through environment variables
+> echo, log or commit API keys, Fly tokens or the promo (judge) code. Pass them through environment variables
 > or piped `fly secrets import`. Ask the user before anything that costs money (Comfy jobs, Fly machines)
 > or is publicly visible (deploying, pushing).
 
@@ -113,7 +113,7 @@ fly auth login                                   # the user logs in in their bro
 4. **Set secrets without showing them.** Let the user run this in their own terminal, or pipe the values from the environment:
    ```bash
    printf 'COMFY_API_KEY=%s\n' "$COMFY_API_KEY" | fly secrets import --app <your-app> --stage
-   # optional judge code (generate one, store it in a 600-mode file, never commit it):
+   # optional promo code (env MULTICAM_JUDGE_CODE) (generate one, store it in a 600-mode file, never commit it):
    printf 'MULTICAM_JUDGE_CODE=%s\n' "$(cat judge_code.txt)" | fly secrets import --app <your-app> --stage
    ```
 5. **Deploy:**

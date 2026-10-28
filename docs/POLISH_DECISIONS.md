@@ -94,3 +94,22 @@ All normal text is ≥ 4.5:1. Locked steps render at 45% opacity; WCAG exempts i
 - **Colour grade on the examples.** `ex_*` and `th_*` have a mild neutralising grade: saturation 0.62 plus a colour balance that pulls magenta toward neutral. The source room light is hard magenta. This is a display grade of real outputs, not new generation. Drop it if Alek prefers the raw look.
 - **Scene thumbnail and player.** These still show the "other self" with a new look (leather jacket, teal city). That is what Scene mode makes, but it can read as a different man. The split thumbnail puts the real take next to it on purpose.
 - **Dub example.** `ex_dub.mp4` is the 4-language comparison with its burned-in language names (EN/DE/ES/HR), because no clean single-file version exists in docs/media. Its chips duplicate those names.
+
+## Update 2026-10-28 (approved by Alek)
+- **Accent is now Comfy yellow `#f0fe68`** (from comfy.org), replacing lime. Still the only accent. It is used for:
+  - the 2px outline and subtle tint on the selected mode card, plus the icon chip on that card
+  - outlined REQUIRED pills
+  - the dashed required-empty upload zones
+  - the consent check
+  - focus rings
+  - the selected camera tile / partner option / still
+  - solid NEW badges with black text (BETA stays a dark pill with a white/30% outline)
+- **Contrast:** yellow on #0a0a0a is 18.0:1 and black on yellow is 18.0:1. Yellow is never used as text on white.
+- **Generate** stays a white pill with black text.
+- **Header:**
+  - payment chip (opens a sheet with the 3-way pill switch, key input, Check, Forget key, a one-line privacy note and "How keys are handled")
+  - recent-runs clock icon (drawer on desktop, bottom sheet on mobile, dot while a run is unfinished)
+  - the same header on the gallery and share pages, with the active item marked and a mobile "Back to Multicam" breadcrumb
+- **Pipeline:** hidden until a run starts, then a single collapsed "Details" line under the progress panel.
+- **Camera picker:** picture tiles from one demo take (only the angle differs), labelled Strong/Subtle with a one-line hint, plus a framing notice (face size + orientation).
+- "Judge code" is shown to users as **"Promo code"**. The backend names and the localStorage key are unchanged.

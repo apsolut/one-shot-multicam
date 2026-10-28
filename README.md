@@ -124,18 +124,18 @@ Comfy Cloud key (kept in their browser, forwarded per request, never stored or l
 **Access modes for the operator's key** (`--hosted-access` / `MULTICAM_HOSTED_ACCESS`):
 - `open`: visitors who paste no key use the operator's credits, capped by the guards below.
 - `judge` (the live demo): the operator key is used **only** with a private access code
-  (secret `MULTICAM_JUDGE_CODE`, sent as `X-Judge-Code`; the UI has a small "Have a judge code?" field),
+  (secret `MULTICAM_JUDGE_CODE`, sent as `X-Judge-Code`; the UI has a small "Have a promo code?" field),
   capped at `MULTICAM_JUDGE_MAX_JOBS` jobs total (default 10) and still under the balance floor.
   Everyone else must bring their own key. Without a configured code, nobody can use the operator key.
   Set it with `fly secrets set MULTICAM_JUDGE_CODE=... COMFY_API_KEY=...`; never commit it.
 
 **Free trial runs** (`--hosted-runs` / `MULTICAM_HOSTED_RUNS`, on in the live demo with 6): visitors with
-no key and no judge code may use the operator key for **one free run each**. A run is one project in any
+no key and no promo code may use the operator key for **one free run each**. A run is one project in any
 mode (Talk, Music, Scene or Dub; clips ≤ 30 s), capped at `MULTICAM_TRIAL_JOBS_PER_RUN` Comfy jobs (default
 10, so a 17 s Dub of 9 jobs fits). Its paid steps (for example Dub's translate, then generate, or a
 re-roll) share that one run. One per visitor is enforced by a salted IP hash **and** a random first-party
-cookie (`mc_vid`). The UI shows "X of 6 free runs left" and falls back to your own key or a judge code
-when they're gone. The judge quota is separate and unaffected, and the balance floor stays a hard stop
+cookie (`mc_vid`). The UI shows "X of 6 free runs left" and falls back to your own key or a promo code
+when they're gone. The promo-code (judge) quota is separate and unaffected, and the balance floor stays a hard stop
 for both. The counter lives in `<data>/hosted_jobs.json` → `"trial": {"used": N, ...}` (on Fly:
 `/data/hosted_jobs.json` on the `multicam_data` volume). Runs that never reached Comfy are refunded, so a
 failed upload doesn't burn a visitor's run. **To top up by 6 more**, raise `MULTICAM_HOSTED_RUNS` to 12 in

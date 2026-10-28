@@ -128,7 +128,7 @@ class App:
         self.budget_lock = threading.Lock()
         self.hosted_floor_usd = hosted_floor_usd  # restart-proof stop: refuse when the real balance nears this
         self.hosted_key_env = hosted_key_env
-        # "open": anyone may use the operator key (capped). "judge": only with the private judge code
+        # "open": anyone may use the operator key (capped). "judge": only with the private promo code
         # (env MULTICAM_JUDGE_CODE); everyone else brings their own key. No code configured = BYO key only.
         self.hosted_access = hosted_access if hosted_access in ("open", "judge") else "judge"
         self.judge_max_jobs = judge_max_jobs
@@ -219,10 +219,10 @@ class App:
             owner = t["ips"].get(ipk) or (t["cookies"].get(ck) if ck else None)
             if owner and owner != pkey:
                 raise PermissionError("you've used your free run (one per visitor). Paste your own Comfy Cloud key "
-                                      "to keep going (platform.comfy.org → API keys), or use a judge code")
+                                      "to keep going (platform.comfy.org → API keys), or use a promo code")
             if pkey not in t["jobs"] and int(t["used"]) >= self.trial_runs:
                 raise PermissionError(f"all {self.trial_runs} free runs are used up. Paste your own Comfy Cloud key "
-                                      "(platform.comfy.org → API keys), or use a judge code")
+                                      "(platform.comfy.org → API keys), or use a promo code")
             used = int(t["jobs"].get(pkey, 0))
             if used + n > self.trial_jobs_per_run:
                 raise PermissionError(f"a free run covers up to {self.trial_jobs_per_run} Comfy jobs ({used} used on "
@@ -307,7 +307,7 @@ class App:
     # ---------- key handling
     def resolve_key(self, header_key: str | None, judge_code: str | None = None) -> tuple[str, bool | str]:
         """-> (key, False) for the visitor's own key, (operator key, True) in open hosted mode,
-        (operator key, "judge") with a valid judge code."""
+        (operator key, "judge") with a valid promo code."""
         if header_key and header_key.strip():
             return header_key.strip(), False
         if self.hosted:
@@ -315,7 +315,7 @@ class App:
         if judge_code and judge_code.strip():
             if self.judge_ok(judge_code):
                 return self.operator_key, "judge"
-            raise PermissionError("that judge code isn't valid. Paste your own Comfy Cloud key instead "
+            raise PermissionError("that promo code isn't valid. Paste your own Comfy Cloud key instead "
                                   "(platform.comfy.org → API keys)")
         if self.trial_enabled:
             return self.operator_key, "trial"  # charge_trial enforces the pool / per-visitor / floor limits
@@ -330,7 +330,7 @@ class App:
 
     def charge_hosted(self, n: int, ip: str = "?", judge: bool = False):
         """Atomically reserve n jobs of the operator's budget (global cap + per-IP daily cap).
-        Judge-code jobs have their own total cap and no per-IP cap; the balance floor applies to both."""
+        Promo-code jobs have their own total cap and no per-IP cap; the balance floor applies to both."""
         with self.budget_lock:
             d = self._ledger()
             if judge:
@@ -453,13 +453,17 @@ class App:
         except BaseException:
             shutil.rmtree(root, ignore_errors=True)
             raise
+        from .framing import analyze as framing_of, suggest as framing_cams
+        framing = framing_of(src, info.get("duration"))
+        cams = dict(RESHOOT_CAMS if self.engine == "reshoot" else DEFAULT_STILLS[mode])
+        cams.update(framing_cams(framing, self.engine) or {})  # already-wide take -> no second wide, etc.
         p = Project(root)
         p.state = {"id": pid, "name": name or Path(filename or "video").stem, "mode": mode,
                    "created": time.time(), "source": src.name, "info": info,
                    "script": (script or "").strip() or None, "lyrics": (lyrics or "").strip() or None,
                    "steps": {s: {"status": "pending", "msg": ""} for s in STEPS},
                    "jobs": [], "clips": {}, "stills": {}, "engine": self.engine,
-                   "cam_stills": dict(RESHOOT_CAMS if self.engine == "reshoot" else DEFAULT_STILLS[mode]),
+                   "cam_stills": cams, "framing": framing,
                    "edits": {}, "renders": [], "busy": None, "error": None}
         p.save()
         self.projects[pid] = p
@@ -804,24 +808,21 @@ SHARE_HTML = """<!doctype html><html lang="en"><head><meta charset="utf-8">
 <title>{{TITLE}} · Multicam</title>
 <meta property="og:title" content="{{TITLE}}"><meta property="og:type" content="video.other">
 <meta property="og:image" content="poster.jpg"><meta property="og:video" content="multicam.mp4">
-<meta name="twitter:card" content="player">
+<meta name="twitter:card" content="player"><meta name="theme-color" content="#0a0a0a">
+<link rel="stylesheet" href="/style.css"><link rel="stylesheet" href="/polish.css">
 <style>
-:root{color-scheme:dark}*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;
-background:radial-gradient(1200px 600px at 20% -10%,#2a1b5e 0,transparent 60%),radial-gradient(900px 500px at 110% 10%,#0f3d4a 0,transparent 55%),#0b0b12;
-font:16px/1.5 ui-sans-serif,system-ui,-apple-system,Segoe UI,Inter,sans-serif;color:#ecebf5}
-main{width:min(440px,92vw);padding:24px 0}h1{font-size:22px;margin:0 0 4px}p{color:#a7a5bd;margin:0 0 16px}
-video{width:100%;border-radius:18px;box-shadow:0 20px 60px #0008;background:#000;aspect-ratio:9/16}
-.row{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap}a.btn{flex:1;text-align:center;padding:12px 14px;border-radius:12px;
-background:#1b1a2b;color:#fff;text-decoration:none;border:1px solid #2c2a44;font-weight:600}a.btn.p{background:linear-gradient(135deg,#7c5cff,#2bd2ff);border:0}
-label{display:flex;gap:8px;align-items:center;color:#a7a5bd;font-size:14px;margin-top:10px;cursor:pointer}
-footer{margin-top:18px;font-size:13px;color:#77758f}footer a{color:#a7a5bd}
-</style></head><body><main>
-<h1>{{TITLE}}</h1><p>One phone shot → multicam. Camera A is real; B/C are generated with ComfyUI (LTX-2.3 ID LoRA + Qwen angles), cut on the words over the real audio.</p>
+.sh{width:min(440px,100%);margin:0 auto;padding:var(--s6) 16px var(--s7)}.sh h1{font-size:var(--t-xl);font-weight:600;letter-spacing:-.02em;margin:0 0 4px}
+.sh p{color:var(--muted);margin:0 0 var(--s4)}.sh video{width:100%;border-radius:var(--r-md);border:1px solid var(--line);background:#000;aspect-ratio:9/16;display:block}
+.sh .row{display:flex;gap:var(--s2);margin-top:var(--s4);flex-wrap:wrap}.sh .row .btn{flex:1}
+.sh label{display:flex;gap:8px;align-items:center;color:var(--muted);font-size:var(--t-sm);margin-top:var(--s3);cursor:pointer}
+</style></head><body><div id="hdr"></div><main class="sh">
+<h1>{{TITLE}}</h1><p>One phone shot, a multicam edit. Camera A is real; the other cameras are AI re-shoots, cut on the words over the real audio.</p>
 <video id="v" src="multicam.mp4" poster="poster.jpg" controls playsinline></video>
 <label><input type="checkbox" id="lab"> Show camera labels</label>
-<div class="row"><a class="btn p" href="{{X}}" target="_blank" rel="noopener">Share on X</a><a class="btn" href="multicam.mp4" download>Download</a></div>
-<footer>Made with <a href="{{REPO}}">Multicam</a> · #OpenSourceHiggsfield</footer>
-</main><script>
+<div class="row"><a class="btn primary" href="{{X}}" target="_blank" rel="noopener">Share on X</a><a class="btn secondary" href="multicam.mp4" download>Download</a></div>
+<p class="meta" style="margin-top:var(--s4);font-size:var(--t-sm);color:var(--dim)">Made with <a href="{{REPO}}">Multicam</a> · <a href="/">make your own</a></p>
+</main><script src="/subpage.js"></script><script>
+if (window.MCSubpage) MCSubpage.mount(document.getElementById('hdr'), 'share', 'Shared video');
 const v=document.getElementById('v');document.getElementById('lab').onchange=e=>{const t=v.currentTime,p=!v.paused;
 v.src=e.target.checked?'multicam_labeled.mp4':'multicam.mp4';v.currentTime=t;if(p)v.play();};
 </script></body></html>"""
@@ -992,7 +993,7 @@ def create_app(app_state: App):
             return {"ok": True, "trial": t}
         if not (x_comfy_key or "").strip() and (x_judge_code or "").strip():
             if not A.judge_ok(x_judge_code):
-                raise HTTPException(403, "that judge code isn't valid")
+                raise HTTPException(403, "that promo code isn't valid")
             return {"ok": True, "judge": True, "judge_jobs_left": max(0, A.judge_max_jobs - A.judge_used()),
                     "judge_jobs_total": A.judge_max_jobs}
         key, hosted = key_or_403(x_comfy_key, x_judge_code)

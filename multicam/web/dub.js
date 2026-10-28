@@ -81,7 +81,7 @@
   function show() { $("#uploadCard").hidden = true; $(".hero").hidden = true; $("#dubCard").hidden = false; refresh();
     $("#dubCard").scrollIntoView({behavior: "smooth"}); }
   const ownKey = () => { toast("Paste your own Comfy Cloud key first (step 1) — get one at platform.comfy.org → API keys", 4500);
-    $("#keyCard").classList.add("attention"); };
+    openPay(); };
   async function save() { DB = await api(`/api/dub/${DB.id}/lines`, {json: {translations: collect()}}); textDraft.clear("d", DB.id); $("#dbLines").dataset.sig = ""; render(); }
 
   $("#dbSave").onclick = () => save().then(() => toast("Saved")).catch(e => toast(e.message));

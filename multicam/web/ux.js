@@ -1,5 +1,5 @@
 // First-run UX layer (ux.js): the numbered 3-step flow, required-field reasons on the single primary
-// button, the access choice (free run / own key / judge code), the sticky preview with example outputs,
+// button, the access choice (free run / own key / promo code), the sticky preview with example outputs,
 // and "Try with sample clip". UI only: it calls the same app.js helpers and never hits a paid endpoint.
 (() => {
   const MEDIA = "/gallery/media/";
@@ -78,6 +78,64 @@
   sv.addEventListener("ended", () => { if (playingFull) { playingFull = false; stage(); } });
   $$("#stageTabs button").forEach(b => b.onclick = () => { view = b.dataset.v; playingFull = false; stage(); });
 
+  // ---------- header sheets: payment (pill) + recent runs (clock icon). Right drawer on desktop, bottom sheet on mobile.
+  const back = $("#sheetBack");
+  let lastFocus = null;
+  function openSheet(id) {
+    $$(".sheet").forEach(x => { if (x.id !== id) x.hidden = true; });
+    const el = $("#" + id); lastFocus = document.activeElement; el.hidden = false; back.hidden = false;
+    requestAnimationFrame(() => { el.classList.add("in"); back.classList.add("in"); });
+    document.body.classList.add("sheet-open");
+    setTimeout(() => (el.querySelector("input:not([hidden]):not([type=checkbox]), .sheet-x") || el).focus?.(), 60);
+  }
+  function closeSheets() {
+    $$(".sheet").forEach(x => { x.classList.remove("in"); x.hidden = true; }); back.classList.remove("in"); back.hidden = true;
+    document.body.classList.remove("sheet-open"); $("#payReason").hidden = true; lastFocus?.focus?.();
+  }
+  back.onclick = closeSheets;
+  $$(".sheet-x").forEach(b => b.onclick = closeSheets);
+  document.addEventListener("keydown", e => { if (e.key === "Escape" && !back.hidden) closeSheets(); });
+  $("#paySlot").appendChild($("#keyCard"));   // the payment card is no longer in the main flow
+  $("#keySlot").remove();
+  window.uxOpenPay = reason => {
+    const r = $("#payReason"); r.textContent = reason || ""; r.hidden = !reason;
+    openSheet("paySheet");
+  };
+  $("#payPill").onclick = () => window.uxOpenPay();
+  // subpages link here with /#pay or /#recent to open a sheet on the home page
+  function sheetFromHash() {
+    const h = location.hash;
+    if (h === "#pay" || h === "#recent") {
+      history.replaceState(null, "", location.pathname + location.search);
+      setTimeout(() => (h === "#pay" ? window.uxOpenPay() : $("#histBtn").click()), 300);
+    }
+  }
+  window.addEventListener("hashchange", sheetFromHash);
+  setTimeout(sheetFromHash, 0);
+  $("#runsLeft").onclick = () => window.uxOpenPay();
+  $("#keyForget2").onclick = () => $("#keyForget")?.click();
+  function payPill() {
+    const t = cfg.trial, el = $("#payPillT"), pill = $("#payPill");
+    let txt, out = false;
+    if (key()) txt = "Your key";
+    else if (judge() && cfg.judge_code) txt = `Promo code${judgeLeft != null ? ` · ${judgeLeft}` : ""}`;
+    else if (t) { txt = t.used_by_you ? "Free run · yours" : t.runs_left > 0 ? `Free run · ${t.runs_left}/${t.runs_total}` : "Add a key"; out = !t.used_by_you && t.runs_left <= 0; }
+    else if (cfg.hosted) { const l = cfg.hosted_jobs_left ?? 0; txt = l > 0 ? `Demo · ${l} jobs` : "Add a key"; out = l <= 0; }
+    else txt = "Your key";
+    el.textContent = txt; pill.classList.toggle("out", out);
+    pill.setAttribute("aria-label", `Payment: ${txt}. Change`);
+  }
+
+  // ---------- pipeline "Details": one collapsed line under the progress panel (desktop) / above the flow (mobile)
+  function placePipe() {
+    const pc = $("#progressCard"), desk = matchMedia("(min-width:981px)").matches;
+    const want = desk ? $("#stage") : $("#flow");
+    if (desk && pc.parentElement !== want) $("#jobPanel").after(pc);
+    if (!desk && pc.parentElement !== want) $("#flow").prepend(pc);
+  }
+  matchMedia("(min-width:981px)").addEventListener("change", placePipe);
+  $("#pipeToggle").onclick = () => { const pc = $("#progressCard"), o = !pc.classList.contains("open"); pc.classList.toggle("open", o); $("#pipeToggle").setAttribute("aria-expanded", o); };
+
   // ---------- sample take (loads a bundled clip into the form; never starts anything)
   $("#sampleBtn").onclick = async () => {
     const b = $("#sampleBtn"); b.disabled = true; b.textContent = "Loading sample…";
@@ -90,7 +148,7 @@
     b.disabled = false; b.textContent = "Try with sample clip";
   };
 
-  // ---------- access choice: free run | own key | judge code (one compact control)
+  // ---------- access choice: free run | own key | promo code (one compact control)
   const freeOk = () => !!(cfg.trial && trialOk()) || !!(cfg.hosted && (cfg.hosted_jobs_left ?? 0) > 0);
   function setAccess(a) {
     access = a;
@@ -121,11 +179,12 @@
     const r = $("#runsLeft");
     r.hidden = false;
     if (key()) r.textContent = "Using your key";
-    else if (judge()) r.textContent = `Judge code${judgeLeft != null ? ` · ${judgeLeft} jobs left` : ""}`;
+    else if (judge()) r.textContent = `Promo code${judgeLeft != null ? ` · ${judgeLeft} jobs left` : ""}`;
     else if (t) r.textContent = t.used_by_you ? "Your free run" : `${t.runs_left} of ${t.runs_total} free runs left`;
     else if (cfg.hosted) r.textContent = `${cfg.hosted_jobs_left ?? "∞"} demo jobs left`;
     else r.hidden = true;
     r.classList.toggle("out", !!t && !trialOk() && !key() && !judge());
+    payPill();
   }
 
   // ---------- step states + the reason under the one primary button
@@ -166,9 +225,7 @@
     const home = !$("#uploadCard").hidden;
     document.body.classList.toggle("in-project", !home);
     $("#intro").hidden = !home;
-    const kc = $("#keyCard");
-    if (home && kc.parentElement !== $("#keySlot")) $("#keySlot").appendChild(kc);
-    if (!home && kc.parentElement === $("#keySlot")) $("#uploadCard").after(kc);
+    placePipe();
     if (!home && !sv.paused && !document.body.classList.contains("stage-idle")) sv.pause();
   }
   new MutationObserver(place).observe($("#uploadCard"), {attributes: true, attributeFilter: ["hidden"]});
@@ -411,21 +468,24 @@
   }
   setInterval(histRecord, 1500);
   function histRender() {
-    const C = $("#historyCard"), list = histGet();
-    if (location.hash.match(/[psd]=/) || !list.length) { C.hidden = true; return; }
-    C.hidden = false;
+    const list = histGet();
+    $("#historyEmpty").hidden = !!list.length; $("#historyClear").hidden = !list.length;
     $("#historyList").innerHTML = list.map(x => `<li><a class="hist-row" href="#${x.hash}">
       <span class="hist-th">${x.thumb ? `<img src="${esc(x.thumb)}" alt="" loading="lazy" onerror="this.remove()">` : `<i>${esc((NAME[x.mode] || x.mode || "?")[0])}</i>`}</span>
-      <span class="hist-t"><b>${esc(x.name || NAME[x.mode] || "Project")}</b><small>${esc(NAME[x.mode] || x.mode || "")} · ${esc(H.ago(x.t))}</small></span>
+      <span class="hist-t"><b>${esc(x.name || NAME[x.mode] || "Project")}</b><small>${esc(NAME[x.mode] || x.mode || "")} · ${esc(H.ago(x.t))}${x.busy ? " · still working" : ""}</small></span>
       <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></a></li>`).join("");
+    $("#histDot").hidden = !list.some(x => x.busy);
   }
-  async function histPrune() {  // drop links whose project is gone (public projects expire after the TTL)
-    const list = histGet(); if (!list.length) return;
-    const gone = (await Promise.all(list.map(x => fetch(H.apiPath(x.hash)).then(r => r.status === 404 ? x.hash : null).catch(() => null)))).filter(Boolean);
-    if (gone.length) { histSet(H.drop(histGet(), gone)); histRender(); }
+  async function histPrune() {  // drop links whose project is gone (public projects expire); note unfinished runs
+    const list = histGet(); if (!list.length) { histRender(); return; }
+    const res = await Promise.all(list.map(x => fetch(H.apiPath(x.hash)).then(async r => r.status === 404 ? {gone: x.hash} : r.ok ? {hash: x.hash, busy: !!(await r.json().catch(() => ({}))).busy} : null).catch(() => null)));
+    const gone = res.filter(r => r?.gone).map(r => r.gone), busy = Object.fromEntries(res.filter(r => r?.hash).map(r => [r.hash, r.busy]));
+    histSet(H.drop(histGet(), gone).map(x => (x.hash in busy ? {...x, busy: busy[x.hash]} : x))); histRender();
   }
   $("#historyClear").onclick = () => { histSet([]); histRender(); };
-  window.addEventListener("hashchange", () => { histRecord(); histRender(); if (!location.hash.match(/[psd]=/)) histPrune(); });
-  histRecord(); histRender(); if (!location.hash.match(/[psd]=/)) histPrune();
+  $("#histBtn").onclick = () => { histRender(); openSheet("histSheet"); histPrune(); };
+  $("#historyList").addEventListener("click", e => { if (e.target.closest("a")) closeSheets(); });
+  window.addEventListener("hashchange", () => { histRecord(); histRender(); });
+  histRecord(); histPrune(); setInterval(histPrune, 45000);
   sync();
 })();

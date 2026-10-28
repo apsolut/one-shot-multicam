@@ -15,6 +15,8 @@
   <a class="brand" href="/"><span class="logo"><i></i><i></i><i></i></span>Multicam</a>
   <nav>
     <a href="#" id="newProject" hidden>New project</a>
+    <button type="button" class="hdr-pill" id="payPill" aria-haspopup="dialog" aria-controls="paySheet"><span class="pp-dot" aria-hidden="true"></span><span id="payPillT">Free run</span></button>
+    <button type="button" class="hdr-ic" id="histBtn" aria-haspopup="dialog" aria-controls="histSheet" aria-label="Your recent runs"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 12a8.5 8.5 0 1 0 2.5-6"/><path d="M3 4v4h4"/><path d="M12 7.5V12l3 2"/></svg><span class="hdr-lbl">Recent</span><span class="hdr-dot" id="histDot" hidden></span></button>
     <a href="/gallery/">Gallery</a>
     <a id="repoLink" href="#" target="_blank" rel="noopener">GitHub</a>
   </nav>
@@ -35,22 +37,22 @@
     <div class="mode-h"><h2>What do you want to make?</h2></div>
     <div class="modes" id="mode" role="group" aria-label="Mode">
       <button type="button" data-mode="talk" class="on" aria-pressed="true">
-        <span class="mt-media"><img src="/gallery/media/th_talk.jpg" alt="" loading="lazy"></span>
+        <span class="mt-media"><img src="/gallery/media/th_talk.jpg" alt="" loading="lazy"><span class="mt-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3z"/><path d="M19 11a7 7 0 0 1-14 0M12 18v3"/></svg></span></span>
         <span class="mt-name">Talk</span>
         <span class="mt-desc">New angles, cut on your words</span>
       </button>
       <button type="button" data-mode="scene" aria-pressed="false">
-        <span class="mt-media"><span class="mt-badge new">New</span><img src="/gallery/media/th_scene.jpg" alt="" loading="lazy"></span>
+        <span class="mt-media"><span class="mt-badge new">New</span><img src="/gallery/media/th_scene.jpg" alt="" loading="lazy"><span class="mt-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M2 20a6 6 0 0 1 12 0M14.5 20a4 4 0 0 1 7.5 0"/></svg></span></span>
         <span class="mt-name">Scene</span>
         <span class="mt-desc">A two-person scene with you</span>
       </button>
       <button type="button" data-mode="dub" aria-pressed="false">
-        <span class="mt-media"><span class="mt-badge new">New</span><img src="/gallery/media/th_dub.jpg" alt="" loading="lazy"></span>
+        <span class="mt-media"><span class="mt-badge new">New</span><img src="/gallery/media/th_dub.jpg" alt="" loading="lazy"><span class="mt-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h9M7.5 3v2M5 5c.5 4 3 7 6.5 8M10 5c-.5 4-3 7-6.5 8"/><path d="M13 21l4-9 4 9M14.4 18h5.2"/></svg></span></span>
         <span class="mt-name">Dub</span>
         <span class="mt-desc">Another language, new lip motion</span>
       </button>
       <button type="button" data-mode="music" aria-pressed="false">
-        <span class="mt-media"><span class="mt-badge beta">Beta</span><img src="/gallery/media/th_music.jpg" alt="" loading="lazy"></span>
+        <span class="mt-media"><span class="mt-badge beta">Beta</span><img src="/gallery/media/th_music.jpg" alt="" loading="lazy"><span class="mt-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg></span></span>
         <span class="mt-name">Music</span>
         <span class="mt-desc">Cuts timed to your lyrics</span>
       </button>
@@ -147,11 +149,11 @@
   </section>
 
   <section class="card access" id="keyCard">
-    <div class="card-h"><h3 class="access-t">Pay for AI cameras with</h3><span class="badge" id="keyBadge">not set</span></div>
+    <div class="card-h"><h3 class="access-t">Status</h3><span class="badge" id="keyBadge">not set</span></div>
     <div class="seg access-seg" id="access" role="radiogroup" aria-label="Payment">
       <button type="button" data-a="free" role="radio">Free run <small id="accFreeN"></small></button>
       <button type="button" data-a="key" role="radio">My Comfy key</button>
-      <button type="button" data-a="judge" role="radio">Judge code</button>
+      <button type="button" data-a="judge" role="radio">Promo code</button>
     </div>
     <div class="acc-pane" id="accFree"><p class="note" id="accFreeNote">Nothing to paste. One free run per visitor: one video in any mode.</p></div>
     <div class="acc-pane" id="accKey" hidden>
@@ -160,12 +162,13 @@
         <button type="button" class="ghost" id="keyToggle" title="Show / hide" aria-label="Show or hide key"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12z"/><circle cx="12" cy="12" r="2.8"/></svg></button>
         <button type="button" class="secondary" id="keyCheck">Check</button>
       </div>
-      <p class="note" id="keyNote">Saved only in <b>this browser</b> (localStorage). It's sent per request to your local Multicam server, which forwards it to Comfy Cloud and <b>never stores or logs it</b>. Free steps (transcribe, plan, align, render, edit) don't need it. <a href="#" id="keyForget">Forget key</a></p>
+      <p class="key-line">Your key stays in this browser and is sent per request. Never stored or logged. <button type="button" class="linkish" id="keyForget2">Forget key</button></p>
+      <details class="how-keys"><summary>How keys are handled</summary><p class="note" id="keyNote">Saved only in <b>this browser</b> (localStorage). It's sent per request to your local Multicam server, which forwards it to Comfy Cloud and <b>never stores or logs it</b>. Free steps (transcribe, plan, align, render, edit) don't need it. <a href="#" id="keyForget">Forget key</a></p></details>
     </div>
     <div id="judgeBox" hidden><div class="acc-pane" id="accJudge" hidden>
-      <div class="row"><input id="judge" type="password" autocomplete="off" spellcheck="false" placeholder="judge access code" aria-label="Judge access code">
+      <div class="row"><input id="judge" type="password" autocomplete="off" spellcheck="false" placeholder="Enter promo code" aria-label="Promo code">
       <button type="button" class="secondary" id="judgeCheck">Use code</button></div>
-      <p class="note small">Challenge judges got a private code that runs a few jobs on the maintainer's credits. Leave the key empty to use it.</p>
+      <p class="note small">Have a promo code? It runs a few generations on our credits, no Comfy key needed.</p>
     </div></div>
   </section>
 
@@ -218,7 +221,7 @@
   </section>
 
   <section class="card" id="progressCard" hidden>
-    <div class="card-h"><h2><span class="n">3</span>Pipeline</h2><span class="badge" id="busyBadge"></span></div>
+    <div class="card-h"><button type="button" class="pipe-toggle" id="pipeToggle" aria-expanded="false" aria-controls="steps">Details<span class="jp-chev" aria-hidden="true"></span></button><span class="badge" id="busyBadge"></span></div>
     <ol class="steps" id="steps"></ol>
     <div class="jobs" id="jobs"></div>
     <div class="err" id="err" hidden></div>
@@ -294,10 +297,6 @@
       <p class="stage-cap" id="stageCap"></p>
       <button type="button" class="secondary wide" id="stagePlay"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l11-6.5z"/></svg>Play with sound</button>
     </div>
-    <section class="history" id="historyCard" hidden aria-labelledby="historyH">
-      <div class="hist-h"><h2 id="historyH">Your recent runs</h2><button type="button" class="linkish" id="historyClear">Clear</button></div>
-      <ol class="hist-list" id="historyList"></ol>
-    </section>
   </aside>
 </main>
 
@@ -305,6 +304,17 @@
   <span>MIT · ComfyUI, LTX-2.3, Qwen-Image-Edit · open weights</span>
   <span>Only use your own face, or someone's who agreed.</span>
 </footer>
+<div class="sheet-back" id="sheetBack" hidden></div>
+<aside class="sheet" id="paySheet" hidden role="dialog" aria-modal="true" aria-labelledby="payH">
+  <div class="sheet-h"><h2 id="payH">Pay for AI cameras</h2><button type="button" class="ghost sheet-x" aria-label="Close"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+  <p class="pay-reason" id="payReason" role="status" hidden></p>
+  <div id="paySlot"></div>
+</aside>
+<aside class="sheet" id="histSheet" hidden role="dialog" aria-modal="true" aria-labelledby="historyH">
+  <div class="sheet-h"><h2 id="historyH">Your recent runs</h2><div class="row"><button type="button" class="linkish" id="historyClear">Clear</button><button type="button" class="ghost sheet-x" aria-label="Close"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div></div>
+  <ol class="hist-list" id="historyList"></ol>
+  <p class="hist-empty muted small" id="historyEmpty">Projects you open or create here show up in this list. Only this browser keeps it.</p>
+</aside>
 <div class="toast" id="toast"></div>
 <dialog id="confirm">
   <form method="dialog">

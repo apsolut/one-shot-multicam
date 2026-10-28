@@ -145,7 +145,7 @@ select option{background:var(--panel2)}
 .choice button{background:var(--panel);border:1px solid var(--line2);border-radius:var(--r-md);min-height:60px;padding:12px}
 .choice button:hover:not(.on){background:var(--panel2);border-color:var(--line3)}
 .choice button.on{background:var(--panel2);border:1px solid var(--acc);padding:12px;box-shadow:0 0 0 1px var(--acc) inset}
-.choice button.on:after,.sc-pick.chosen:after{content:"";background:var(--acc) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230b1400' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E") center/12px no-repeat}
+.choice button.on:after,.sc-pick.chosen:after{content:"";background:var(--acc) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230a0a0a' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E") center/12px no-repeat}
 .ch-ic{background:var(--raise);border-radius:var(--r-sm)}
 .choice button.on .ch-ic{background:var(--text);color:var(--bg)}
 .ch-t b{font-weight:600}
@@ -326,3 +326,121 @@ button.linkish:hover:not(:disabled){color:var(--text);background:transparent}
 body.in-project .history{display:none}
 .seg.choice button{border-radius:var(--r-md)}
 #drop:has(#dropFile:not([hidden])){border:1px solid var(--line2)}
+
+/* ---------- camera angle tiles (replace the label-only presets) ---------- */
+.framing-note{display:flex;gap:10px;align-items:flex-start;margin:0 0 var(--s3);padding:10px 12px;border:1px solid var(--line);border-radius:var(--r-sm);background:var(--bg2);font-size:var(--t-sm);color:var(--text)}
+.framing-note .i{color:var(--muted);margin-top:2px}
+.ang-tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px;margin:8px 0}
+button.preset.ang{display:flex;flex-direction:column;align-items:stretch;gap:2px;padding:4px 4px 8px;text-align:left;white-space:normal;border-radius:var(--r-md);
+  background:var(--panel);border:1px solid var(--line2);font-size:var(--t-sm);color:var(--text);box-shadow:none;min-width:0}
+button.preset.ang:hover:not(:disabled){background:var(--panel2);border-color:var(--line3)}
+button.preset.ang.on{border-color:var(--acc);box-shadow:0 0 0 1px var(--acc) inset;background:var(--panel2)}
+.ang-m{position:relative;display:block;aspect-ratio:3/4;border-radius:8px;overflow:hidden;background:#000;margin-bottom:4px}
+.ang-m img,.ang-m video{width:100%;height:100%;object-fit:cover;display:block}
+.ang-m.flip img,.ang-m.flip video{transform:scaleX(-1)}
+.ang-s{position:absolute;left:6px;top:6px;font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;line-height:1;padding:4px 6px;border-radius:var(--r-pill);background:rgba(10,10,10,.82);color:var(--text);border:1px solid rgba(255,255,255,.3)}
+.ang-s.sub{color:var(--muted);border-color:rgba(255,255,255,.16)}
+.ang-n{font-weight:600;font-size:var(--t-sm);padding:0 4px}
+.ang-h{font-size:var(--t-xs);line-height:1.35;color:var(--muted);padding:0 4px}
+@media (max-width:560px){.ang-tiles{grid-template-columns:repeat(3,minmax(0,1fr))}}
+
+/* ---------- header: payment pill + recent-runs icon ---------- */
+.top nav{align-items:center;gap:var(--s4)}
+.hdr-pill{display:inline-flex;align-items:center;gap:8px;height:32px;padding:0 12px;border-radius:var(--r-pill);border:1px solid var(--line2);background:var(--panel);
+  font-size:var(--t-sm);font-weight:500;color:var(--text);min-height:0}
+.hdr-pill .pp-dot{width:6px;height:6px;border-radius:50%;background:var(--muted)}
+.hdr-pill.out .pp-dot{background:var(--warn)}
+.hdr-ic{position:relative;display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 10px;border:0;background:transparent;color:var(--muted);font-size:var(--t-base);font-weight:500;min-height:0}
+.hdr-ic:hover:not(:disabled){color:var(--text);background:transparent}
+.hdr-ic .i{width:18px;height:18px}
+.hdr-dot{position:absolute;top:5px;left:22px;width:7px;height:7px;border-radius:50%;background:var(--acc);box-shadow:0 0 0 2px var(--bg)}
+#runsLeft{cursor:pointer}
+
+/* ---------- sheets: right drawer (desktop), bottom sheet (mobile) ---------- */
+.sheet-back{position:fixed;inset:0;z-index:40;background:rgba(0,0,0,.6);opacity:0;transition:opacity .2s var(--ease)}
+.sheet-back.in{opacity:1}
+.sheet{position:fixed;z-index:41;top:0;right:0;bottom:0;width:min(420px,100%);overflow:auto;background:var(--panel);border-left:1px solid var(--line2);
+  padding:var(--s5);display:grid;align-content:start;gap:var(--s4);transform:translateX(16px);opacity:0;transition:transform .22s var(--ease),opacity .22s var(--ease)}
+.sheet.in{transform:none;opacity:1}
+.sheet-h{display:flex;align-items:center;justify-content:space-between;gap:var(--s2)}
+.sheet-h h2{font-size:var(--t-md);font-weight:600;margin:0}
+.sheet-h .row{gap:var(--s2)}
+.sheet-x{width:36px;height:36px;padding:0;min-height:0}
+body.sheet-open{overflow:hidden}
+.pay-reason{margin:0;padding:10px 12px;border-radius:var(--r-sm);border:1px solid var(--acc-line);background:var(--acc-soft);font-size:var(--t-sm);color:var(--text)}
+.sheet #keyCard{margin:0;padding:0;background:transparent;border:0}
+.sheet .access .card-h{margin:0 0 var(--s2)}
+.sheet .acc-pane .row{margin-top:var(--s3)}
+.key-line{margin:var(--s3) 0 0;font-size:var(--t-sm);color:var(--muted)}
+.how-keys{margin-top:var(--s2)}
+.how-keys summary{cursor:pointer;font-size:var(--t-sm);color:var(--muted);list-style:none}
+.how-keys summary::-webkit-details-marker{display:none}
+.how-keys summary:before{content:"";display:inline-block;width:6px;height:6px;margin:0 8px 2px 2px;border-right:1.5px solid currentColor;border-bottom:1.5px solid currentColor;transform:rotate(-45deg);transition:transform .15s}
+.how-keys[open] summary:before{transform:rotate(45deg)}
+.how-keys .note{margin-top:var(--s2)}
+/* the 3-way payment switch: a normal pill, three equal segments, fixed height */
+.sheet .access-seg{display:grid;grid-template-columns:repeat(var(--n,3),minmax(0,1fr));height:40px;padding:3px;gap:3px;border-radius:var(--r-pill);margin:0}
+.sheet .access-seg button{height:32px;min-height:0!important;padding:0 8px;border-radius:var(--r-pill);font-size:var(--t-sm);line-height:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sheet .access-seg button small{display:none}
+.sheet .access-seg button[hidden]{display:none}
+.hist-list{margin-top:calc(-1 * var(--s2))}
+.hist-empty{margin:0}
+
+/* ---------- pipeline: hidden until a run starts, then one "Details" line ---------- */
+#progressCard{background:transparent;border:0;padding:0;margin:var(--s3) 0}
+#progressCard .card-h{margin:0;justify-content:flex-start;gap:var(--s3)}
+.pipe-toggle{display:inline-flex;align-items:center;gap:8px;border:0;background:transparent;padding:4px 0;min-height:0;font-size:var(--t-sm);font-weight:500;color:var(--muted)}
+.pipe-toggle:hover:not(:disabled){background:transparent;color:var(--text)}
+.pipe-toggle .jp-chev{display:block;width:6px;height:6px;border-right:1.5px solid currentColor;border-bottom:1.5px solid currentColor;transform:rotate(45deg);margin-top:-3px}
+#progressCard.open .pipe-toggle .jp-chev{transform:rotate(-135deg);margin-top:3px}
+#progressCard:not(.open) #steps,#progressCard:not(.open) #jobs{display:none}
+#progressCard.open #steps{margin-top:var(--s2)}
+#progressCard .leave{display:none}
+.stage #progressCard .steps{grid-template-columns:repeat(2,minmax(0,1fr))}
+
+@media (max-width:560px){
+  .hdr-lbl{display:none}
+  .top nav{gap:var(--s2)}
+  .top nav a[href="/gallery/"],#repoLink{font-size:var(--t-sm)}
+  .hdr-pill{height:30px;padding:0 10px;font-size:var(--t-xs)}
+  .sheet{top:auto;left:0;right:0;width:100%;max-height:86vh;border-left:0;border-top:1px solid var(--line2);border-radius:16px 16px 0 0;transform:translateY(24px);padding:var(--s4) var(--s4) calc(var(--s5) + env(safe-area-inset-bottom))}
+  .sheet.in{transform:none}
+}
+.framing-note{grid-column:1/-1}
+button.preset.ang{justify-content:flex-start}
+.seg.engine{border-radius:var(--r-md)}
+.seg.engine button{border-radius:8px}
+@media (max-width:560px){
+  #repoLink{display:none}
+  .top{gap:8px}
+  .top nav{gap:6px;min-width:0}
+  #newProject{font-size:var(--t-sm);white-space:nowrap}
+  .brand{font-size:var(--t-base)}
+}
+@media (max-width:380px){.top nav a[href="/gallery/"]{display:none}}
+@media (max-width:560px){body.in-project .top nav a[href="/gallery/"]{display:none}}
+
+/* ---------- shared header on subpages: active item + mobile breadcrumb ---------- */
+.top nav a.active{color:var(--text)}
+.top nav a.active:not(.hdr-pill){text-decoration:underline;text-decoration-color:var(--acc);text-underline-offset:6px;text-decoration-thickness:2px}
+.crumb{display:none}
+@media (max-width:560px){
+  .crumb{display:flex;align-items:center;gap:8px;padding:10px 16px 0;font-size:var(--t-sm);color:var(--dim)}
+  .crumb a{display:inline-flex;align-items:center;gap:4px;color:var(--text);text-decoration:none}
+  .crumb .i{width:14px;height:14px}
+  .top .nav-new{display:none}
+}
+
+/* ---------- accent details (Comfy yellow #f0fe68, the only accent) ---------- */
+.modes button.on{border:2px solid var(--acc);background:#1b1c12;box-shadow:none}
+.modes button.on .mt-media{margin:-1px -1px 0}
+.mt-ic{position:absolute;left:8px;bottom:8px;width:28px;height:28px;border-radius:8px;display:grid;place-items:center;background:rgba(10,10,10,.82);color:var(--text);border:1px solid rgba(255,255,255,.16)}
+.modes button.on .mt-ic{background:var(--acc);color:var(--acc-ink);border-color:var(--acc)}
+.mt-ic svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.req{color:var(--acc);border:1px solid var(--acc);background:transparent}
+.consent input{accent-color:var(--acc)}
+.consent:has(input:checked) b{color:var(--text)}
+.choice button.on,.sc-pick.chosen,button.preset.ang.on{border-color:var(--acc);box-shadow:0 0 0 1px var(--acc) inset;background:#1b1c12}
+.choice button.on .ch-ic{background:var(--acc);color:var(--acc-ink)}
+.hdr-dot{background:var(--acc)}
+.mt-badge.new{background:var(--acc);color:#0a0a0a}

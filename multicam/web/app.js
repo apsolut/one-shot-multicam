@@ -20,7 +20,7 @@ const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&
 const key = () => localStorage.getItem(KEY_LS) || "";
 const JUDGE_LS = "multicam.judgeCode";
 const judge = () => (cfg.judge_code && localStorage.getItem(JUDGE_LS)) || "";
-let judgeLeft = null;  // jobs left on a valid judge code (null = unknown / none)
+let judgeLeft = null;  // jobs left on a valid promo code (null = unknown / none)
 // free trial runs on the hosted key: a visitor may pay with one (the server enforces pool, 1 per visitor, floor)
 const trialOk = () => !!(cfg.trial && (cfg.trial.runs_left > 0 || cfg.trial.used_by_you));
 const canPay = () => !!(key() || cfg.hosted || judge() || trialOk());
@@ -47,13 +47,15 @@ const reshoot = () => (S?.engine || cfg.engine) === "reshoot";
 const jobUsd = () => (cfg.cost_usd?.[S?.engine || cfg.engine] ?? cfg.cost_per_job_usd ?? 0.05);
 const demoOut = (n = 1) => cfg.hosted && !key() && (cfg.hosted_jobs_left ?? 0) < n;  // free demo jobs can't cover n
 const camLabel = k => reshoot() ? (cfg.reshoot_angles?.[k]?.label || k) : (S.stills?.[k]?.label || k);
+// the payment sheet lives in the header (ux.js); everything that used to point at the key card opens it
+function openPay(reason) { window.uxOpenPay ? window.uxOpenPay(reason) : null; }
 async function needOwnKey(n) {
   await confirmBox("Free demo runs are used up — use your own key",
     `<p>The public demo's free Comfy Cloud credits ${cfg.hosted_jobs_left ? `only cover <b>${cfg.hosted_jobs_left}</b> more job(s); this needs <b>${n}</b>` : "are gone"}.</p>
-    <p><b>Paste your own Comfy Cloud API key</b> in step 1 (platform.comfy.org → API keys). It stays in your browser and is never stored on this server.
+    <p><b>Paste your own Comfy Cloud API key</b> in the payment sheet (platform.comfy.org → API keys). It stays in your browser and is never stored on this server.
     A re-shoot clip costs about <b>$${(cfg.cost_usd?.reshoot ?? 0.05).toFixed(2)}</b>, a whole video about <b>$${(4 * (cfg.cost_usd?.reshoot ?? 0.05)).toFixed(2)}</b>.</p>
     <p class="note">Or <a href="${cfg.repo_url}" target="_blank" rel="noopener">run Multicam yourself</a> — it's open source.</p>`, "Paste my key");
-  $("#keyCard").classList.add("attention"); $("#keyCard").scrollIntoView({behavior: "smooth", block: "center"}); $("#key").focus();
+  openPay("The free runs are used up. Paste your own Comfy Cloud key (or a promo code) to generate."); $("#key").focus();
 }
 
 // ---------- key
@@ -64,7 +66,7 @@ function renderKey() {
   if (cfg.hosted && !k && !(cfg.hosted_jobs_left > 0)) { b.textContent = "free demo used up · paste your key"; b.className = "badge bad"; }
   else if (cfg.hosted && !k) { b.textContent = `demo key · ${cfg.hosted_jobs_left ?? "∞"} jobs left`; b.className = "badge warn"; }
   else if (k) { b.textContent = "saved in this browser"; b.className = "badge ok"; }
-  else if (judge()) { b.textContent = `judge code · ${judgeLeft ?? "?"} jobs left`; b.className = "badge warn"; }
+  else if (judge()) { b.textContent = `promo code · ${judgeLeft ?? "?"} jobs left`; b.className = "badge warn"; }
   else if (cfg.trial && trialOk()) { b.textContent = cfg.trial.used_by_you ? "using your free run" : `optional · ${cfg.trial.runs_left} of ${cfg.trial.runs_total} free runs left`; b.className = "badge ok"; }
   else if (cfg.trial) { b.textContent = "free runs used · paste your key"; b.className = "badge bad"; }
   else if (cfg.byok_only && cfg.public) { b.textContent = "required to generate"; b.className = "badge bad"; }
@@ -81,7 +83,7 @@ $("#judgeCheck").onclick = async () => {
     const d = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(d.detail || "invalid code");
     localStorage.setItem(JUDGE_LS, v); judgeLeft = d.judge_jobs_left; renderKey();
-    toast(`Judge code OK · ${d.judge_jobs_left}/${d.judge_jobs_total} jobs left (leave the key field empty to use it)`, 4500);
+    toast(`Promo code OK · ${d.judge_jobs_left}/${d.judge_jobs_total} jobs left (leave the key field empty to use it)`, 4500);
   } catch (e) { localStorage.removeItem(JUDGE_LS); judgeLeft = null; renderKey(); toast(e.message, 4000); }
 };
 $("#keyToggle").onclick = () => { const i = $("#key"); i.type = i.type === "password" ? "text" : "password"; };
@@ -135,7 +137,8 @@ const jobSecs = j => Math.round(!TERMINAL.includes(j.status) && j.started ? Date
 // ---------- project rendering
 function render() {
   if (!S) return;
-  $("#progressCard").hidden = false;
+  // pipeline details only once something has run (a fresh upload shows nothing debug-like)
+  $("#progressCard").hidden = !Object.values(S.steps || {}).some(st => st.status && st.status !== "pending") && !S.busy && !(S.jobs || []).length;
   $(".hero").hidden = $("#uploadCard").hidden = true; $("#newProject").hidden = false;
   const busy = S.busy;
   $("#busyBadge").textContent = busy ? `${busy}…` : (S.error ? "error" : "idle");
@@ -151,6 +154,26 @@ function render() {
   $("#generate").disabled = $("#renderFree").disabled = $("#anglesBtn").disabled = !!busy || !S.plan;
 }
 
+// angle picker tiles: an example of each angle from ONE demo take of Alek (only the angle differs), an honest
+// strength label and a one-line hint. Free: static stills + two 2 s loops from existing clips, no Comfy jobs.
+const ANGLE_INFO = {
+  right90: {img: "side", vid: "side", s: "Strong", hint: "Side: strong profile, the clearest change"},
+  left90: {img: "side", vid: "side", s: "Strong", flip: true, hint: "Side: strong profile, the clearest change"},
+  right45: {img: "threequarter", s: "Subtle", hint: "3/4 right: small turn, can look close to your take"},
+  left45: {img: "threequarter", s: "Subtle", hint: "3/4 left: small turn, can look close to your take"},
+  wide: {img: "wide", vid: "wide", s: "Strong", hint: "Wide: pulls back, shows the room"},
+  closeup: {img: "closeup", s: "Strong", hint: "Close-up: tighter on the face"},
+  lowangle: {img: "lowangle", s: "Strong", hint: "Low angle: camera below, looking up"},
+  aerial: {img: "high", s: "Strong", hint: "High angle: camera above, looking down"},
+};
+function angleTile(cam, k, v, on) {
+  const a = ANGLE_INFO[k] || {s: "", hint: v.label}, base = "/gallery/media/angles/ang_";
+  const media = a.vid ? `<video src="${base}${a.vid}.mp4" poster="${base}${a.img}.jpg" muted loop playsinline autoplay preload="none" aria-hidden="true"></video>`
+    : a.img ? `<img src="${base}${a.img}.jpg" alt="" loading="lazy">` : "";
+  return `<button type="button" class="preset ang ${on ? "on" : ""}" role="radio" aria-checked="${on}" data-cam="${cam}" data-still="${k}" data-label="${esc(v.label)}" title="${esc(v.variants.join(" · "))}">
+    <span class="ang-m${a.flip ? " flip" : ""}">${media}<span class="ang-s ${a.s === "Subtle" ? "sub" : ""}">${a.s}</span></span>
+    <span class="ang-n">${esc(v.label)}</span><span class="ang-h">${esc(a.hint.replace(/^[^:]+: /, ""))}</span></button>`;
+}
 function renderCams() {
   $("#anglesRow").hidden = reshoot();
   const eng = `<div class="seg engine" id="engineSel">
@@ -159,9 +182,11 @@ function renderCams() {
   if (reshoot()) {
     const presets = Object.entries(cfg.reshoot_angles || {});
     $("#engine").innerHTML = eng;
-    $("#cams").innerHTML = ["B", "C"].map(cam => { const cur = S.cam_stills[cam];
+    const fr = S.framing || {};
+    $("#cams").innerHTML = (fr.note ? `<p class="framing-note" role="note"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M9 5v14M15 5v14"/></svg><span>${esc(fr.note)}</span></p>` : "") +
+      ["B", "C"].map(cam => { const cur = S.cam_stills[cam];
       return `<div class="cam"><div class="cam-h"><span class="tag ${cam}">CAM ${cam}</span>${esc(camLabel(cur))}</div>
-        <div class="presets">${presets.map(([k, v]) => `<button class="preset ${k === cur ? "on" : ""}" data-cam="${cam}" data-still="${k}" title="${esc(v.variants.join(" · "))}">${esc(v.label)}</button>`).join("")}</div>
+        <div class="ang-tiles" role="radiogroup" aria-label="Camera ${cam} angle">${presets.map(([k, v]) => angleTile(cam, k, v, k === cur)).join("")}</div>
         <div class="muted small">Each insert on CAM ${cam} gets its own camera move (${esc((cfg.reshoot_angles?.[cur]?.variants || []).join(" → "))}).</div></div>`; }).join("");
   } else {
   const stills = Object.entries(S.stills || {});
@@ -177,7 +202,7 @@ function renderCams() {
     toast(b.dataset.engine === "reshoot" ? "Re-shoot: AI re-films your real take from new angles (motion + lips follow you)" : "Classic: Qwen angle still + LTX-2.3 ID LoRA"); });
   $$("#cams .still, #cams .preset").forEach(b => b.onclick = async () => {
     S = await api(`/api/projects/${S.id}/cams`, {json: {[b.dataset.cam]: b.dataset.still}}); render();
-    toast(`CAM ${b.dataset.cam} → ${b.classList.contains("preset") ? b.textContent : b.title}. Applies to new generations / re-rolls.`); });
+    toast(`CAM ${b.dataset.cam} → ${b.classList.contains("preset") ? (b.dataset.label || b.textContent) : b.title}. Applies to new generations / re-rolls.`); });
   $("#impChunk").innerHTML = S.plan.chunks.map(c => `<option value="${c.id}">${c.id} · ${fmt(c.start)} “${esc(c.words.slice(0, 28))}…”</option>`).join("");
 }
 
@@ -193,7 +218,7 @@ function renderEstimate() {
 
 $("#generate").onclick = async () => {
   const e = S.estimate;
-  if (!canPay()) { toast("Paste your own Comfy Cloud key first (step 1) — get one at platform.comfy.org → API keys", 4500); $("#keyCard").classList.add("attention"); $("#key").focus(); return; }
+  if (!canPay()) { toast("Paste your own Comfy Cloud key first — get one at platform.comfy.org → API keys", 4500); openPay(); $("#key").focus(); return; }
   if (demoOut(e.jobs)) return needOwnKey(e.jobs);
   const ok = await confirmBox("Spend on Comfy Cloud?",
     `<p>This submits <b>${e.jobs}</b> job(s) to Comfy Cloud with your key — about <b>$${e.usd.toFixed(2)}</b>.</p><ul>
@@ -205,7 +230,7 @@ $("#generate").onclick = async () => {
   catch (err) { toast(err.message, 4500); }
 };
 $("#anglesBtn").onclick = async () => {
-  if (!canPay()) { toast("Paste your own Comfy Cloud key first (step 1) — get one at platform.comfy.org → API keys", 4500); $("#keyCard").classList.add("attention"); $("#key").focus(); return; }
+  if (!canPay()) { toast("Paste your own Comfy Cloud key first — get one at platform.comfy.org → API keys", 4500); openPay(); $("#key").focus(); return; }
   const ok = await confirmBox("Generate angle stills?", `<p>1 Qwen-Image-Edit job → 8 views of you (close-up, wide, 45°/90° left/right, low, aerial). About <b>$${(cfg.cost_per_job_usd || 0.03).toFixed(2)}</b>. Then pick one per camera.</p>`, "Generate stills");
   if (!ok) return;
   try { S = await api(`/api/projects/${S.id}/angles`, {json: {confirm: true}, withKey: true}); render(); poll(); }
@@ -302,7 +327,7 @@ function renderShotPanel() {
     toast(b.dataset.cam === "A" ? "Insert dropped — hit Re-render (free)" : `Shot → CAM ${b.dataset.cam}${clips[b.dataset.cam] ? " — Re-render (free)" : " — no clip yet: re-roll to generate it"}`); });
   const rb = $('button[data-act="reroll"]', el);
   if (rb) rb.onclick = async () => {
-    if (!canPay()) { toast("Paste your own Comfy Cloud key first (step 1) — get one at platform.comfy.org → API keys", 4500); return; }
+    if (!canPay()) { toast("Paste your own Comfy Cloud key first — get one at platform.comfy.org → API keys", 4500); return; }
     if (demoOut(1)) return needOwnKey(1);
     const still = $("#rerollStill")?.value; const cam = s.cam;
     const ok = await confirmBox("Re-roll this shot?", `<p>1 ${reshoot() ? "LTX-2.3 CrossView re-shoot (next camera move)" : "LTX-2.3 ID LoRA"} job for <b>CAM ${cam}</b> on “${esc(s.words)}” with a new seed${still && still !== S.cam_stills[cam] ? ` and the <b>${esc(camLabel(still))}</b> angle` : ""}. About <b>$${jobUsd().toFixed(2)}</b>. The old version is kept.</p>`, "Re-roll");
@@ -338,9 +363,9 @@ function renderBanner() {
     b.innerHTML = open
       ? `<b>${t.runs_left} of ${t.runs_total} free runs left</b> · one per visitor · <a href="#keyCard" id="bannerKey">or use your own key</a>`
       : t.used_by_you
-        ? `<b>You're using your free run</b> (${t.runs_left} of ${t.runs_total} left for others) · for more, <a href="#keyCard" id="bannerKey">use your own Comfy key</a>${cfg.judge_code ? " or a judge code" : ""}`
-        : `<b>The free runs are used up (0 of ${t.runs_total} left).</b> <a href="#keyCard" id="bannerKey"><b>Paste your own Comfy Cloud key</b></a> (<a href="${url}" target="_blank" rel="noopener">get one</a>)${cfg.judge_code ? " or a judge code" : ""} to generate. Upload, analyze, plan, edit and render stay free, or <a href="${cfg.repo_url}" target="_blank" rel="noopener">run it yourself</a>.`;
-    $("#bannerKey").onclick = e => { e.preventDefault(); $("#keyCard").classList.add("attention"); $("#keyCard").scrollIntoView({behavior: "smooth", block: "center"}); $("#key").focus(); };
+        ? `<b>You're using your free run</b> (${t.runs_left} of ${t.runs_total} left for others) · for more, <a href="#keyCard" id="bannerKey">use your own Comfy key</a>${cfg.judge_code ? " or a promo code" : ""}`
+        : `<b>The free runs are used up (0 of ${t.runs_total} left).</b> <a href="#keyCard" id="bannerKey"><b>Paste your own Comfy Cloud key</b></a> (<a href="${url}" target="_blank" rel="noopener">get one</a>)${cfg.judge_code ? " or a promo code" : ""} to generate. Upload, analyze, plan, edit and render stay free, or <a href="${cfg.repo_url}" target="_blank" rel="noopener">run it yourself</a>.`;
+    $("#bannerKey").onclick = e => { e.preventDefault(); openPay(); $("#key").focus(); };
     return;
   }
   if (cfg.public && cfg.byok_only) {
@@ -352,7 +377,7 @@ function renderBanner() {
     b.innerHTML = `<b>Bring your own Comfy Cloud key.</b> Try the free steps (upload, analyze, plan, edit, render) right away; to generate AI cameras,
       <a href="#keyCard" id="bannerKey"><b>paste your own key</b></a> (<a href="${url}" target="_blank" rel="noopener">get one</a>) — ≈ $${per.toFixed(3)} per clip, ≈ $${(4 * per).toFixed(2)} per video, billed by Comfy.
       ${cfg.max_upload_s ? `Uploads ≤ ${cfg.max_upload_s}s` : ""}${cfg.ttl_minutes ? ` · deleted after ${cfg.ttl_minutes} min` : ""} · or <a href="${cfg.repo_url}" target="_blank" rel="noopener">run it yourself</a>.`;
-    $("#bannerKey").onclick = e => { e.preventDefault(); $("#keyCard").classList.add("attention"); $("#keyCard").scrollIntoView({behavior: "smooth", block: "center"}); $("#key").focus(); };
+    $("#bannerKey").onclick = e => { e.preventDefault(); openPay(); $("#key").focus(); };
     return;
   }
   if (cfg.hosted) $("#keyNote").innerHTML = `${(cfg.hosted_jobs_left ?? 0) > 0 ? "Optional here: leave it empty to use the capped demo credits." : "<b>Required now</b>: the free demo credits are used up — get a key at <a href=\"https://platform.comfy.org/profile/api-keys\" target=\"_blank\" rel=\"noopener\">platform.comfy.org → API keys</a>."} If you paste your own key it's saved only in <b>this browser</b> (localStorage) and sent per request to this server, which forwards it to Comfy Cloud and <b>never stores or logs it</b>. <a href="#" id="keyForget">Forget key</a>`,
@@ -367,7 +392,7 @@ function renderBanner() {
     b.innerHTML = `<b>Free demo runs are used up.</b> <a href="#keyCard" id="bannerKey"><b>Paste your own Comfy Cloud key</b></a> to keep going
       (≈ $${per.toFixed(2)} per clip, ≈ $${(4 * per).toFixed(2)} per video, billed to you by Comfy; the key stays in your browser) —
       or <a href="${cfg.repo_url}" target="_blank" rel="noopener">run Multicam yourself</a>. Free steps (analyze, plan, edit, render) still work.`;
-    $("#bannerKey").onclick = e => { e.preventDefault(); $("#keyCard").classList.add("attention"); $("#keyCard").scrollIntoView({behavior: "smooth", block: "center"}); $("#key").focus(); };
+    $("#bannerKey").onclick = e => { e.preventDefault(); openPay(); $("#key").focus(); };
     return;
   }
   b.innerHTML = `<b>Public demo</b> · generation runs on the maintainer's Comfy Cloud credits, capped at <b>${tot} jobs total</b>

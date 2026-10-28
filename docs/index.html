@@ -3,99 +3,114 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Multicam · gallery — one phone shot → multicam edit</title>
-<meta name="description" content="Open-source: your real selfie is CAM A, ComfyUI generates CAM B/C of you saying the same words, auto-cut on word boundaries over the real audio.">
-<meta property="og:title" content="Multicam — one phone shot → a multicam edit">
+<title>Gallery · Multicam</title>
+<meta name="description" content="Examples made with Multicam: one selfie take becomes a multicam edit. The real take is camera A; AI cameras re-shoot the same moment.">
+<meta property="og:title" content="Multicam gallery">
 <meta property="og:image" content="media/poster_v6.jpg">
-<meta name="theme-color" content="#0b0b12">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%237c5cff'/><circle cx='11' cy='16' r='5' fill='white'/><circle cx='21' cy='16' r='5' fill='white' opacity='.6'/></svg>">
+<meta name="theme-color" content="#0a0a0a">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%230a0a0a'/><rect x='7' y='9' width='4' height='14' rx='1.5' fill='white'/><rect x='14' y='9' width='4' height='14' rx='1.5' fill='white' opacity='.6'/><rect x='21' y='9' width='4' height='14' rx='1.5' fill='white' opacity='.35'/></svg>">
+<link rel="preload" href="/fonts/InterVariable.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/style.css">
+<link rel="stylesheet" href="/polish.css">
 <style>
-:root{color-scheme:dark;--bg:#0b0b12;--line:#262538;--text:#ecebf5;--muted:#9a98b3;--dim:#6d6b86;--acc:#7c5cff;--acc2:#2bd2ff;--A:#8d8aa8;--B:#7c5cff;--C:#2bd2ff}
-*{box-sizing:border-box}body{margin:0;color:var(--text);font:15px/1.55 Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
-background:radial-gradient(1100px 520px at 10% -12%,rgba(124,92,255,.22),transparent 60%),radial-gradient(900px 480px at 105% 0%,rgba(43,210,255,.12),transparent 55%),var(--bg);background-attachment:fixed}
-a{color:#b9a9ff}
-header{display:flex;justify-content:space-between;align-items:center;padding:14px clamp(16px,4vw,40px);border-bottom:1px solid rgba(255,255,255,.05);backdrop-filter:blur(14px);position:sticky;top:0;background:rgba(11,11,18,.72);z-index:3}
-.brand{display:flex;gap:10px;align-items:center;font-weight:750;font-size:17px;color:var(--text);text-decoration:none}
-.logo{display:inline-flex;gap:3px}.logo i{width:8px;height:18px;border-radius:3px;background:var(--A)}.logo i:nth-child(2){background:var(--B)}.logo i:nth-child(3){background:var(--C)}
-header nav a{color:var(--muted);text-decoration:none;font-weight:550;margin-left:18px}
-main{width:min(1040px,100%);margin:0 auto;padding:0 clamp(14px,3vw,28px) 50px}
-.hero{padding:40px 0 10px}.hero h1{font-size:clamp(30px,5.4vw,52px);line-height:1.05;letter-spacing:-.03em;margin:0 0 14px}
-.grad{background:linear-gradient(100deg,var(--acc),var(--acc2));-webkit-background-clip:text;background-clip:text;color:transparent}
-.hero p{color:var(--muted);max-width:700px;font-size:16.5px;margin:0}.hero b{color:var(--text)}
-.cta{display:flex;gap:10px;margin-top:18px;flex-wrap:wrap}
-.btn{display:inline-flex;align-items:center;gap:6px;padding:11px 16px;border-radius:12px;border:1px solid var(--line);background:#191927;color:var(--text);text-decoration:none;font-weight:600;cursor:pointer;font:inherit;font-weight:600}
-.btn.p{border:0;background:linear-gradient(135deg,var(--acc),#5b7cff 55%,var(--acc2));color:#fff;box-shadow:0 6px 24px rgba(124,92,255,.35)}
-.item{margin:28px 0;padding:clamp(16px,2.6vw,26px);border-radius:18px;border:1px solid var(--line);background:linear-gradient(180deg,#13131d,#11111a)}
-.item h2{margin:0;font-size:20px;letter-spacing:-.01em}.item .sub{color:var(--muted);margin:4px 0 18px;font-size:14px}
-.ba{display:grid;grid-template-columns:1fr 1fr;gap:16px;max-width:760px;margin:0 auto}
-.ba figure{margin:0}.ba figcaption{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;font-weight:650;font-size:14px}
-.ba video{width:100%;aspect-ratio:9/16;border-radius:16px;background:#000;display:block;box-shadow:0 18px 50px rgba(0,0,0,.5)}
-.tag{font-size:11.5px;font-weight:750;padding:3px 8px;border-radius:7px;color:#0b0b12;background:var(--A)}.tag.B{background:var(--B);color:#fff}.tag.C{background:var(--C)}
-.ctrl{display:flex;gap:12px;align-items:center;margin-top:16px;flex-wrap:wrap}
-.switch{display:flex;align-items:center;gap:9px;cursor:pointer;color:var(--muted);font-size:13.5px;user-select:none}.switch input{display:none}
-.switch span{width:36px;height:20px;border-radius:99px;background:#2a2940;position:relative}.switch span:after{content:"";position:absolute;width:16px;height:16px;border-radius:50%;background:#cfcde3;top:2px;left:2px;transition:.15s}
-.switch input:checked+span{background:var(--acc)}.switch input:checked+span:after{left:18px;background:#fff}
-.tl{display:flex;height:34px;border-radius:10px;overflow:hidden;margin-top:16px;border:1px solid var(--line);position:relative}
-.tl div{font-size:11px;font-weight:700;display:flex;align-items:center;padding-left:6px;border-right:1px solid rgba(0,0,0,.35);color:#0b0b12}
-.tl .A{background:repeating-linear-gradient(135deg,#2a2940 0 6px,#26253a 6px 12px);color:var(--muted)}.tl .B{background:var(--B);color:#fff}.tl .C{background:var(--C)}
-.tl .ph{position:absolute;top:0;bottom:0;width:2px;background:#fff;box-shadow:0 0 8px #fff;padding:0;border:0}
-.meta{color:var(--dim);font-size:13px;margin-top:8px}
-details{margin-top:16px}summary{cursor:pointer;color:var(--muted)}details video{width:100%;max-width:560px;border-radius:12px;margin-top:10px;display:block}
-.how{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:10px}
-.how div{padding:16px;border-radius:14px;border:1px solid var(--line);background:#0f0f18}.how b{display:block;margin-bottom:4px}.how span{color:var(--muted);font-size:13.5px}
-.missing{display:grid;place-items:center;aspect-ratio:9/16;border-radius:16px;border:1px dashed var(--line);color:var(--dim);font-size:13px;text-align:center;padding:20px}
-footer{text-align:center;color:var(--dim);font-size:12.5px;padding:10px 16px 40px}
-@media (max-width:720px){.how{grid-template-columns:1fr 1fr}.ba{gap:10px}.ba figcaption{font-size:12.5px;white-space:nowrap}.ba figcaption>span:last-child{display:none}}
+/* gallery: same tokens as the app (style.css + polish.css); only page-specific layout here */
+.g{width:min(1120px,100%);margin:0 auto;padding:0 clamp(16px,3vw,32px) var(--s7)}
+.g-hero{padding:var(--s7) 0 var(--s6)}
+.g-hero h1{font-size:clamp(32px,4vw,48px);line-height:1.05;letter-spacing:-.03em;font-weight:600;margin:0 0 var(--s3)}
+.g-hero p{font-size:var(--t-lg);color:var(--muted);max-width:34em;margin:0}
+.g-cta{display:flex;gap:var(--s2);margin-top:var(--s5);flex-wrap:wrap}
+.g-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:var(--s4)}
+.g-card{display:flex;flex-direction:column;text-decoration:none;color:var(--text);background:var(--panel);border:1px solid var(--line);border-radius:var(--r-md);overflow:hidden;transition:border-color .16s var(--ease),background-color .16s var(--ease)}
+.g-card:hover{border-color:var(--line3);background:var(--panel2)}
+.g-th{position:relative;aspect-ratio:4/5;background:#000;overflow:hidden}
+.g-th img{width:100%;height:100%;object-fit:cover;display:block;opacity:.9;transition:transform .4s var(--ease),opacity .2s}
+.g-card:hover .g-th img{opacity:1;transform:scale(1.02)}
+.g-th .mt-badge{position:absolute}
+.g-b{padding:var(--s3) var(--s4) var(--s4);display:grid;gap:2px}
+.g-b b{font-weight:600;font-size:var(--t-base)}
+.g-b small{font-size:var(--t-sm);color:var(--muted);line-height:1.4}
+.g-empty{padding:var(--s7) var(--s5);text-align:center;border:1px dashed var(--line2);border-radius:var(--r-md);color:var(--muted)}
+.g-sec{margin-top:var(--s7);padding-top:var(--s6);border-top:1px solid var(--line)}
+.g-sec h2{font-size:var(--t-lg);margin:0 0 4px}
+.g-sec .sub{color:var(--muted);font-size:var(--t-base);margin:0 0 var(--s4);max-width:46em}
+.ba{display:grid;grid-template-columns:1fr 1fr;gap:var(--s4);max-width:720px}
+.ba figure{margin:0}
+.ba figcaption{display:flex;justify-content:space-between;align-items:center;margin-bottom:var(--s2);font-size:var(--t-sm);color:var(--muted)}
+.ba video,.one video{width:100%;aspect-ratio:9/16;border-radius:var(--r-md);border:1px solid var(--line);background:#000;display:block}
+.one{max-width:360px}.one.wide{max-width:720px}.one.wide video{aspect-ratio:auto}
+.ctrl{display:flex;gap:var(--s3);align-items:center;margin-top:var(--s4);flex-wrap:wrap}
+.tl{display:flex;height:28px;border-radius:var(--r-sm);overflow:hidden;margin-top:var(--s4);border:1px solid var(--line);position:relative;max-width:720px}
+.tl div{font-size:11px;font-weight:600;display:flex;align-items:center;padding-left:6px;border-right:1px solid var(--bg);color:var(--text);background:var(--raise)}
+.tl .A{background:var(--panel2);color:var(--muted)}
+.tl .ph{position:absolute;top:0;bottom:0;width:2px;background:var(--text);padding:0;border:0}
+.meta{color:var(--dim);font-size:var(--t-sm);margin-top:var(--s2)}
+.g details{margin-top:var(--s4)}.g summary{cursor:pointer;color:var(--muted);font-size:var(--t-sm)}
+.g details video{width:100%;max-width:560px;border-radius:var(--r-md);margin-top:var(--s2);display:block;border:1px solid var(--line)}
+.how4{display:grid;grid-template-columns:repeat(4,1fr);gap:var(--s3)}
+.how4 div{padding:var(--s4);border-radius:var(--r-md);border:1px solid var(--line);background:var(--panel)}
+.how4 b{display:block;margin-bottom:4px;font-weight:600}.how4 span{color:var(--muted);font-size:var(--t-sm)}
+.missing{display:grid;place-items:center;aspect-ratio:9/16;border-radius:var(--r-md);border:1px dashed var(--line2);color:var(--dim);font-size:var(--t-sm);text-align:center;padding:20px}
+@media (max-width:720px){.how4{grid-template-columns:1fr 1fr}.ba{gap:var(--s2)}.g-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--s3)}.g-hero p{font-size:var(--t-md)}}
 </style>
 </head>
 <body>
-<header><a class="brand" href="./"><span class="logo"><i></i><i></i><i></i></span>Multicam</a>
-<nav><a href="#how">How</a><a id="repo" href="#">GitHub</a></nav></header>
-<main>
-  <section class="hero">
-    <h1>One phone shot.<br><span class="grad">A multicam edit.</span></h1>
-    <p>Left: the <b>real</b> selfie take. Right: the same take, cut between the real camera and <b>AI cameras</b> that say the same words in the same voice, re-shot from your own take with ComfyUI (LTX-2.3 + CrossView IC-LoRA): same head moves, same mouth shapes, frame for frame, over the real audio, which is never altered.</p>
-    <div class="cta"><a class="btn p" id="repo2" href="#">Run it yourself · open source</a><a class="btn" href="#how">How it works</a></div>
+<div id="hdr"></div>
+<main class="g">
+  <section class="g-hero">
+    <h1>Gallery</h1>
+    <p>Real outputs from one selfie take. Camera A is the real take. The other cameras are AI re-shoots of the same moment, cut on your words over the real audio.</p>
+    <div class="g-cta"><a class="btn primary" href="/">Make your own</a><a class="btn secondary" id="repo2" href="#" target="_blank" rel="noopener">Run it yourself · open source</a></div>
   </section>
+  <div class="g-grid" id="grid"></div>
   <div id="items"></div>
-  <section id="how" class="item">
+  <section id="how" class="g-sec">
     <h2>How it works</h2>
-    <div class="how">
-      <div><b>1 · Transcribe</b><span>faster-whisper word timings (snapped to your script).</span></div>
-      <div><b>2 · Plan</b><span>Insert shots on phrase boundaries, B/C alternation, 5 s generation chunks.</span></div>
-      <div><b>3 · Re-shoot</b><span>Comfy Cloud: each 5 s chunk of your real take is the reference video for LTX-2.3 + CrossView IC-LoRA; the prompt is only a camera move. A fresh angle per insert.</span></div>
-      <div><b>4 · Cut</b><span>Your real audio is frozen into the generation, so inserts are time-locked to the source (0–1 frame). ffmpeg cuts A/B/C on word boundaries over the real audio.</span></div>
+    <div class="how4">
+      <div><b>1 · Transcribe</b><span>Word timings, snapped to your script.</span></div>
+      <div><b>2 · Plan</b><span>Insert shots on phrase boundaries, cameras alternate.</span></div>
+      <div><b>3 · Re-shoot</b><span>Each insert re-films your real take from a new angle (LTX-2.3 + CrossView).</span></div>
+      <div><b>4 · Cut</b><span>Cut on word boundaries over your real, untouched audio.</span></div>
     </div>
     <p class="meta">Only your own face, or someone who explicitly consented. The labeled export marks AI cameras.</p>
   </section>
 </main>
-<footer>MIT · #OpenSourceHiggsfield · built on ComfyUI, LTX-2.3, CrossView IC-LoRA & Qwen-Image-Edit</footer>
+<footer class="foot"><span>MIT · ComfyUI, LTX-2.3, Qwen-Image-Edit · open weights</span><span>Only use your own face, or someone's who agreed.</span></footer>
+<script src="/subpage.js"></script>
 <script src="config.js"></script>
 <script>
+window.MCSubpage ? MCSubpage.mount(document.getElementById("hdr"), "gallery", "Gallery")
+  : (document.getElementById("hdr").outerHTML = '<header class="top"><a class="brand" href="../">Multicam</a></header>');  // GitHub Pages copy
 const G = window.MULTICAM_GALLERY || {items: []};
-for (const id of ["repo", "repo2"]) document.getElementById(id).href = G.repo;
-const vid = (src, poster) => `<video src="${src}" ${poster ? `poster="${poster}"` : ""} playsinline preload="metadata" controls onerror="this.outerHTML='<div class=missing>video not found:<br>${src}<br><br>see docs/config.js</div>'"></video>`;
-document.getElementById("items").innerHTML = G.items.map((it, k) => {
-  const D = it.cuts.length ? it.cuts[it.cuts.length - 1][2] : 1;
-  return `<section class="item" data-k="${k}"><h2>${it.title}</h2><div class="sub">${it.subtitle}</div>
+document.getElementById("repo2").href = G.repo;
+// the grid: one card per example (Talk items from config.js + the Scene and Dub examples)
+const EXTRA = [
+  {id: "scene", mode: "Scene", badge: "new", title: "Talk to your other self", line: "One take becomes a two-person scene", thumb: "media/th_scene.jpg", video: "media/ex_scene.mp4"},
+  {id: "dub", mode: "Dub", badge: "new", title: "Same take, three languages", line: "German, Spanish and Croatian, new lip motion", thumb: "media/th_dub.jpg", video: "media/ex_dub.mp4", wide: true},
+];
+const cards = [...G.items.map((it, k) => ({id: "item-" + k, mode: "Talk", title: it.title.replace(/ · “.*$/, ""), line: k ? "Animated stills, 4 AI inserts" : "Re-shoot engine, 4 AI inserts", thumb: k ? "media/th_music.jpg" : "media/th_talk.jpg"})), ...EXTRA];
+const grid = document.getElementById("grid");
+grid.innerHTML = cards.length ? cards.map(c => `<a class="g-card" href="#${c.id}"><span class="g-th"><img src="${c.thumb}" alt="" loading="lazy"><span class="mt-badge ${c.badge || "beta"}" style="${c.badge ? "" : "background:rgba(26,26,26,.88);border:1px solid rgba(255,255,255,.3)"}">${c.mode}</span></span>
+  <span class="g-b"><b>${c.title}</b><small>${c.line}</small></span></a>`).join("")
+  : `<div class="g-empty">No examples yet. <a href="/">Make the first one</a>.</div>`;
+const vid = (src, poster) => `<video src="${src}" ${poster ? `poster="${poster}"` : ""} playsinline preload="metadata" controls onerror="this.outerHTML='<div class=missing>video not found</div>'"></video>`;
+const PLAY = '<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l11-6.5z"/></svg>', DL = '<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>';
+document.getElementById("items").innerHTML = G.items.map((it, k) => `<section class="g-sec item" id="item-${k}" data-k="${k}"><h2>${it.title}</h2><p class="sub">${it.subtitle}</p>
   <div class="ba">
-    <figure><figcaption><span>Before · real take</span><span class="tag">CAM A only</span></figcaption>${vid(it.original, it.poster)}</figure>
-    <figure><figcaption><span>After · multicam</span><span><span class="tag">A</span> <span class="tag B">B</span> <span class="tag C">C</span></span></figcaption><div class="mc">${vid(it.multicam, it.poster)}</div></figure>
+    <figure><figcaption><span>Before · real take</span><span class="chip"><b>A</b>only</span></figcaption>${vid(it.original, it.poster)}</figure>
+    <figure><figcaption><span>After · multicam</span><span class="chip"><b>A B C</b>cameras</span></figcaption><div class="mc">${vid(it.multicam, it.poster)}</div></figure>
   </div>
-  <div class="ctrl"><button class="btn p sync">▶ Play both in sync</button><label class="switch"><input type="checkbox" class="lab"><span></span>CAM labels</label>
-  <a class="btn dl" href="${it.download || it.multicam}" download>⬇ Download</a></div>
+  <div class="ctrl"><button class="btn primary sync">${PLAY}Play both in sync</button><label class="switch"><input type="checkbox" class="lab"><span></span>Camera labels</label>
+  <a class="btn secondary dl" href="${it.download || it.multicam}" download>${DL}Download</a></div>
   <div class="tl">${it.cuts.map(([c, s, e]) => `<div class="${c}" style="flex:${e - s}">${c}</div>`).join("")}<div class="ph"></div></div>
-  <div class="meta">${it.cost}. Grey = real camera, color = AI camera.</div>
-  ${it.compare ? `<details open><summary>v0.1 animated stills (left) vs v0.2 re-shoot (right)</summary>${vid(it.compare)}</details>` : ""}
+  <div class="meta">${it.cost}. Grey = real camera.</div>
+  ${it.compare ? `<details><summary>v0.1 animated stills (left) vs v0.2 re-shoot (right)</summary>${vid(it.compare)}</details>` : ""}
   ${it.sync ? `<details><summary>Lip-sync check: real (left) vs aligned AI insert (right)</summary>${vid(it.sync)}</details>` : ""}
-  </section>`; }).join("");
+  </section>`).join("") + EXTRA.map(x => `<section class="g-sec" id="${x.id}"><h2>${x.mode} · ${x.title}</h2><p class="sub">${x.line}.</p><div class="one ${x.wide ? "wide" : ""}">${vid(x.video, x.thumb)}</div></section>`).join("");
 document.querySelectorAll(".item[data-k]").forEach(el => {
-  const it = G.items[+el.dataset.k], vs = el.querySelectorAll(".ba video"), [a, b] = vs, ph = el.querySelector(".ph");
-  const D = it.cuts[it.cuts.length - 1][2];
+  const it = G.items[+el.dataset.k], [a, b] = el.querySelectorAll(".ba video"), ph = el.querySelector(".ph"), D = it.cuts[it.cuts.length - 1][2];
   el.querySelector(".sync").onclick = () => { if (!a || !b) return; a.currentTime = b.currentTime = 0; a.muted = true; a.play(); b.play(); };
   el.querySelector(".lab").onchange = e => { const v = el.querySelector(".mc video"); if (!v) return; const t = v.currentTime, p = !v.paused;
-    v.src = e.target.checked ? it.labeled : it.multicam; v.currentTime = t; if (p) v.play();
-    if (!it.download) el.querySelector(".dl").href = v.src; };
+    v.src = e.target.checked ? it.labeled : it.multicam; v.currentTime = t; if (p) v.play(); if (!it.download) el.querySelector(".dl").href = v.src; };
   if (b) b.addEventListener("timeupdate", () => ph.style.left = (b.currentTime / D * 100) + "%");
 });
 </script>

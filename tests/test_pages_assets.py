@@ -50,5 +50,5 @@ def test_gallery_media_is_relative_and_committed():
 
 def test_pages_links_point_at_live_app():
     js = (ROOT / "multicam" / "web" / "subpage.js").read_text(encoding="utf-8")
-    assert "https://one-shot-multicam.fly.dev/" in js and "github\\.io" in js and "Try it live" in js
-    assert "https://one-shot-multicam.fly.dev/" in INDEX
+    assert "https://multicam.apsolut.dev/" in js and "github\\.io" in js and "Try it live" in js
+    assert "https://multicam.apsolut.dev/" in INDEX

@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
-SITE = "https://one-shot-multicam.fly.dev"
+SITE = "https://multicam.apsolut.dev"
 
 
 @pytest.fixture()
@@ -75,3 +75,45 @@ def test_index_still_served_for_share_hash_routes(client):
     r = client.get("/")  # /#p=<id> deep links are client-side: the fragment never reaches the server
     assert r.status_code == 200 and "text/html" in r.headers["content-type"] and "app.js" in r.text
     assert client.get("/gallery/").status_code == 200
+
+
+OLD = "https://one-shot-multicam.fly.dev"
+
+
+@pytest.fixture()
+def old_client(tmp_path, monkeypatch):
+    from fastapi.testclient import TestClient
+    from multicam.server import App, create_app
+    return TestClient(create_app(App(tmp_path / "data")), base_url=OLD, follow_redirects=False)
+
+
+@pytest.mark.parametrize("path", ["/", "/gallery/", "/gallery/index.html?x=1&y=2", "/og.png", "/robots.txt",
+                                  "/sitemap.xml", "/app.js"])
+def test_old_host_301s_to_canonical_domain(old_client, path):
+    for method in ("GET", "HEAD"):
+        r = old_client.request(method, path)
+        assert r.status_code == 301 and r.headers["location"] == f"{SITE}{path}", (method, path, r.headers)
+
+
+def test_old_host_keeps_api_files_and_non_get(old_client, client):
+    assert old_client.get("/api/config").status_code == 200  # Fly health check path + in-flight clients
+    assert old_client.get("/files/nope/x.mp4").status_code != 301
+    assert old_client.post("/api/projects").status_code != 301
+    assert old_client.get("/", headers={"host": "multicam.apsolut.dev"}).status_code == 200
+    assert client.get("/").status_code == 200 and client.get("/api/config").status_code == 200
+
+
+def test_internal_health_check_host_is_not_redirected(tmp_path):
+    from fastapi.testclient import TestClient
+    from multicam.server import App, create_app
+    c = TestClient(create_app(App(tmp_path / "data")), base_url="http://172.19.0.2:8787", follow_redirects=False)
+    assert c.get("/api/config").status_code == 200 and c.get("/").status_code == 200
+
+
+def test_site_url_env_wins(tmp_path, monkeypatch):
+    from fastapi.testclient import TestClient
+    from multicam.server import App, create_app
+    monkeypatch.setenv("MULTICAM_SITE_URL", SITE)
+    c = TestClient(create_app(App(tmp_path / "data")), base_url="http://172.19.0.2:8787")
+    assert f"Sitemap: {SITE}/sitemap.xml" in c.get("/robots.txt").text
+    assert f"<loc>{SITE}/gallery/</loc>" in c.get("/sitemap.xml").text

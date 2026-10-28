@@ -4,7 +4,7 @@
 // (*.github.io) there is no app, so home links point at the live app and a "Try it live" pill replaces the
 // payment chip and recent-runs icon (their state lives on the app's origin).
 (function () {
-  const LIVE = "https://one-shot-multicam.fly.dev/";
+  const LIVE = "https://multicam.apsolut.dev/";
   const PAGES = /\.github\.io$/.test(location.hostname);
   const HOME = PAGES ? LIVE : "/";
   const CLOCK = '<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 12a8.5 8.5 0 1 0 2.5-6"/><path d="M3 4v4h4"/><path d="M12 7.5V12l3 2"/></svg>';

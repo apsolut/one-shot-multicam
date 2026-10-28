@@ -45,6 +45,9 @@ VISITOR_COOKIE = "mc_vid"  # random first-party id for the one-free-run-per-visi
 ENGINES = ("reshoot", "idlora")  # reshoot = CrossView IC-LoRA on the real take; idlora = classic Qwen still + ID LoRA
 REPO_ROOT = Path(__file__).resolve().parent.parent
 WEB_DIR = Path(__file__).resolve().parent / "web"
+CANONICAL_ORIGIN = "https://multicam.apsolut.dev"  # public address; the old Fly hostname 301s here
+LEGACY_HOSTS = {"one-shot-multicam.fly.dev"}
+NO_REDIRECT_PREFIXES = ("/api/", "/files/")  # API + job outputs stay put for in-flight clients and health checks
 
 
 def workflows_dir() -> Path:
@@ -1345,6 +1348,19 @@ def create_app(app_state: App):
         if request.url.path in _CACHED and resp.status_code == 200:
             resp.headers["Cache-Control"] = "public, max-age=604800"
         return resp
+
+    @api.middleware("http")
+    async def legacy_host_redirect(request: Request, call_next):
+        """GET/HEAD of pages and static files on the old one-shot-multicam.fly.dev host -> 301 to the canonical
+        domain, same path + query (browsers keep the #p= fragment). /api/* and /files/* are never redirected, and
+        Fly's internal health checks reach the machine by its private address, not this Host."""
+        host = request.headers.get("host", "").split(":")[0].lower()
+        if (host in LEGACY_HOSTS and request.method in ("GET", "HEAD")
+                and not request.url.path.startswith(NO_REDIRECT_PREFIXES)):
+            from fastapi.responses import RedirectResponse
+            q = request.url.query
+            return RedirectResponse(f"{CANONICAL_ORIGIN}{request.url.path}" + (f"?{q}" if q else ""), status_code=301)
+        return await call_next(request)
 
     docs = REPO_ROOT / "docs"
     if docs.is_dir():  # the static gallery (same files GitHub Pages serves)

@@ -11,7 +11,7 @@ A VFX "re-shoot from any angle" app for the Comfy *Open Source Higgsfield* chall
 and faster-whisper for the word cuts. MIT licensed.
 
 - **Live gallery (no key needed, before/after):** <https://apsolut.github.io/one-shot-multicam/>
-- **Try it:** <https://one-shot-multicam.fly.dev/> (a few free runs, one per visitor, while they last; then bring your own Comfy Cloud key, [get one here](https://platform.comfy.org/profile/api-keys); analyze, plan, edit and render are free, a re-shoot insert is ≈ $0.055 on your Comfy credits. Or run it locally in 2 commands, below)
+- **Try it:** <https://multicam.apsolut.dev/> (a few free runs, one per visitor, while they last; then bring your own Comfy Cloud key, [get one here](https://platform.comfy.org/profile/api-keys); analyze, plan, edit and render are free, a re-shoot insert is ≈ $0.055 on your Comfy credits. Or run it locally in 2 commands, below)
 - **Demo video (1:43):** <https://apsolut.github.io/one-shot-multicam/media/submission_demo.mp4> (the app in action, the ComfyUI workflow, v0.1 vs v0.2)
 - **Release / media:** <https://github.com/apsolut/one-shot-multicam/releases/tag/v0.1.0>
 

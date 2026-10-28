@@ -1,4 +1,4 @@
-# Fly.io config for the public hosted judge demo (https://one-shot-multicam.fly.dev).
+# Fly.io config for the public hosted judge demo (https://multicam.apsolut.dev; the old https://one-shot-multicam.fly.dev 301-redirects there).
 # Secret (set separately, never committed): fly secrets set COMFY_API_KEY=...
 # Deploy: fly deploy --remote-only --ha=false
 app = "one-shot-multicam"
@@ -12,6 +12,7 @@ primary_region = "fra"
   MULTICAM_HOST = "0.0.0.0"
   MULTICAM_DATA_DIR = "/data"          # job-cap ledger (hosted_jobs.json) + uploads live on the volume
   MULTICAM_PUBLIC = "1"
+  MULTICAM_SITE_URL = "https://multicam.apsolut.dev"  # canonical origin for robots.txt / sitemap.xml
   MULTICAM_HOSTED_KEY_ENV = "COMFY_API_KEY"
   MULTICAM_HOSTED_ACCESS = "judge"     # bring-your-own-key for everyone; the hosted key only with the private judge code
   MULTICAM_JUDGE_MAX_JOBS = "10"       # total jobs the judge code may spend (secret MULTICAM_JUDGE_CODE, never committed)

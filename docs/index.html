@@ -5,15 +5,15 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Gallery · Multicam: one phone shot, a multicam edit</title>
 <meta name="description" content="Examples made with Multicam: one selfie take becomes a multicam edit. The real take is camera A; AI cameras re-shoot the same moment with open models in ComfyUI.">
-<link rel="canonical" href="https://one-shot-multicam.fly.dev/gallery/">
+<link rel="canonical" href="https://multicam.apsolut.dev/gallery/">
 <meta name="robots" content="index,follow">
 <meta name="author" content="Aleksandar Perisic">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Multicam">
 <meta property="og:title" content="Multicam gallery: one phone shot, a multicam edit">
 <meta property="og:description" content="Examples made with Multicam: one selfie take becomes a multicam edit. The real take is camera A; AI cameras re-shoot the same moment with open models in ComfyUI.">
-<meta property="og:url" content="https://one-shot-multicam.fly.dev/gallery/">
-<meta property="og:image" content="https://one-shot-multicam.fly.dev/og.png">
+<meta property="og:url" content="https://multicam.apsolut.dev/gallery/">
+<meta property="og:image" content="https://multicam.apsolut.dev/og.png">
 <meta property="og:image:type" content="image/png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
@@ -24,7 +24,7 @@
 <meta name="twitter:creator" content="@apsolut">
 <meta name="twitter:title" content="Multicam gallery: one phone shot, a multicam edit">
 <meta name="twitter:description" content="Examples made with Multicam: one selfie take becomes a multicam edit. The real take is camera A; AI cameras re-shoot the same moment with open models in ComfyUI.">
-<meta name="twitter:image" content="https://one-shot-multicam.fly.dev/og.png">
+<meta name="twitter:image" content="https://multicam.apsolut.dev/og.png">
 <meta name="twitter:image:alt" content="Multicam: one phone shot (camera A) next to four AI camera angles: close-up, profile, wide and low angle.">
 <meta name="theme-color" content="#0a0a0a">
 <meta name="color-scheme" content="dark">
@@ -36,13 +36,13 @@
  "@context": "https://schema.org",
  "@type": "CollectionPage",
  "name": "Multicam gallery",
- "url": "https://one-shot-multicam.fly.dev/gallery/",
+ "url": "https://multicam.apsolut.dev/gallery/",
  "description": "Examples made with Multicam: one selfie take becomes a multicam edit. The real take is camera A; AI cameras re-shoot the same moment with open models in ComfyUI.",
- "image": "https://one-shot-multicam.fly.dev/og.png",
+ "image": "https://multicam.apsolut.dev/og.png",
  "isPartOf": {
   "@type": "WebSite",
   "name": "Multicam",
-  "url": "https://one-shot-multicam.fly.dev/"
+  "url": "https://multicam.apsolut.dev/"
  },
  "author": {
   "@type": "Person",
@@ -125,7 +125,7 @@
 <script src="config.js"></script>
 <script>
 // Same file on Fly (/gallery/) and GitHub Pages: assets are relative; "/" links go to the live app on *.github.io.
-const HOME = window.MCSubpage ? MCSubpage.home : (/\.github\.io$/.test(location.hostname) ? "https://one-shot-multicam.fly.dev/" : "/");
+const HOME = window.MCSubpage ? MCSubpage.home : (/\.github\.io$/.test(location.hostname) ? "https://multicam.apsolut.dev/" : "/");
 window.MCSubpage ? MCSubpage.mount(document.getElementById("hdr"), "gallery", "Gallery")
   : (document.getElementById("hdr").outerHTML = `<header class="top"><a class="brand" href="${HOME}">Multicam</a></header>`);
 document.querySelectorAll('a[data-home]').forEach(a => a.href = HOME);

@@ -19,7 +19,7 @@ primary_region = "fra"
   MULTICAM_HOSTED_RUNS = "6"           # free trial runs on the hosted key, 1 per visitor; raise to top up (used count: /data/hosted_jobs.json)
   MULTICAM_TRIAL_JOBS_PER_RUN = "10"   # Comfy jobs one free run may use
   MULTICAM_PROXY_HOPS = "1"            # Fly's edge proxy appends the client IP to X-Forwarded-For
-  MULTICAM_HOSTED_FLOOR_USD = "28.42"  # hard stop: balance - 3 (6 free runs + judge code); refuse hosted jobs below this
+  MULTICAM_HOSTED_FLOOR_USD = "28.35"  # hard stop: balance - 3 (6 free runs + judge code); refuse hosted jobs below this (-0.07 for the 2026-10-28 rotation test job)
 
 [mounts]
   source = "multicam_data"

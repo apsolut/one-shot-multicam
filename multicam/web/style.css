@@ -60,15 +60,16 @@ button:disabled{opacity:.5;cursor:not-allowed}
 .primary,button.primary,.btn.primary{border:0;background:var(--cta);color:var(--cta-ink);border-radius:999px;font-weight:750;padding:12px 22px;
   box-shadow:0 8px 28px rgba(163,255,61,.22)}
 .primary:hover:not(:disabled),.btn.primary:hover{filter:brightness(1.06);background:var(--cta)}
-button.primary:disabled{opacity:1;background:var(--raise);color:var(--dim);box-shadow:none;border:1px dashed var(--line2)}
+button.primary:disabled{opacity:1;background:rgba(163,255,61,.14);color:#cfe9b0;box-shadow:none;border:2px solid var(--cta-line)}
 .wide,button.wide{width:100%}
 button.primary.wide{padding:15px 22px;font-size:16px}
 .note{color:var(--muted);font-size:13px;margin:10px 0 0}.note b{color:var(--text)}
 .muted{color:var(--muted)}.small{font-size:13px}
-.drop{display:block;border:1.5px dashed var(--line2);border-radius:14px;padding:22px;cursor:pointer;transition:.15s;background:#22232a}
-.drop:hover,.drop.over{border-color:var(--cta-line);background:#262a22}
+.drop{display:block;border:2px dashed #7a7c8a;border-radius:16px;padding:28px 22px;cursor:pointer;transition:.15s;background:#2b2d35}
+.drop:hover,.drop.over{border-color:var(--cta);background:#2c3324}
+#step1[data-state=active] .drop{border-color:var(--cta-line)}
 .drop-in{display:flex;gap:16px;align-items:center}.drop-in small{color:var(--muted)}
-.drop-ic{width:46px;height:46px;border-radius:12px;display:grid;place-items:center;background:var(--raise);color:var(--text);flex:none}
+.drop-ic{width:52px;height:52px;border-radius:14px;display:grid;place-items:center;background:var(--text);color:var(--bg);flex:none}
 .drop-ic svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .drop-file{margin-top:12px;display:flex;gap:14px;align-items:center}
 .drop-file video{width:72px;height:128px;object-fit:cover;border-radius:10px;background:#000}

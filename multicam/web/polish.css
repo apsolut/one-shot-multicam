@@ -401,7 +401,7 @@ body.sheet-open{overflow:hidden}
 @media (max-width:560px){
   .hdr-lbl{display:none}
   .top nav{gap:var(--s2)}
-  .top nav a[href="/gallery/"],#repoLink{font-size:var(--t-sm)}
+  .top nav a[href="/gallery/"],.top nav a.nav-gal,#repoLink{font-size:var(--t-sm)}
   .hdr-pill{height:30px;padding:0 10px;font-size:var(--t-xs)}
   .sheet{top:auto;left:0;right:0;width:100%;max-height:86vh;border-left:0;border-top:1px solid var(--line2);border-radius:16px 16px 0 0;transform:translateY(24px);padding:var(--s4) var(--s4) calc(var(--s5) + env(safe-area-inset-bottom))}
   .sheet.in{transform:none}
@@ -417,7 +417,7 @@ button.preset.ang{justify-content:flex-start}
   #newProject{font-size:var(--t-sm);white-space:nowrap}
   .brand{font-size:var(--t-base)}
 }
-@media (max-width:380px){.top nav a[href="/gallery/"]{display:none}}
+@media (max-width:380px){.top nav a[href="/gallery/"],.top nav a.nav-gal{display:none}}
 @media (max-width:560px){body.in-project .top nav a[href="/gallery/"]{display:none}}
 
 /* ---------- shared header on subpages: active item + mobile breadcrumb ---------- */
@@ -444,3 +444,9 @@ button.preset.ang{justify-content:flex-start}
 .choice button.on .ch-ic{background:var(--acc);color:var(--acc-ink)}
 .hdr-dot{background:var(--acc)}
 .mt-badge.new{background:var(--acc);color:#0a0a0a}
+
+/* ---------- GitHub Pages copy of the gallery: "Try it live" pill (white, like the primary CTA) ---------- */
+.top nav a.hdr-live{display:inline-flex;align-items:center;height:34px;padding:0 16px;border-radius:var(--r-pill);border:1px solid var(--cta);background:var(--cta);
+  color:var(--cta-ink);font-size:var(--t-sm);font-weight:600;white-space:nowrap;text-decoration:none}
+.top nav a.hdr-live:hover{background:#e5e5e5;border-color:#e5e5e5;color:var(--cta-ink)}
+@media (max-width:560px){.top nav a.hdr-live{height:30px;padding:0 12px;font-size:var(--t-xs)}}

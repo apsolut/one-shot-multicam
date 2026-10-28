@@ -9,9 +9,9 @@
 <meta property="og:image" content="media/poster_v6.jpg">
 <meta name="theme-color" content="#0a0a0a">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%230a0a0a'/><rect x='7' y='9' width='4' height='14' rx='1.5' fill='white'/><rect x='14' y='9' width='4' height='14' rx='1.5' fill='white' opacity='.6'/><rect x='21' y='9' width='4' height='14' rx='1.5' fill='white' opacity='.35'/></svg>">
-<link rel="preload" href="/fonts/InterVariable.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="/style.css">
-<link rel="stylesheet" href="/polish.css">
+<link rel="preload" href="assets/fonts/InterVariable.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="assets/style.css">
+<link rel="stylesheet" href="assets/polish.css">
 <style>
 /* gallery: same tokens as the app (style.css + polish.css); only page-specific layout here */
 .g{width:min(1120px,100%);margin:0 auto;padding:0 clamp(16px,3vw,32px) var(--s7)}
@@ -59,7 +59,7 @@
   <section class="g-hero">
     <h1>Gallery</h1>
     <p>Real outputs from one selfie take. Camera A is the real take. The other cameras are AI re-shoots of the same moment, cut on your words over the real audio.</p>
-    <div class="g-cta"><a class="btn primary" href="/">Make your own</a><a class="btn secondary" id="repo2" href="#" target="_blank" rel="noopener">Run it yourself · open source</a></div>
+    <div class="g-cta"><a class="btn primary" href="/" data-home>Make your own</a><a class="btn secondary" id="repo2" href="#" target="_blank" rel="noopener">Run it yourself · open source</a></div>
   </section>
   <div class="g-grid" id="grid"></div>
   <div id="items"></div>
@@ -75,11 +75,14 @@
   </section>
 </main>
 <footer class="foot"><span>MIT · ComfyUI, LTX-2.3, Qwen-Image-Edit · open weights</span><span>Only use your own face, or someone's who agreed.</span></footer>
-<script src="/subpage.js"></script>
+<script src="assets/subpage.js"></script>
 <script src="config.js"></script>
 <script>
+// Same file on Fly (/gallery/) and GitHub Pages: assets are relative; "/" links go to the live app on *.github.io.
+const HOME = window.MCSubpage ? MCSubpage.home : (/\.github\.io$/.test(location.hostname) ? "https://one-shot-multicam.fly.dev/" : "/");
 window.MCSubpage ? MCSubpage.mount(document.getElementById("hdr"), "gallery", "Gallery")
-  : (document.getElementById("hdr").outerHTML = '<header class="top"><a class="brand" href="../">Multicam</a></header>');  // GitHub Pages copy
+  : (document.getElementById("hdr").outerHTML = `<header class="top"><a class="brand" href="${HOME}">Multicam</a></header>`);
+document.querySelectorAll('a[data-home]').forEach(a => a.href = HOME);
 const G = window.MULTICAM_GALLERY || {items: []};
 document.getElementById("repo2").href = G.repo;
 // the grid: one card per example (Talk items from config.js + the Scene and Dub examples)
@@ -91,7 +94,7 @@ const cards = [...G.items.map((it, k) => ({id: "item-" + k, mode: "Talk", title:
 const grid = document.getElementById("grid");
 grid.innerHTML = cards.length ? cards.map(c => `<a class="g-card" href="#${c.id}"><span class="g-th"><img src="${c.thumb}" alt="" loading="lazy"><span class="mt-badge ${c.badge || "beta"}" style="${c.badge ? "" : "background:rgba(26,26,26,.88);border:1px solid rgba(255,255,255,.3)"}">${c.mode}</span></span>
   <span class="g-b"><b>${c.title}</b><small>${c.line}</small></span></a>`).join("")
-  : `<div class="g-empty">No examples yet. <a href="/">Make the first one</a>.</div>`;
+  : `<div class="g-empty">No examples yet. <a href="${HOME}">Make the first one</a>.</div>`;
 const vid = (src, poster) => `<video src="${src}" ${poster ? `poster="${poster}"` : ""} playsinline preload="metadata" controls onerror="this.outerHTML='<div class=missing>video not found</div>'"></video>`;
 const PLAY = '<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l11-6.5z"/></svg>', DL = '<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>';
 document.getElementById("items").innerHTML = G.items.map((it, k) => `<section class="g-sec item" id="item-${k}" data-k="${k}"><h2>${it.title}</h2><p class="sub">${it.subtitle}</p>

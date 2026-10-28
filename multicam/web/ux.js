@@ -138,7 +138,7 @@
     const kc = $("#keyCard");
     if (home && kc.parentElement !== $("#keySlot")) $("#keySlot").appendChild(kc);
     if (!home && kc.parentElement === $("#keySlot")) $("#uploadCard").after(kc);
-    if (!home && !sv.paused) sv.pause();
+    if (!home && !sv.paused && !document.body.classList.contains("stage-idle")) sv.pause();
   }
   new MutationObserver(place).observe($("#uploadCard"), {attributes: true, attributeFilter: ["hidden"]});
 
@@ -270,9 +270,10 @@
       prevKey = j.key; dismissed = null;
       const t0 = (tr[j.key.split(".").slice(0, 2).join(".")] || {}).t0 || Date.now(), el = (Date.now() - t0) / 1000;
       (LOADING[j.kindOf]?.[j.name] || []).forEach(sel => { const b = $(sel); if (b) { b.classList.add("is-loading"); b.disabled = true; } });
-      P.hidden = false; P.dataset.state = "running";
+      P.hidden = false; P.dataset.state = "running"; document.body.classList.remove("stage-idle");
+      if (P.dataset.wasRunning !== j.key) { P.dataset.wasRunning = j.key; P.classList.remove("open"); }
       const frac = j.frac != null ? Math.max(.04, j.frac) : null, left = Math.max(0, (j.eta || 60) - (j.frac == null ? el : 0));
-      P.innerHTML = `<div class="jp-top"><span class="spin" aria-hidden="true"></span><span class="jp-k">Working</span><span class="jp-time">${mmss(el)} elapsed · ${eta(left)}</span></div>
+      P.innerHTML = `<div class="jp-top"><span class="spin" aria-hidden="true"></span><span class="jp-k">Working</span><span class="jp-mini">${esc(j.title)}</span><span class="jp-time">${mmss(el)}<span class="jp-eta"> elapsed · ${eta(left)}</span></span><span class="jp-chev" aria-hidden="true"></span></div>
         <div class="jp-title">${esc(j.title)}</div>
         <div class="jp-bar ${frac == null ? "ind" : ""}"><i style="${frac == null ? "" : `width:${Math.round(frac * 100)}%`}"></i></div>
         ${j.detail ? `<div class="jp-detail">${esc(j.detail)}</div>` : ""}
@@ -305,14 +306,26 @@
       return;
     }
     if (P.dataset.state === "done" && !P.hidden) return;
-    if (document.body.classList.contains("in-project")) {  // desktop right column: calm idle status
-      P.hidden = false; P.dataset.state = "idle";
-      P.innerHTML = `<div class="jp-top"><span class="jp-k">Status</span></div><div class="jp-title sm">Nothing running</div>
-        <div class="jp-detail">When you start a job, its progress shows here. Nothing is spent until you press a button that shows a cost.</div>`;
-    } else P.hidden = true;
+    if (document.body.classList.contains("in-project")) {  // desktop right column when idle: cost summary + example clip
+      document.body.classList.add("stage-idle");
+      const e = j?.obj?.estimate, n = e ? (e.n_jobs ?? e.jobs ?? ((e.windows || 0) + (e.inserts || 0))) : 0;
+      if (e && typeof e.usd === "number") {
+        P.hidden = false; P.dataset.state = "idle";
+        P.innerHTML = `<div class="jp-top"><span class="jp-k">Next step</span></div>
+          <div class="jp-title sm">${n ? `${n} Comfy job${n === 1 ? "" : "s"} ≈ $${e.usd.toFixed(2)}` : "Everything generated · re-render is free"}</div>
+          <div class="jp-detail">Nothing is spent until you confirm the cost.</div>`;
+      } else P.hidden = true;
+      if (sv.paused && matchMedia("(min-width:981px)").matches) sv.play().catch(() => {});
+    } else { P.hidden = true; document.body.classList.remove("stage-idle"); }
   }
   window.addEventListener("focus", () => { if (!prevKey && document.title.startsWith("✅")) setTimeout(() => { document.title = BASE_TITLE; }, 4000); });
   setInterval(panel, 1000);
+  // mobile: the sticky panel is one line (status + elapsed); tap to expand
+  $("#jobPanel").addEventListener("click", e => {
+    if (e.target.closest("button,a,input") || !matchMedia("(max-width:560px)").matches) return;
+    const P = $("#jobPanel"); if (P.dataset.state !== "running") return;
+    P.classList.toggle("open"); P.setAttribute("aria-expanded", P.classList.contains("open"));
+  });
 
   // ---------- resume card: last project / scene / dub per mode, if it's recent (< ~60 min)
   const LAST_LS = "multicam.last";

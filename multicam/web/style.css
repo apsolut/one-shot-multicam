@@ -460,3 +460,22 @@ button.is-loading::before{content:"";width:15px;height:15px;border-radius:50%;bo
   .rs-act>*{flex:1 1 auto}.rs-t{font-size:19px}
   body.in-project .job-panel[data-state=running] .jp-leave{display:none}
 }
+
+/* ===== progress panel: one line on mobile, idle example on desktop ===== */
+.jp-mini,.jp-chev{display:none}
+body.in-project.stage-idle .stage-card{display:grid}
+@media (max-width:980px){body.in-project.stage-idle .stage-card{display:none}}
+@media (max-width:560px){
+  .job-panel[data-state=running]{cursor:pointer;padding:10px 14px;gap:8px}
+  .job-panel[data-state=running]:not(.open)>:not(.jp-top){display:none}
+  .job-panel[data-state=running] .jp-top{flex-wrap:nowrap;min-width:0}
+  .job-panel[data-state=running]:not(.open) .jp-k{display:none}
+  .job-panel[data-state=running]:not(.open) .jp-mini{display:block;flex:1 1 auto;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:14px;font-weight:700;color:var(--text)}
+  .job-panel[data-state=running]:not(.open) .jp-eta{display:none}
+  .job-panel[data-state=running] .jp-time{flex:none}
+  .job-panel[data-state=running] .jp-chev{display:block;flex:none;width:8px;height:8px;border-right:2px solid var(--muted);border-bottom:2px solid var(--muted);transform:rotate(45deg);margin:-4px 2px 0 4px;transition:transform .2s}
+  .job-panel[data-state=running].open .jp-chev{transform:rotate(-135deg);margin-top:4px}
+  .job-panel[data-state=error]{padding:12px 14px;gap:8px}
+  .jp-err-h{font-size:16px}.jp-err-m{font-size:13px;max-height:4.6em;padding:8px 10px}
+  .jp-retry{padding:8px 16px}.jp-note{display:none}
+}

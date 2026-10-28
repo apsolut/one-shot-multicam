@@ -1,0 +1,9 @@
+{
+  "_comment": "Bindings for workflows/translate_api.json (Dub: translate the transcript with Gemma 3 12B it bf16 via the core TextGenerate node; the app builds this graph in multicam/dub.py translate_workflow(), this file is an export of it with placeholder lines). prompt = the full instruction + numbered lines; the reply is read from the PreviewAny output (node 3).",
+  "prompt": [
+    [
+      "2",
+      "prompt"
+    ]
+  ]
+}

@@ -190,10 +190,12 @@ Generation uses two official Comfy Cloud templates, exported in API format to `w
 | **LTX-2.3: ID LoRA** | `workflows/idlora_api.json` (+ `_ui.json`) | [LTX-2.3](https://huggingface.co/Lightricks/LTX-2.3) + [ID-LoRA](https://github.com/ID-LoRA/ID-LoRA) (TalkVid), Gemma 3 text encoder | [LTX-2 Community License](https://github.com/ID-LoRA/ID-LoRA/blob/main/LICENSE) (open weights; free under $10M revenue) / Gemma Terms |
 | **CrossView re-shoot** (built from the LTX IC-LoRA example graphs; `workflows/build_v2v.py` regenerates it) | `workflows/crossview_api.json` + `crossview_bindings.json` (+ annotated `crossview_ui.json`) | [LTX-2.3](https://huggingface.co/Lightricks/LTX-2.3) 22B dev fp8 + distilled LoRA (0.6) + [CrossView IC-LoRA v0.9](https://huggingface.co/Cseti/LTX2.3-22B_IC-LoRA-CrossView-Prompt) (1.5), Gemma 3 text encoder, x2 spatial upscaler | LTX-2 Community License / Apache-2.0 / Gemma Terms |
 | **Dub: LipDub** (`workflows/build_v2v.py dub` regenerates it) | `workflows/dub_api.json` + `dub_bindings.json` | [LTX-2.3](https://huggingface.co/Lightricks/LTX-2.3) 22B dev fp8 + distilled LoRA (0.5) + [LipDub IC-LoRA 0.9](https://huggingface.co/Lightricks/LTX-2.3-22b-IC-LoRA-LipDub) (1.0), Gemma 3 text encoder, x2 spatial upscaler | LTX-2 Community License / Gemma Terms |
-| **Dub: translation** | built in `multicam/dub.py` (core `TextGenerate` node) | [Gemma 3 12B it](https://huggingface.co/google/gemma-3-12b-it) (bf16) | Gemma Terms |
+| **Dub: translation** | built in `multicam/dub.py` (core `TextGenerate` node), exported as `workflows/translate_api.json` + `translate_bindings.json` | [Gemma 3 12B it](https://huggingface.co/google/gemma-3-12b-it) (bf16) | Gemma Terms |
 | (local) speech timings | — | [faster-whisper](https://github.com/SYSTRAN/faster-whisper) `small` | MIT |
 
-There are no partner or closed API nodes; every model is open weights. LTX-2.3 is the core
+There are no partner or closed API nodes; every model is open weights. **[workflows/README.md](workflows/README.md)** lists every
+workflow the app runs, the exact model and LoRA files with download links, which node inputs the app sets, and
+how to run each one yourself in local ComfyUI or on Comfy Cloud. LTX-2.3 is the core
 video model, and Qwen only makes the stills.
 
 ![The CrossView re-shoot graph in ComfyUI: your real 5 s take is the IC-LoRA reference, the real audio is frozen into the audio latent, the prompt is only a camera move, then a x2 latent upscale](docs/img/workflow-crossview.jpg)

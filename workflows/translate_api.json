@@ -1,0 +1,33 @@
+{
+  "1": {
+    "class_type": "LTXAVTextEncoderLoader",
+    "inputs": {
+      "text_encoder": "gemma_3_12B_it.safetensors",
+      "ckpt_name": "ltx-2.3-22b-dev-fp8.safetensors",
+      "device": "default"
+    }
+  },
+  "2": {
+    "class_type": "TextGenerate",
+    "inputs": {
+      "clip": [
+        "1",
+        0
+      ],
+      "prompt": "Translate each numbered English line into natural spoken German for a dubbed video. Use short, natural, correct sentences of similar length (it must fit the same time); keep product and brand names unchanged. Reply with only the numbered translations, one per line.\n\n1. <your first sentence>\n2. <your second sentence>",
+      "max_length": 600,
+      "sampling_mode": "off",
+      "thinking": false,
+      "use_default_template": true
+    }
+  },
+  "3": {
+    "class_type": "PreviewAny",
+    "inputs": {
+      "source": [
+        "2",
+        0
+      ]
+    }
+  }
+}

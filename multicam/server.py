@@ -560,10 +560,21 @@ class App:
                                                           "elapsed_s": round(time.time() - r["started"], 1), "started": r["started"]}))
         if rec["status"] != "success":
             raise RuntimeError(f"angle stills failed: {rec.get('error')}")
+        from .orient import check_still, face_roll
+        roll = face_roll(frame)
+        checks = {Path(o).stem: dict(zip(("ok", "reason"), check_still(o, frame, source_roll=roll))) for o in rec["outputs"]}
         with p.lock:
             for o in rec["outputs"]:
                 p.state["stills"][Path(o).stem] = p.rel(o)
             p.state["stills_frame_t"] = t
+            p.state["still_checks"] = checks
+            # never keep a rotated still as a camera's automatic choice: fall back to a still that passed
+            good = [n for n in ("closeup", "wide", "lowangle", "right45", "left45", "right90", "left90", "aerial")
+                    if checks.get(n, {}).get("ok")]
+            for cam in ("B", "C"):
+                cur = p.state["cam_stills"].get(cam)
+                if cur in checks and not checks[cur]["ok"] and good:
+                    p.state["cam_stills"][cam] = next((n for n in good if n not in p.state["cam_stills"].values()), good[0])
         p.set_step("angles", "done", f"{len(rec['outputs'])} stills from frame @ {t:.2f}s")
 
     def _reshoot_job(self, p: Project, chunk_id: str, cam: str, key: str):

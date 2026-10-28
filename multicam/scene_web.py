@@ -93,6 +93,16 @@ def mount(api, A, key_or_403, charge_or_403):
                 set_web(sid, busy=None)
         A.pool.submit(go)
 
+    def stills_stage(sc) -> bool:
+        """Generate runs in two steps so the partner still is always chosen explicitly: 1) the stills job
+        (1 Qwen job), then the user picks per framing, 2) A angles + B clips."""
+        return not sc["stills"]
+
+    def next_estimate(sc, w) -> dict:
+        if stills_stage(sc):
+            return {**S.estimate(sc, "stills", reshoot_a=False), "stage": "stills"}
+        return {**S.estimate(sc, "all", reshoot_a=w.get("reshoot_a", True)), "stage": "clips"}
+
     def public(sid) -> dict:
         d = wpath(sid)
         w = web(sid)
@@ -108,8 +118,12 @@ def mount(api, A, key_or_403, charge_or_403):
             "sentences": [{"i": s["i"], "text": s["text"], "start": s["start"], "end": s["end"]} for s in tr["sentences"]],
             "lines": [{**ln, "shot": ln.get("shot") or S.b_shot_for(k), "clip": str(k) in sc["b_clips"]}
                       for k, ln in enumerate(sc["lines"])],
-            "stills": {k: url(sid, v) for k, v in sc["stills"].items() if k in S.B_SHOTS and Path(v).exists()},
-            "estimate": S.estimate(sc, "all", reshoot_a=w.get("reshoot_a", True)),
+            "stills": {shot: [{"name": o["name"], "url": url(sid, o["path"]), "ok": o["ok"], "reason": o["reason"],
+                               "original": o["original"], "chosen": o["name"] == (sc.get("picks") or {}).get(shot)}
+                              for o in opts] for shot, opts in S.candidates(sc).items()},
+            "picks": sc.get("picks") or {},
+            "needs_pick": bool(sc["stills"]) and not sc.get("picked") and not sc["b_clips"],
+            "estimate": next_estimate(sc, w),
             "a_angles": sorted({c["preset"] for c in sc["a_clips"].values()}),
             "jobs": [{k: j.get(k) for k in ("kind", "status", "elapsed_s")} for j in sc["jobs"]][-20:],
         })
@@ -154,6 +168,11 @@ def mount(api, A, key_or_403, charge_or_403):
             if partner == "photo":
                 ph = d / f"partner{Path(photo.filename or 'x.png').suffix.lower() or '.png'}"
                 _limited_copy(photo.file, ph, 20)
+                from .orient import normalize_upload
+                try:  # phone photos: sideways pixels + EXIF Orientation -> upright pixels, tag dropped
+                    ph = normalize_upload(ph)
+                except Exception as e:  # noqa: BLE001
+                    raise UploadRejected(400, f"could not read the partner photo ({str(e)[:120]})")
         except UploadRejected as e:
             shutil.rmtree(d, ignore_errors=True)
             raise HTTPException(e.status, str(e))
@@ -210,6 +229,8 @@ def mount(api, A, key_or_403, charge_or_403):
                 sc[k] = body[k].strip()[:300]
                 if k in ("look", "person", "a_look", "character"):
                     sc["stills"], sc["b_clips"] = {}, {}  # partner look changed: regenerate
+                    sc["still_checks"], sc["picked"] = {}, False
+                    sc["picks"] = S.default_picks(sc)  # keeps the original-photo defaults
         if body.get("voice") and body["voice"] != sc.get("voice") and (body["voice"] in S.VOICES or body["voice"] == "self"):
             sc["voice"] = body["voice"]
             sc["b_clips"] = {}
@@ -227,6 +248,23 @@ def mount(api, A, key_or_403, charge_or_403):
         sc = S.load(wpath(sid))
         return {"lines": S.suggest_lines(load_json(sc["transcript"]), sc["partner"])}
 
+    @api.post("/api/scene/{sid}/pick")
+    async def pick(sid: str, request: Request):
+        """{shot: single|ots|close, still: name from public().stills[shot]} -> that still is used for B's clips
+        of this framing (clips made from another still are dropped and re-generated on the next Generate)."""
+        d = wpath(sid)
+        body = await request.json()
+        if web(sid).get("busy"):
+            raise HTTPException(409, "busy")
+        sc = S.load(d)
+        try:
+            S.set_pick(sc, str(body.get("shot", "")), str(body.get("still", "")))
+        except ValueError as e:
+            raise HTTPException(400, str(e))
+        sc["picked"] = True
+        S.save(d, sc)
+        return public(sid)
+
     @api.post("/api/scene/{sid}/generate")
     async def generate(sid: str, request: Request, x_comfy_key: str | None = Header(default=None),
                        x_judge_code: str | None = Header(default=None)):
@@ -238,10 +276,15 @@ def mount(api, A, key_or_403, charge_or_403):
         w = web(sid)
         if body.get("redo"):  # re-roll: drop B clips (and stills if asked) so they are generated again
             if body["redo"] == "stills":
-                sc["stills"] = {}
+                sc["stills"], sc["still_checks"], sc["picked"] = {}, {}, False
+                sc["picks"] = S.default_picks(sc)
             sc["b_clips"] = {}
             S.save(d, sc)
-        est = S.estimate(sc, "all", reshoot_a=w.get("reshoot_a", True))
+        stage = "stills" if stills_stage(sc) else "clips"
+        est = next_estimate(sc, w)
+        if stage == "clips" and not sc.get("picked") and not sc["b_clips"]:
+            sc["picked"] = True  # pressing Generate again under the picker = the shown picks are confirmed
+            S.save(d, sc)
         if not body.get("confirm"):
             raise HTTPException(400, {"needs_confirm": True, **est})
         if est["n_jobs"] > max(A.max_jobs_per_run, 9):
@@ -251,10 +294,13 @@ def mount(api, A, key_or_403, charge_or_403):
 
         def work():
             s = S.load(d)
+            if stage == "stills":
+                S.make_stills(s, d, key=key, log=log)
+                log("stills ready: pick B's shot for each framing (your original photo is the default where it "
+                    "works), then press Generate again")
+                return
             if w.get("reshoot_a", True) and S.a_wants(s):
                 S.make_a_clips(s, d, key=key, log=log)
-            if not s["stills"]:
-                S.make_stills(s, d, key=key, log=log)
             S.make_clips(s, d, key=key, log=log)
             log("rendering the scene (free)")
             S.render(S.load(d), d, labels=True, out=d / "scene_labeled.mp4", preset=A.render_preset)

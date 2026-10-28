@@ -24,7 +24,16 @@
     $("#scVoiceRow").hidden = partner === "clone";
   }
   $$("#mode button").forEach(b => b.addEventListener("click", () => setTimeout(syncOpts)));
-  $$("#scPartner button").forEach(b => b.onclick = e => { e.preventDefault(); partner = b.dataset.p; syncOpts(); });
+  // "Partner is a" + voice follow each other until you change them yourself. A real photo decides the look, so
+  // photo mode starts at "person" (prompts then never say "man"/"woman") with the default voice.
+  const VOICE_FOR = {man: "am_michael", woman: "af_heart", person: "af_heart"};
+  let personTouched = false, voiceTouched = false;
+  function autoVoice() { if (!voiceTouched && $("#scVoice").querySelector(`option[value="${VOICE_FOR[$("#scPerson").value]}"]`)) $("#scVoice").value = VOICE_FOR[$("#scPerson").value]; }
+  $("#scPerson").addEventListener("change", e => { if (e.isTrusted) personTouched = true; autoVoice(); });
+  $("#scVoice").addEventListener("change", e => { if (e.isTrusted) voiceTouched = true; });
+  $$("#scPartner button").forEach(b => b.onclick = e => { e.preventDefault(); partner = b.dataset.p;
+    if (!personTouched) { $("#scPerson").value = partner === "photo" ? "person" : "man"; autoVoice(); }
+    syncOpts(); });
   $("#scLook").onchange = () => { $("#scLookCustom").hidden = $("#scLook").value !== "custom"; };
 
   // intercept "Analyze" in scene mode (capture phase on the card, before app.js's handler)
@@ -94,7 +103,7 @@
       dlg.dataset.done = "1";
     }
     markEmpty();
-    $("#scStills").innerHTML = Object.entries(SC.stills || {}).map(([k, u]) => `<figure><img src="${u}" alt="${k}"><figcaption>B · ${SHOT_LABEL[k] || k}</figcaption></figure>`).join("");
+    renderStills();
     const e = SC.estimate;
     $("#scEst").innerHTML = e ? (e.n_jobs ? `<b>${e.n_jobs}</b> Comfy jobs ≈ <b>$${e.usd.toFixed(2)}</b> <span class="muted small">(${Object.entries(e.jobs).filter(([, v]) => v).map(([k, v]) => `${v} ${k}`).join(", ")})</span>` : "everything generated — re-render is free") : "";
     $("#scGen").disabled = !!SC.busy || !SC.sentences;
@@ -106,6 +115,28 @@
     if (SC.output && !SC.busy) wfLink($("#scWf"), "scene", SC.id, `${SC.output}|${(SC.jobs || []).length}`);  // ComfyUI graphs it ran
     $("#scEdl").innerHTML = (SC.edl || []).map(s => `<span class="sc-shot-chip ${s.who}" title="${esc(s.words || "")}" style="flex:${s.dur}">${esc(s.cam)}</span>`).join("");
   }
+  // Still picker: one row per B framing. The chosen still is ringed + "✓ using"; your original photo is the
+  // default where it works; a still that came back rotated is never chosen automatically (⚠, still pickable).
+  function renderStills() {
+    const rows = Object.entries(SC.stills || {}).filter(([, opts]) => Array.isArray(opts) && opts.length).map(([shot, opts]) => {
+      const chosen = opts.find(o => o.chosen);
+      const figs = opts.map(o => `<button type="button" class="sc-pick${o.chosen ? " chosen" : ""}${o.ok ? "" : " bad"}" data-shot="${shot}" data-still="${esc(o.name)}" aria-pressed="${o.chosen}" title="${esc(o.reason || "")}">
+          <img src="${o.url}" alt="${o.original ? "your original photo" : esc(o.name)}" loading="lazy">
+          ${o.chosen ? '<span class="sc-use">✓ using</span>' : ""}${o.ok ? "" : `<span class="sc-flag">⚠ ${esc(o.reason)}</span>`}
+          <span class="sc-cap">${o.original ? "<b>Your original photo</b><small>looks at the camera</small>" : `<b>AI variant</b><small>${esc(o.name)} · looks screen-right</small>`}</span></button>`).join("");
+      return `<div class="sc-pick-row"><div class="sc-pick-h"><span class="tag B">B</span> ${SHOT_LABEL[shot] || shot} <span class="req">Required</span>${chosen ? "" : ' <span class="sc-none">pick one</span>'}</div><div class="sc-pick-opts">${figs}</div></div>`;
+    }).join("");
+    const e = SC.estimate || {}, gen = Object.values(SC.stills || {}).some(o => Array.isArray(o) && o.some(x => !x.original));
+    const step = e.stage === "stills" ? '<p class="sc-step"><b>Step 1 of 2:</b> Generate partner shots (1 Qwen job). Then you pick one per framing, and step 2 makes the clips.</p>'
+      : gen && !(SC.lines || []).some(l => l.clip) ? '<p class="sc-step"><b>Step 2 of 2:</b> Check the ringed shot in each row (tap another to switch), then Generate.</p>' : "";
+    $("#scStills").innerHTML = step + (rows || '<p class="muted small">Partner shots appear here after step 1. You pick which one each framing uses.</p>');
+    if (!SC.busy && !SC.output) $("#scGen").textContent = e.stage === "stills" ? "Step 1 · Generate partner shots" : "Step 2 · Generate scene with these shots";
+  }
+  $("#scStills").addEventListener("click", async ev => {
+    const f = ev.target.closest(".sc-pick"); if (!f || !SC || SC.busy || f.classList.contains("chosen")) return;
+    try { SC = await api(`/api/scene/${SC.id}/pick`, {json: {shot: f.dataset.shot, still: f.dataset.still}}); render(); toast("Shot chosen"); }
+    catch (e) { toast(e.message, 4000); }
+  });
   async function refresh() {
     clearTimeout(spoll);
     if (!sid()) return;

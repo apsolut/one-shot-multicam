@@ -54,7 +54,7 @@
       location.hash = `s=${SC.id}`;
       show();
     } catch (err) { toast(err.message, 5000); }
-    finally { b.textContent = "Analyze — free"; b.disabled = false; }
+    finally { b.textContent = "Analyze my clip — free"; b.disabled = false; canStart(); }
   }, true);
 
   // ---- scene card

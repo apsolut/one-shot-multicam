@@ -24,7 +24,7 @@
     const b = $("#start"); b.disabled = true; b.textContent = "Uploading…";
     try { DB = await api("/api/dub", {body: fd}); location.hash = `d=${DB.id}`; show(); }
     catch (err) { toast(err.message, 5000); }
-    finally { b.textContent = "Analyze — free"; b.disabled = false; }
+    finally { b.textContent = "Analyze my clip — free"; b.disabled = false; canStart(); }
   }, true);
 
   function lineRow(w) {

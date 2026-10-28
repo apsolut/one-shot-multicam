@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Multicam · one phone shot → multicam edit</title>
-<meta name="theme-color" content="#0b0b12">
+<meta name="theme-color" content="#101114">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%237c5cff'/><circle cx='11' cy='16' r='5' fill='white'/><circle cx='21' cy='16' r='5' fill='white' opacity='.6'/></svg>">
 <link rel="stylesheet" href="style.css">
 </head>
@@ -19,87 +19,159 @@
 </header>
 <div class="banner" id="banner" hidden></div>
 
-<main>
-  <section class="hero">
-    <h1>One phone shot. <span class="grad">A multicam edit.</span></h1>
-    <p>Your real take is <b>CAM A</b>. ComfyUI <b>re-shoots</b> it from new virtual cameras (<b>CAM B/C</b>) — same head moves, same mouth shapes, frame for frame — then cuts between them on word boundaries over your <b>real</b> audio.</p>
-    <div class="pills"><span>LTX-2.3 CrossView IC-LoRA re-shoot</span><span>real audio locked in</span><span>whisper word cuts</span><span>classic: Qwen angles + ID LoRA</span><span>open weights</span></div>
+<main class="studio">
+  <div class="intro" id="intro">
+    <section class="hero">
+      <h1>One phone shot. <span class="grad">A multicam edit.</span></h1>
+      <p>Upload one selfie video. AI re-films it from new camera angles (same head moves, same lips) and cuts between them on your words, over your <b>real</b> audio.</p>
+    </section>
+    <ol class="how" aria-label="How it works">
+      <li><span class="how-n">1</span><span><b>Upload</b> a selfie video, up to 30 s</span></li>
+      <li><span class="how-n">2</span><span><b>AI re-films</b> it from 2 new angles</span></li>
+      <li><span class="how-n">3</span><span><b>Download</b> a multicam edit cut on your words</span></li>
+    </ol>
+  </div>
+
+  <div class="flow" id="flow">
+  <section class="card wizard" id="uploadCard">
+    <div class="mode-h"><h2>What do you want to make?</h2><span class="muted small">Pick one. The preview shows what you get.</span></div>
+    <div class="modes" id="mode" role="group" aria-label="Mode">
+      <button type="button" data-mode="talk" class="on" aria-pressed="true">
+        <span class="mt-media"><video src="/gallery/media/loop_talk.mp4" muted loop playsinline autoplay preload="metadata" aria-hidden="true"></video><span class="mt-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3z"/><path d="M19 11a7 7 0 0 1-14 0M12 18v3"/></svg></span></span>
+        <span class="mt-name">Talk</span>
+        <span class="mt-desc">You talking to camera → new angles, cut on your words</span>
+      </button>
+      <button type="button" data-mode="music" aria-pressed="false">
+        <span class="mt-media"><video src="/gallery/media/loop_music.mp4" muted loop playsinline autoplay preload="metadata" aria-hidden="true"></video><span class="mt-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg></span></span>
+        <span class="mt-name">Music <small>beta</small></span>
+        <span class="mt-desc">You singing or performing → cuts timed to the lyrics</span>
+      </button>
+      <button type="button" data-mode="scene" aria-pressed="false">
+        <span class="mt-media"><video src="/gallery/media/loop_scene.mp4" muted loop playsinline autoplay preload="metadata" aria-hidden="true"></video><span class="mt-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M2 20a6 6 0 0 1 12 0M14.5 20a4 4 0 0 1 7.5 0"/></svg></span></span>
+        <span class="mt-name">Scene <small>new</small></span>
+        <span class="mt-desc">Talk to your other self → a two-person scene</span>
+      </button>
+      <button type="button" data-mode="dub" aria-pressed="false">
+        <span class="mt-media"><video src="/gallery/media/loop_dub.mp4" muted loop playsinline autoplay preload="metadata" aria-hidden="true"></video><span class="mt-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h9M7.5 3v2M5 5c.5 4 3 7 6.5 8M10 5c-.5 4-3 7-6.5 8"/><path d="M13 21l4-9 4 9M14.4 18h5.2"/></svg></span></span>
+        <span class="mt-name">Dub <small>new</small></span>
+        <span class="mt-desc">Same take, another language → new lip motion + multicam</span>
+      </button>
+    </div>
+
+    <ol class="steps-flow">
+      <li class="step" id="step1" data-state="active">
+        <div class="step-h"><span class="step-n" aria-hidden="true"><i>1</i></span>
+          <div class="step-t"><h3>Upload or record your clip <span class="req">Required</span></h3>
+          <p class="step-sub" id="dropHint">A vertical selfie video, 10–60 s, you talking to camera (or performing).</p></div>
+          <span class="step-st" id="step1St"></span></div>
+        <div class="step-b">
+          <label class="drop" id="drop">
+            <input type="file" id="file" accept="video/*" hidden>
+            <div class="drop-in">
+              <div class="drop-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 16V4M6 10l6-6 6 6M4 20h16"/></svg></div>
+              <div><b>Drop your video here</b> or <u>browse</u><br><small>MP4 or MOV, vertical. Your own face, or someone who consented.</small></div>
+            </div>
+            <div class="drop-file" id="dropFile" hidden></div>
+          </label>
+          <div class="row gap wrap alt-src">
+            <label class="filebtn secondary camrec" id="camRec">📱 Record with camera<input type="file" id="fileCam" accept="video/*" capture="user" hidden></label>
+            <button type="button" class="secondary" id="sampleBtn">Try with sample clip</button>
+            <button type="button" class="ghost" id="exampleBtn">▶ See example result</button>
+          </div>
+          <label class="consent"><input type="checkbox" id="consent" required aria-required="true"><span>This is <b>my own face</b>, or I have the person's <b>explicit permission</b> to generate video of them. <span class="req">Required</span></span></label>
+        </div>
+      </li>
+
+      <li class="step" id="step2" data-state="locked">
+        <div class="step-h"><span class="step-n" aria-hidden="true"><i>2</i></span>
+          <div class="step-t"><h3>Choose options</h3><p class="step-sub" id="modeNote">Talk: nothing to set, the defaults work.</p></div>
+          <span class="step-st" id="step2St"></span></div>
+        <div class="step-b">
+          <div id="dubOpts" class="scene-opts" hidden>
+            <label class="field"><span class="field-l">Dub into <span class="req">Required</span></span><select id="dubLang"></select></label>
+            <p class="note">Speak English in your take. Your face and voice, new lip motion (LTX-2.3 LipDub), then a multicam edit.</p>
+          </div>
+          <div id="sceneOpts" class="scene-opts" hidden>
+            <div class="field"><span class="field-l">Who answers you? <span class="req">Required</span></span>
+            <div class="seg" id="scPartner">
+              <button type="button" data-p="clone" class="on">🪞 Your other self</button>
+              <button type="button" data-p="photo">🖼 Person from a photo</button>
+              <button type="button" data-p="character">✨ AI character</button>
+            </div></div>
+            <div id="scCloneBox" class="field"><span class="field-l">Other-self look</span>
+              <select id="scLook"></select><input id="scLookCustom" hidden placeholder="wardrobe; place and light, e.g. a red suit; a neon bar at night"></div>
+            <div id="scPhotoBox" class="field" hidden>
+              <span class="field-l">Partner photo <span class="req">Required</span></span>
+              <label class="filebtn secondary">Choose photo<input type="file" id="scPhoto" accept="image/*" hidden></label>
+              <label class="consent"><input type="checkbox" id="scPhotoConsent" required aria-required="true"><span><b>Only photos of people who consented.</b> I have this person's explicit permission to generate video of them speaking (or the image is AI-generated). <span class="req">Required</span></span></label>
+            </div>
+            <div id="scCharBox" class="field" hidden><span class="field-l">Describe the character</span><textarea id="scChar" rows="2" placeholder="a fictional podcast host in her 30s, dark curly hair, mustard sweater"></textarea></div>
+            <label class="field"><span class="field-l">Partner is a</span><select id="scPerson"><option value="man">man</option><option value="woman">woman</option><option value="person">person</option></select></label>
+          </div>
+          <details class="adv" id="advBox">
+            <summary>Advanced settings <span class="opt">Optional</span></summary>
+            <div class="adv-b">
+              <div id="scriptBox" class="field"><span class="field-l">Exact script <span class="opt">makes cuts word-perfect</span></span>
+                <textarea id="script" rows="3" placeholder="Paste what you say. Whisper timings get snapped to it."></textarea></div>
+              <div id="lyricsBox" class="field" hidden><span class="field-l">Lyrics with times <span class="opt">recommended for music</span></span>
+                <textarea id="lyrics" rows="3" placeholder="3.2-5.0=never gonna give you up&#10;9.1-11.0=never gonna let you down"></textarea></div>
+              <div id="scAdv" class="scene-opts" hidden>
+                <span id="scVoiceRow" class="field"><span class="field-l">Partner voice</span><select id="scVoice"></select></span>
+                <label class="field"><span class="field-l">You from behind <span class="opt">for over-the-shoulder shots</span></span><input id="scALook" placeholder="e.g. a bearded man with black headphones"></label>
+                <label class="consent"><input type="checkbox" id="scReshootA" checked><span>Re-shoot <b>my side angle</b> too (CrossView, matched eyeline; +1 job per answer)</span></label>
+              </div>
+            </div>
+          </details>
+        </div>
+      </li>
+
+      <li class="step" id="step3" data-state="locked">
+        <div class="step-h"><span class="step-n" aria-hidden="true"><i>3</i></span>
+          <div class="step-t"><h3>Generate</h3><p class="step-sub">First a <b>free</b> analysis (transcript + cut plan). You see the cameras and the exact cost before any credits are used.</p></div>
+          <span class="step-st" id="step3St"></span></div>
+        <div class="step-b">
+          <div id="keySlot"></div>
+          <div class="go">
+            <button class="primary wide" id="start" disabled>Analyze my clip — free</button>
+            <span class="runs" id="runsLeft" hidden></span>
+          </div>
+          <p class="why" id="startWhy" role="status"></p>
+        </div>
+      </li>
+    </ol>
   </section>
 
-  <section class="card" id="keyCard">
-    <div class="card-h">
-      <h2><span class="n">1</span>Comfy Cloud key</h2>
-      <span class="badge" id="keyBadge">not set</span>
+  <section class="card access" id="keyCard">
+    <div class="card-h"><h3 class="access-t">Pay for AI cameras with</h3><span class="badge" id="keyBadge">not set</span></div>
+    <div class="seg access-seg" id="access" role="radiogroup" aria-label="Payment">
+      <button type="button" data-a="free" role="radio">🎁 Free run <small id="accFreeN"></small></button>
+      <button type="button" data-a="key" role="radio">🔑 My Comfy key</button>
+      <button type="button" data-a="judge" role="radio">🎟 Judge code</button>
     </div>
-    <div class="row">
-      <input id="key" type="password" autocomplete="off" spellcheck="false" placeholder="comfyui-…  (platform.comfy.org → API keys)">
-      <button class="ghost" id="keyToggle" title="Show / hide">👁</button>
-      <button id="keyCheck">Check</button>
-    </div>
-    <details class="adv" id="judgeBox" hidden><summary>Have a judge code?</summary>
-      <div class="row"><input id="judge" type="password" autocomplete="off" spellcheck="false" placeholder="judge access code">
-      <button id="judgeCheck">Use code</button></div>
-      <p class="note small">Challenge judges got a private code that runs a few jobs on the maintainer's credits. Everyone else: paste your own key above.</p>
-    </details>
-    <p class="note" id="keyNote">🔒 Saved only in <b>this browser</b> (localStorage). It's sent per request to your local Multicam server, which forwards it to Comfy Cloud and <b>never stores or logs it</b>. Free steps (transcribe, plan, align, render, edit) don't need it. <a href="#" id="keyForget">Forget key</a></p>
-  </section>
-
-  <section class="card" id="uploadCard">
-    <div class="card-h"><h2><span class="n">2</span>Your take</h2></div>
-    <label class="drop" id="drop">
-      <input type="file" id="file" accept="video/*" hidden>
-      <div class="drop-in">
-        <div class="drop-ic">⬆</div>
-        <div><b>Drop a vertical selfie video</b><br><small id="dropHint">10–60 s, you talking to camera (or performing). Your own face, or someone who consented.</small></div>
+    <div class="acc-pane" id="accFree"><p class="note" id="accFreeNote">Nothing to paste. One free run per visitor: one video in any mode.</p></div>
+    <div class="acc-pane" id="accKey" hidden>
+      <div class="row">
+        <input id="key" type="password" autocomplete="off" spellcheck="false" placeholder="comfyui-…  (platform.comfy.org → API keys)" aria-label="Comfy Cloud API key">
+        <button type="button" class="ghost" id="keyToggle" title="Show / hide">👁</button>
+        <button type="button" class="secondary" id="keyCheck">Check</button>
       </div>
-      <div class="drop-file" id="dropFile" hidden></div>
-    </label>
-    <label class="filebtn camrec" id="camRec">📱 Record with the front camera<input type="file" id="fileCam" accept="video/*" capture="user" hidden></label>
-    <div class="seg" id="mode">
-      <button data-mode="talk" class="on">🎙 Talk <small>default</small></button>
-      <button data-mode="music">🎵 Music <small>beta</small></button>
-      <button data-mode="scene">🎭 Scene <small>new</small></button>
-      <button data-mode="dub">🌍 Dub <small>new</small></button>
+      <p class="note" id="keyNote">🔒 Saved only in <b>this browser</b> (localStorage). It's sent per request to your local Multicam server, which forwards it to Comfy Cloud and <b>never stores or logs it</b>. Free steps (transcribe, plan, align, render, edit) don't need it. <a href="#" id="keyForget">Forget key</a></p>
     </div>
-    <div id="dubOpts" class="scene-opts" hidden>
-      <p class="note">🌍 <b>Same take, another language.</b> Your face, your voice, new lip motion (LTX-2.3 LipDub IC-LoRA), then a multicam edit of the dubbed take. Open weights only. Speak English in the take.</p>
-      <div class="row gap wrap"><label class="muted small">Dub into</label><select id="dubLang"></select></div>
-    </div>
-    <div id="sceneOpts" class="scene-opts" hidden>
-      <p class="note">🎭 <b>Talk to your other self.</b> Your take becomes a two-person scene: you (real take + your side angle) and a partner who answers between your sentences, cut shot / reverse-shot.</p>
-      <div class="seg" id="scPartner">
-        <button data-p="clone" class="on">🪞 Your other self</button>
-        <button data-p="photo">🖼 Person from a photo</button>
-        <button data-p="character">✨ AI character</button>
-      </div>
-      <div id="scCloneBox" class="row gap wrap"><label class="muted small">Other-self look</label>
-        <select id="scLook"></select><input id="scLookCustom" hidden placeholder="wardrobe; place and light, e.g. a red suit; a neon bar at night"></div>
-      <div id="scPhotoBox" hidden>
-        <label class="filebtn">Partner photo<input type="file" id="scPhoto" accept="image/*" hidden></label>
-        <label class="consent"><input type="checkbox" id="scPhotoConsent"><span><b>Only photos of people who consented.</b> I have this person's explicit permission to generate video of them speaking (or the image is AI-generated).</span></label>
-      </div>
-      <div id="scCharBox" hidden><textarea id="scChar" rows="2" placeholder="a fictional podcast host in her 30s, dark curly hair, mustard sweater"></textarea></div>
-      <div class="row gap wrap">
-        <label class="muted small">Partner is a</label><select id="scPerson"><option value="man">man</option><option value="woman">woman</option><option value="person">person</option></select>
-        <span id="scVoiceRow"><label class="muted small">voice</label> <select id="scVoice"></select></span>
-      </div>
-      <input id="scALook" placeholder="you from behind, for over-the-shoulder shots, e.g. a bearded man with black headphones">
-      <label class="consent"><input type="checkbox" id="scReshootA" checked><span>Re-shoot <b>my side angle</b> too (CrossView, matched eyeline; +1 job per answer)</span></label>
-    </div>
-    <details class="adv" id="scriptBox">
-      <summary>Exact script (optional, makes cuts word-perfect)</summary>
-      <textarea id="script" rows="3" placeholder="Paste what you say. Whisper timings get snapped to it."></textarea>
-    </details>
-    <details class="adv" id="lyricsBox" hidden>
-      <summary>Lyrics with times (recommended for music)</summary>
-      <textarea id="lyrics" rows="3" placeholder="3.2-5.0=never gonna give you up&#10;9.1-11.0=never gonna let you down"></textarea>
-    </details>
-    <label class="consent"><input type="checkbox" id="consent"><span>This is <b>my own face</b>, or I have the person's <b>explicit permission</b> to generate video of them.</span></label>
-    <button class="primary wide" id="start" disabled>Analyze — free</button>
+    <div id="judgeBox" hidden><div class="acc-pane" id="accJudge" hidden>
+      <div class="row"><input id="judge" type="password" autocomplete="off" spellcheck="false" placeholder="judge access code" aria-label="Judge access code">
+      <button type="button" class="secondary" id="judgeCheck">Use code</button></div>
+      <p class="note small">Challenge judges got a private code that runs a few jobs on the maintainer's credits. Leave the key empty to use it.</p>
+    </div></div>
   </section>
 
   <section class="card" id="sceneCard" hidden>
     <div class="card-h"><h2><span class="n">🎭</span>Scene · talk to your other self</h2><span class="badge" id="scBusy"></span></div>
+    <div id="scResult" class="res" hidden>
+      <video id="scPlayer" controls playsinline preload="metadata"></video>
+      <div class="sc-edl" id="scEdl"></div>
+      <div class="res-actions"><a class="btn primary" id="scDownload" download>⬇ Download MP4</a><a class="btn ghost" id="scWf" hidden>⬇ ComfyUI workflow</a></div>
+      <label class="switch"><input type="checkbox" id="scLabels"><span></span>Speaker / camera labels</label>
+    </div>
     <div class="sc-grid">
       <div>
         <h3>Your sentences <small>B answers after the one you pick</small></h3>
@@ -111,19 +183,18 @@
       <div><h3>Partner shots <small>all look screen-right</small></h3><div id="scStills" class="sc-stills"></div></div>
     </div>
     <div class="estimate" id="scEst"></div>
-    <div class="row gap"><button class="primary" id="scGen">Generate scene</button><button class="ghost" id="scRender">Re-render — free</button></div>
+    <div class="row gap"><button class="primary" id="scGen">Generate scene</button><button class="secondary" id="scRender">Re-render — free</button></div>
     <pre class="sc-log" id="scLog"></pre>
     <div class="err" id="scErr" hidden></div>
-    <div id="scResult" hidden>
-      <div class="sc-edl" id="scEdl"></div>
-      <video id="scPlayer" controls playsinline preload="metadata"></video>
-      <div class="row gap"><label class="switch"><input type="checkbox" id="scLabels"><span></span>Speaker / camera labels</label>
-      <a class="btn" id="scDownload" download>⬇ Download</a><a class="btn ghost" id="scWf" hidden>⬇ ComfyUI workflow</a></div>
-    </div>
   </section>
 
   <section class="card" id="dubCard" hidden>
     <div class="card-h"><h2><span class="n">🌍</span>Dub · <span id="dbLangName">…</span></h2><span class="badge" id="dbBusy"></span></div>
+    <div id="dbResult" class="res" hidden>
+      <video id="dbPlayer" controls playsinline preload="metadata"></video>
+      <div class="res-actions"><a class="btn primary" id="dbDownload" download>⬇ Download MP4</a><a class="btn secondary" id="dbTake" download>Dubbed take only</a><a class="btn ghost" id="dbWf" hidden>⬇ ComfyUI workflow</a></div>
+      <label class="switch"><input type="checkbox" id="dbLabels"><span></span>Camera labels</label>
+    </div>
     <p class="note" id="dbWarn" hidden></p>
     <h3>Lines <small>one LipDub job per window; keep each about as long as the original</small></h3>
     <div id="dbLines" class="db-lines"></div>
@@ -132,11 +203,6 @@
     <button class="primary" id="dbGen">Dub + multicam</button>
     <pre class="sc-log" id="dbLog"></pre>
     <div class="err" id="dbErr" hidden></div>
-    <div id="dbResult" hidden>
-      <video id="dbPlayer" controls playsinline preload="metadata"></video>
-      <div class="row gap"><label class="switch"><input type="checkbox" id="dbLabels"><span></span>Camera labels</label>
-      <a class="btn" id="dbDownload" download>⬇ Download</a><a class="btn ghost" id="dbTake" download>Dubbed take only</a><a class="btn ghost" id="dbWf" hidden>⬇ ComfyUI workflow</a></div>
-    </div>
   </section>
 
   <section class="card" id="progressCard" hidden>
@@ -154,7 +220,7 @@
     <div class="estimate" id="estimate"></div>
     <div class="row gap">
       <button class="primary" id="generate">Generate</button>
-      <button class="ghost" id="renderFree">Render with what I have — free</button>
+      <button class="secondary" id="renderFree">Render with what I have — free</button>
     </div>
     <details class="adv">
       <summary>Bring your own stills / clips (manual ComfyUI mode)</summary>
@@ -174,14 +240,14 @@
     <div class="result">
       <div class="player">
         <video id="player" controls playsinline preload="metadata"></video>
+        <div class="res-actions">
+          <a class="btn primary" id="download" download>⬇ Download MP4</a>
+          <button class="btn secondary" id="shareBtn">↗ Share</button>
+          <a class="btn ghost" id="wfDownload" hidden>⬇ ComfyUI workflow</a>
+        </div>
         <div class="toggles">
           <label class="switch"><input type="checkbox" id="labels"><span></span>CAM labels</label>
           <label class="switch"><input type="checkbox" id="compare"><span></span>Original</label>
-        </div>
-        <div class="row gap">
-          <a class="btn" id="download" download>⬇ Download</a>
-          <button class="btn" id="shareBtn">↗ Share</button>
-          <a class="btn ghost" id="wfDownload" hidden>⬇ ComfyUI workflow</a>
         </div>
         <div class="share" id="share" hidden></div>
       </div>
@@ -191,7 +257,7 @@
         <div class="playhead-wrap"><div class="ruler" id="ruler"></div></div>
         <div class="shot-panel" id="shotPanel"><p class="muted">Pick a shot on the timeline to switch its camera, drop it, or re-roll it.</p></div>
         <div class="row gap">
-          <button class="primary" id="rerender" disabled>Re-render — free</button>
+          <button class="secondary" id="rerender" disabled>Re-render — free</button>
           <span class="muted small" id="editInfo"></span>
         </div>
       </div>
@@ -202,10 +268,23 @@
     <div class="card-h"><h2>Recent projects</h2></div>
     <div class="recent" id="recent"></div>
   </section>
+  </div>
+
+  <aside class="stage" id="stage" aria-label="Preview">
+    <div class="stage-card">
+      <div class="stage-h">
+        <span class="stage-tag" id="stageTag">Example output · Talk</span>
+        <div class="stage-tabs" id="stageTabs" hidden><button type="button" data-v="mine">Your clip</button><button type="button" data-v="ex" class="on">Example</button></div>
+      </div>
+      <div class="stage-frame" id="stageFrame"><video id="stageVideo" muted loop playsinline autoplay preload="metadata"></video></div>
+      <p class="stage-cap" id="stageCap"></p>
+      <button type="button" class="secondary wide" id="stagePlay">▶ Play the full example with sound</button>
+    </div>
+  </aside>
 </main>
 
 <footer class="foot">
-  MIT · built on ComfyUI, LTX-2.3 (CrossView IC-LoRA re-shoot, ID LoRA) & Qwen-Image-Edit · #OpenSourceHiggsfield<br>
+  MIT · built on ComfyUI, LTX-2.3 (CrossView IC-LoRA re-shoot, ID LoRA) & Qwen-Image-Edit · whisper word cuts · real audio locked in · open weights · #OpenSourceHiggsfield<br>
   <small>Only use your own face, or someone's who explicitly agreed. Generated cameras are labeled "AI" in the labeled export.</small>
 </footer>
 <div class="toast" id="toast"></div>
@@ -219,5 +298,6 @@
 <script src="app.js"></script>
 <script src="scene.js"></script>
 <script src="dub.js"></script>
+<script src="ux.js"></script>
 </body>
 </html>

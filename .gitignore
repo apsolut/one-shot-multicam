@@ -35,3 +35,5 @@ dist/
 !multicam/web/apple-touch-icon.png
 !docs/assets/favicon-32.png
 !docs/assets/apple-touch-icon.png
+# prototype screenshots (small, 390 px wide)
+!docs/prototypes/*/img/*.png

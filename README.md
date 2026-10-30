@@ -21,10 +21,10 @@ and faster-whisper for the word cuts. MIT licensed.
 
 <table><tr>
 <td width="50%"><img src="docs/img/app-result-timeline.jpg" alt="Result player and cut-list editor: click a shot to switch camera, drop it, or re-roll it"></td>
-<td width="50%"><img src="docs/img/app-angles-cost.jpg" alt="8 angle stills from one Qwen job, per-camera pick, and the cost estimate before you confirm"></td>
+<td width="50%"><img src="docs/img/app-angles-cost.jpg" alt="Cameras and cost: Re-shoot engine, an angle per camera from 8 presets, and the cost estimate before you confirm"></td>
 </tr><tr>
 <td><sub>Result + cut-list editor: click a shot to switch B/C, drop it, or re-roll just that insert. Re-render is free.</sub></td>
-<td><sub>8 angle stills from one Qwen job, a pick per camera, and the cost estimate you confirm before anything is spent.</sub></td>
+<td><sub>Pick an angle per camera from 8 presets (Re-shoot engine), then confirm the cost estimate before anything is spent.</sub></td>
 </tr></table>
 
 ## v0.2: the re-shoot engine (default)

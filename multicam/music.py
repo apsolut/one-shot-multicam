@@ -5,6 +5,9 @@
   real face is turned away or covered; inserts are placed there when possible
 * lyrics are given by the user (`--lyric 8.0=Cause I work`), because Whisper hallucinates on
   music; inserts with lyric words can be word-aligned, everything else is onset/beat aligned.
+* same continuity rule as Talk (no wides over speech): a wide angle (CAM C "wide" by default) is never put
+  over a sung span. Sung spans are the lyric lines when lyrics are given; without lyrics we can't tell singing
+  from the backing track, so every audible stretch counts as sung and wides only land in silent gaps.
 """
 from __future__ import annotations
 
@@ -13,6 +16,7 @@ from pathlib import Path
 
 import numpy as np
 
+from .continuity import MIN_SPEECH_OVERLAP, is_wide, speaking
 from .plan import ANGLE_NAMES, assign_angles, resolve_pins
 from .transcribe import decode_audio
 from .util import probe, qt, save_json
@@ -32,6 +36,9 @@ class MusicParams:
     lyric_word_dur: float = 0.3
     face_fps: float = 8.0
     angles: list = field(default_factory=lambda: ["B", "C"])
+    silent_only: list | None = None   # wide cams: only over instrumental / silent gaps (None = angles named "wide")
+    sound_db: float = -35.0   # no lyrics: audio louder than peak + this (dB) counts as possibly sung
+    sound_gap: float = 0.3    # ...and quieter gaps shorter than this are bridged
 
 
 def beat_times(video, sr: int = 22050) -> tuple[float, np.ndarray]:
@@ -74,6 +81,36 @@ def face_visibility(video, step_fps: float = 8.0) -> list[tuple[float, float]]:
             out.append((i / fps, 1.0 if len(faces) else 0.0))
         i += 1
     return out
+
+
+def sound_spans(video, P: "MusicParams", sr: int = 16000, hop: float = 0.05) -> list[list[float]]:
+    """Audible stretches [[t0, t1], ...]: the conservative vocal-activity stand-in when no lyrics are given."""
+    y = decode_audio(video, sr)
+    n = int(sr * hop)
+    if len(y) < n:
+        return []
+    fr = y[: len(y) // n * n].reshape(-1, n)
+    db = 20 * np.log10(np.sqrt((fr.astype(np.float64) ** 2).mean(axis=1)) + 1e-9)
+    thr = max(db.max() + P.sound_db, -50.0)
+    spans: list[list[float]] = []
+    for k, on in enumerate(db > thr):
+        if not on:
+            continue
+        t0, t1 = k * hop, (k + 1) * hop
+        if spans and t0 - spans[-1][1] < P.sound_gap:
+            spans[-1][1] = t1
+        else:
+            spans.append([t0, t1])
+    return [[round(a, 3), round(b, 3)] for a, b in spans]
+
+
+def lyric_spans(words: list[dict]) -> list[list[float]]:
+    """One [start, end] per lyric line (phrase): the whole line counts as sung, pauses inside it included."""
+    out: dict[int, list[float]] = {}
+    for w in words:
+        sp = out.setdefault(w["phrase"], [w["start"], w["end"]])
+        sp[0], sp[1] = min(sp[0], w["start"]), max(sp[1], w["end"])
+    return sorted(out.values())
 
 
 def parse_time(t: str) -> float:
@@ -166,6 +203,13 @@ def build_music_plan(video, P: MusicParams, lyrics=None, pins=None, angle_names=
     bad_lyrics: list[str] = []
     words = lyric_words(lyrics, P.lyric_word_dur, bad=bad_lyrics)
     notes = []
+    names = dict(ANGLE_NAMES, **(angle_names or {}))
+    wides = list(P.silent_only) if P.silent_only is not None else [c for c in P.angles if is_wide(names.get(c))]
+    if words:
+        vocal, vocal_source = lyric_spans(words), "lyrics"
+    else:
+        vocal, vocal_source = sound_spans(video, P), "audio level (no lyrics)"
+    vocal_words = [{"start": a, "end": b} for a, b in vocal]
 
     def visibility(s, e):
         if not len(vt):
@@ -213,11 +257,12 @@ def build_music_plan(video, P: MusicParams, lyrics=None, pins=None, angle_names=
         chunks.append({"id": cid, "start": round(ws, 3), "end": round(we, 3), "words": " ".join(w["text"] for w in cw),
                        "lyrics": bool(cw), "w0": cw[0]["i"] if cw else None, "w1": cw[-1]["i"] if cw else None,
                        "angle": None, "generate": True})
-        inserts.append({"chunk": cid, "start": qt(s, fps), "end": qt(e, fps), "words": " ".join(iw),
+        qs, qe = qt(s, fps), qt(e, fps)
+        inserts.append({"chunk": cid, "start": qs, "end": qe, "words": " ".join(iw),
+                        "voiced": speaking(vocal_words, qs, qe, MIN_SPEECH_OVERLAP),
                         "weak_face": round(weak, 2), "enter": "beat", "exit": "beat"})
     pin_map = resolve_pins(pins, chunks)
-    assign_angles(inserts, P.angles, pin_map)
-    names = dict(ANGLE_NAMES, **(angle_names or {}))
+    assign_angles(inserts, P.angles, pin_map, silent_only=wides)
     for ins, ch in zip(inserts, chunks):
         ch["angle"] = ins["angle"]
     shots, t = [], 0.0
@@ -226,7 +271,7 @@ def build_music_plan(video, P: MusicParams, lyrics=None, pins=None, angle_names=
             shots.append({"cam": "A", "start": t, "end": ins["start"]})
         shots.append({"cam": ins["angle"], "start": ins["start"], "end": ins["end"], "chunk": ins["chunk"],
                       "offset": 0.0, "words": ins["words"], "enter": "beat", "exit": "beat",
-                      "weak_face": ins["weak_face"]})
+                      "weak_face": ins["weak_face"], "voiced": ins["voiced"]})
         t = ins["end"]
     if t < qt(dur, fps):
         shots.append({"cam": "A", "start": t, "end": qt(dur, fps)})
@@ -237,7 +282,8 @@ def build_music_plan(video, P: MusicParams, lyrics=None, pins=None, angle_names=
         s.setdefault("words", "")
     plan = {"mode": "music", "source": video, "duration": dur, "fps": fps, "tempo": round(tempo, 2),
             "beats": [round(float(b), 3) for b in beats], "beat_source": beat_source,
-            "note": " ".join(notes), "params": asdict(P), "pins": pin_map, "angle_names": names,
+            "note": " ".join(notes), "params": {**asdict(P), "silent_only": wides}, "pins": pin_map,
+            "angle_names": names, "vocal_spans": vocal, "vocal_source": vocal_source,
             "face_visibility": [[round(t, 3), v] for t, v in vis],
             "chunks": chunks, "shots": shots, "cuts": [s["start"] for s in shots[1:]]}
     transcript = {"source": video, "duration": dur, "fps": fps, "mode": "music", "model": "lyrics (user-supplied)",

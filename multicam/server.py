@@ -132,7 +132,8 @@ class App:
                  ttl_minutes: float | None = None, ip_jobs_per_day: int | None = None,
                  ip_projects_per_hour: int | None = None, proxy_hops: int = 0, hosted_floor_usd: float | None = None,
                  engine: str = "reshoot", public: bool = False, hosted_access: str = "open",
-                 judge_max_jobs: int = 10, trial_runs: int = 0, trial_jobs_per_run: int = 10):
+                 judge_max_jobs: int = 10, trial_runs: int = 0, trial_jobs_per_run: int = 10,
+                 trial_runs_per_visitor: int = 1):
         """Hosted (public) mode = hosted_key_env is set AND that env var holds a key. Its guards:
         max_jobs (global, persisted), ip_jobs_per_day / ip_projects_per_hour (per client IP, persisted),
         max_upload_s / max_upload_mb, ttl_minutes (projects auto-deleted), no project listing."""
@@ -148,9 +149,11 @@ class App:
         self.hosted_access = hosted_access if hosted_access in ("open", "judge") else "judge"
         self.judge_max_jobs = judge_max_jobs
         # free trial runs on the operator key: a global pool (MULTICAM_HOSTED_RUNS, raise it to top up; the
-        # used count lives in hosted_jobs.json on the data volume), one run per visitor (hashed IP + cookie),
-        # one run = one project in any mode, capped at trial_jobs_per_run Comfy jobs. Balance floor still applies.
+        # used count lives in hosted_jobs.json on the data volume), up to trial_runs_per_visitor runs per visitor
+        # (MULTICAM_TRIAL_RUNS_PER_VISITOR, default 1; hashed IP + cookie), one run = one project in any mode,
+        # capped at trial_jobs_per_run Comfy jobs. Balance floor still applies.
         self.trial_runs = max(0, int(trial_runs or 0))
+        self.trial_runs_per_visitor = max(1, int(trial_runs_per_visitor or 1))
         self.trial_jobs_per_run = max(1, int(trial_jobs_per_run or 10))
         self.public_site = bool(public or hosted_key_env)  # public-site guards (no listing, TTL, rate limits)
         self.engine = engine if engine in ENGINES else "reshoot"  # default for new projects
@@ -267,13 +270,41 @@ class App:
             t.setdefault(k, v)
         return t
 
+    @staticmethod
+    def _runs_of(v) -> list[str]:
+        """Ledger value of t["ips"] / t["cookies"]: a project key (old one-run-per-visitor format) or a list."""
+        if not v:
+            return []
+        return [v] if isinstance(v, str) else [x for x in v if isinstance(x, str)]
+
+    def _visitor_runs(self, t: dict, ipk: str | None, ck: str | None) -> list[str]:
+        """Distinct runs (project keys) of this visitor: the IP hash and the cookie both count (union)."""
+        out = []
+        for m, k in ((t["ips"], ipk), (t["cookies"], ck)):
+            for pk in self._runs_of(m.get(k)) if k else []:
+                if pk not in out:
+                    out.append(pk)
+        return out
+
+    @staticmethod
+    def _add_run(m: dict, k: str, pkey: str):
+        runs = App._runs_of(m.get(k))
+        if pkey not in runs:
+            runs.append(pkey)
+        m[k] = runs[0] if len(runs) == 1 else runs  # one run stays a plain string (old format)
+
     def trial_status(self, ip: str, cookie: str | None) -> dict | None:
+        """runs_left: global pool. runs_left_for_you: new runs this visitor may still start (min of the per-visitor
+        allowance and the pool). used_by_you: this visitor has used all of theirs (can still finish those runs)."""
         if not self.trial_enabled:
             return None
         t = self._trial(self._ledger())
-        mine = t["ips"].get(self._ip_id(ip)) or t["cookies"].get(self._cookie_id(cookie) or "-")
-        return {"runs_total": self.trial_runs, "runs_left": max(0, self.trial_runs - int(t["used"])),
-                "used_by_you": bool(mine), "jobs_per_run": self.trial_jobs_per_run}
+        mine = len(self._visitor_runs(t, self._ip_id(ip), self._cookie_id(cookie)))
+        pool = max(0, self.trial_runs - int(t["used"]))
+        n = self.trial_runs_per_visitor
+        return {"runs_total": self.trial_runs, "runs_left": pool,
+                "used_by_you": mine >= n, "runs_used_by_you": mine, "runs_per_visitor": n,
+                "runs_left_for_you": min(pool, max(0, n - mine)), "jobs_per_run": self.trial_jobs_per_run}
 
     def _floor_ok(self, n: int) -> bool:
         if self.hosted_floor_usd is None:
@@ -293,9 +324,11 @@ class App:
             d = self._ledger()
             t = self._trial(d)
             ipk, ck = self._ip_id(ip), self._cookie_id(cookie)
-            owner = t["ips"].get(ipk) or (t["cookies"].get(ck) if ck else None)
-            if owner and owner != pkey:
-                raise PermissionError("you've used your free run (one per visitor). Paste your own Comfy Cloud key "
+            runs, n_max = self._visitor_runs(t, ipk, ck), self.trial_runs_per_visitor
+            if pkey not in runs and len(runs) >= n_max:
+                what = ("your free run (one per visitor)" if n_max == 1
+                        else f"your {n_max} free runs ({n_max} per visitor)")
+                raise PermissionError(f"you've used {what}. Paste your own Comfy Cloud key "
                                       "to keep going (platform.comfy.org → API keys), or use a promo code")
             if pkey not in t["jobs"] and int(t["used"]) >= self.trial_runs:
                 raise PermissionError(f"all {self.trial_runs} free runs are used up. Paste your own Comfy Cloud key "
@@ -309,9 +342,9 @@ class App:
             if pkey not in t["jobs"]:
                 t["used"] = int(t["used"]) + 1
             t["jobs"][pkey] = used + n
-            t["ips"][ipk] = pkey
+            self._add_run(t["ips"], ipk, pkey)
             if ck:
-                t["cookies"][ck] = pkey
+                self._add_run(t["cookies"], ck, pkey)
             save_json(d, self.counter_file)
 
     def refund_trial(self, n: int, pkey: str):
@@ -330,8 +363,12 @@ class App:
                 del t["jobs"][pkey]
                 t["used"] = max(0, int(t["used"]) - 1)
                 for m in (t["ips"], t["cookies"]):
-                    for k in [k for k, v in m.items() if v == pkey]:
-                        del m[k]
+                    for k in [k for k, v in m.items() if pkey in self._runs_of(v)]:
+                        rest = [x for x in self._runs_of(m[k]) if x != pkey]
+                        if rest:
+                            m[k] = rest[0] if len(rest) == 1 else rest
+                        else:
+                            del m[k]
             save_json(d, self.counter_file)
 
     def judge_ok(self, code: str | None) -> bool:
@@ -1117,7 +1154,7 @@ def create_app(app_state: App):
 
     @api.middleware("http")
     async def visitor_cookie(request: Request, call_next):
-        """Free-trial visitors get a random first-party cookie (one free run per visitor = IP + cookie)."""
+        """Free-trial visitors get a random first-party cookie (free runs per visitor are counted by IP + cookie)."""
         resp = await call_next(request)
         if A.trial_enabled and not request.cookies.get(VISITOR_COOKIE):
             import secrets as _secrets

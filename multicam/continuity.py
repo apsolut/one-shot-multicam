@@ -67,12 +67,15 @@ def guard_shots(plan: dict, clips: dict, words: list[dict], video: str | None = 
     """-> (plan copy with unsafe inserts replaced, report). clips = assemble.load_clips() output."""
     plan = copy.deepcopy(plan)
     wides = wide_cams(plan, silent_only)
+    # Music: sung spans (lyric lines, or audible stretches when no lyrics) are speech for the wide rule only;
+    # the mouth check still needs real words (a dance clip with no lyrics doesn't have to show singing)
+    sung = [{"start": a, "end": b} for a, b in plan.get("vocal_spans") or []]
     report = []
 
     def safe(cam: str, c: dict, t0: float, t1: float, offset: float = 0.0) -> tuple[bool, str]:
         if cam in wides or is_wide(c.get("preset")):
-            return False, "wide over speech"
-        if not check:
+            return False, "wide over speech" if speaking(words, t0, t1) else "wide over singing"
+        if not check or not speaking(words, t0, t1):
             return True, "ok"
         c0 = t0 - c["src_start"] + offset
         return lip_ok(c["path"], c0, c0 + (t1 - t0), video, t0)
@@ -81,8 +84,8 @@ def guard_shots(plan: dict, clips: dict, words: list[dict], video: str | None = 
         if s["cam"] == "A" or not s.get("chunk"):
             continue
         t0, t1 = s["start"], s["end"]
-        if not speaking(words, t0, t1):
-            continue  # silence / listening: any angle is fine, wides included
+        if not (speaking(words, t0, t1) or speaking(sung, t0, t1)):
+            continue  # silence / listening / instrumental: any angle is fine, wides included
         c = clips.get(s["chunk"])
         if not c:
             continue  # assemble falls back to A on its own

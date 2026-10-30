@@ -152,14 +152,17 @@ def pick_inserts(tr: dict, chunks: list[dict], P: PlanParams) -> list[dict]:
 def assign_angles(inserts: list[dict], angles: list[str], pins: dict[str, str],
                   silent_only: list[str] | tuple = ()) -> None:
     """Viterbi: minimize same-angle repeats between consecutive inserts, honoring pins.
-    Inserts that cover words never get a `silent_only` angle (a pin to one is ignored with a warning)."""
+    Inserts that cover words (or are marked `voiced`: Music inserts over a sung span) never get a `silent_only`
+    angle (a pin to one is ignored with a warning)."""
     if not inserts:
         return
     speech_ok = [a for a in angles if a not in silent_only]
+    def voiced(ins):
+        return bool(ins.get("words") or ins.get("voiced"))
     for ins in inserts:
-        if ins.get("words") and ins["chunk"] in pins and pins[ins["chunk"]] in silent_only:
+        if voiced(ins) and ins["chunk"] in pins and pins[ins["chunk"]] in silent_only:
             print(f"warn: pin {ins['chunk']}={pins[ins['chunk']]} ignored: a wide can't go over speech "
-                  f"(\"{ins['words']}\")")
+                  f"(\"{ins.get('words') or 'singing'}\")")
             pins = {k: v for k, v in pins.items() if k != ins["chunk"]}
     if not speech_ok:
         speech_ok = angles
@@ -168,7 +171,7 @@ def assign_angles(inserts: list[dict], angles: list[str], pins: dict[str, str],
     cost = [{a: INF for a in angles} for _ in range(n)]
     back = [{a: None for a in angles} for _ in range(n)]
     for k, ins in enumerate(inserts):
-        allowed = [pins[ins["chunk"]]] if ins["chunk"] in pins else (speech_ok if ins.get("words") else angles)
+        allowed = [pins[ins["chunk"]]] if ins["chunk"] in pins else (speech_ok if voiced(ins) else angles)
         for a in allowed:
             if k == 0:
                 cost[0][a] = angles.index(a) * 0.01 if a in angles else 0.0

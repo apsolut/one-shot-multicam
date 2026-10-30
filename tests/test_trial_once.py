@@ -39,7 +39,8 @@ def test_second_generate_and_retry_count_once(tmp_path, A):
     paid_action(A, p, 1, lambda: sub(1))          # re-roll / second Generate in the same project
     paid_action(A, p, 1, lambda: None)            # a retry whose job never reached Comfy (refunded)
     assert used(A) == 1
-    assert A.trial_status("7.7.7.7", "vid1") == {"runs_total": 6, "runs_left": 5, "used_by_you": True, "jobs_per_run": 10}
+    assert A.trial_status("7.7.7.7", "vid1") == {"runs_total": 6, "runs_left": 5, "used_by_you": True, "runs_used_by_you": 1,
+                                                       "runs_per_visitor": 1, "runs_left_for_you": 0, "jobs_per_run": 10}
 
 
 def test_failed_first_try_then_retry_counts_once(tmp_path, A):

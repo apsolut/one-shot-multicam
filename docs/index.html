@@ -131,11 +131,12 @@ window.MCSubpage ? MCSubpage.mount(document.getElementById("hdr"), "gallery", "G
 document.querySelectorAll('a[data-home]').forEach(a => a.href = HOME);
 const G = window.MULTICAM_GALLERY || {items: []};
 document.getElementById("repo2").href = G.repo;
-// the grid: one card per example (Talk items from config.js + the Scene and Dub examples)
+// the grid: one card per example (Talk items from config.js + the Scene, Dub and Music examples)
 const EXTRA = [
   {id: "scene", mode: "Scene", badge: "new", title: "Talk to your other self", line: "One take becomes a two-person scene", thumb: "media/th_scene.jpg", video: "media/ex_scene.mp4"},
   {id: "dub", mode: "Dub", badge: "new", title: "Same take, three languages", line: "German, Spanish and Croatian, new lip motion", thumb: "media/th_dub.jpg", video: "media/ex_dub.mp4", wide: true, cap: "4 languages · side by side",
    more: {video: "media/ex_dub_de.mp4", poster: "media/poster_dub_de.jpg", cap: "German · full multicam cut (newest)"}},
+  {id: "music", mode: "Music", badge: "beta", title: "Sung, cut on the beat", line: "AI-generated base performance, Multicam re-shoot angle", cap: "Camera A, the base performance, was AI-generated: it is not a real phone take. Camera B is a Multicam re-shoot of it. Cut on the beat, no wide over the singing.", thumb: "media/poster_music_th.jpg", video: "media/ex_music.mp4", poster: "media/poster_music.jpg"},
 ];
 const cards = [...G.items.map((it, k) => ({id: "item-" + k, mode: "Talk", title: it.title.replace(/ · “.*$/, ""), line: k ? "Animated stills, 4 AI inserts" : "Re-shoot engine, 4 AI inserts", thumb: k ? "media/th_music.jpg" : "media/th_talk.jpg"})), ...EXTRA];
 const grid = document.getElementById("grid");
@@ -155,7 +156,7 @@ document.getElementById("items").innerHTML = G.items.map((it, k) => `<section cl
   <div class="meta">${it.cost}. Grey = real camera.</div>
   ${it.compare ? `<details><summary>v0.1 animated stills (left) vs v0.2 re-shoot (right)</summary>${vid(it.compare)}</details>` : ""}
   ${it.sync ? `<details><summary>Lip-sync check: real (left) vs aligned AI insert (right)</summary>${vid(it.sync)}</details>` : ""}
-  </section>`).join("") + EXTRA.map(x => `<section class="g-sec" id="${x.id}"><h2>${x.mode} · ${x.title}</h2><p class="sub">${x.line}.</p><div class="one ${x.wide ? "wide" : ""}">${x.more ? `<figure><figcaption>${x.cap}</figcaption>${vid(x.video, x.thumb)}</figure>` : vid(x.video, x.thumb)}</div>
+  </section>`).join("") + EXTRA.map(x => `<section class="g-sec" id="${x.id}"><h2>${x.mode} · ${x.title}</h2><p class="sub">${x.line}.</p><div class="one ${x.wide ? "wide" : ""}">${x.more || x.cap ? `<figure><figcaption>${x.cap}</figcaption>${vid(x.video, x.poster || x.thumb)}</figure>` : vid(x.video, x.poster || x.thumb)}</div>
   ${x.more ? `<div class="one more"><figure><figcaption>${x.more.cap}</figcaption>${vid(x.more.video, x.more.poster)}</figure></div>` : ""}</section>`).join("");
 document.querySelectorAll(".item[data-k]").forEach(el => {
   const it = G.items[+el.dataset.k], [a, b] = el.querySelectorAll(".ba video"), ph = el.querySelector(".ph"), D = it.cuts[it.cuts.length - 1][2];

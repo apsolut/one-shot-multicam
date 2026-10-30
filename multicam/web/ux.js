@@ -7,8 +7,8 @@
     // clean (unlabeled) exports; camera names are UI chips under the player, not burned-in text
     talk: {loop: "ex_talk.mp4", full: "ex_talk.mp4", wide: false, chips: [["A", "Real take"], ["B", "AI · side"], ["C", "AI · wide"]],
       cap: "Camera A is your real take. B and C are AI re-shoots of the same moment."},
-    music: {loop: "ex_talk.mp4", full: "ex_talk.mp4", wide: false, chips: [["A", "Real take"], ["B", "AI · side"], ["C", "AI · wide"]],
-      cap: "Example from Talk mode. Music uses the same AI cameras, cut on the beat of your song. A Music sample is coming."},
+    music: {loop: "ex_music.mp4", full: "ex_music.mp4", wide: false, chips: [["A", "AI base"], ["B", "AI · side"]],
+      cap: "The base performance (camera A) was AI-generated, not a real phone take. B is a Multicam re-shoot of it, cut on the beat."},
     scene: {loop: "ex_scene.mp4", full: "ex_scene.mp4", wide: false, chips: [["A", "Real take"], ["A", "AI · side"], ["B", "AI · single"], ["B", "AI · over the shoulder"]],
       cap: "One take becomes a two-person scene: you, and your other self answering."},
     dub: {loop: "ex_dub.mp4", full: "ex_dub.mp4", wide: true, chips: [["EN", "Original"], ["DE", "Dubbed"], ["ES", "Dubbed"], ["HR", "Experimental"]],
@@ -157,6 +157,7 @@
     const m = payMode();
     if (m === "key") txt = key() ? "Your key" : "Add a key";
     else if (m === "judge") txt = judge() ? `Promo code${judgeLeft != null ? ` · ${judgeLeft}` : ""}` : "Enter promo code";
+    else if (t && trialPer() > 1) txt = t.used_by_you ? `Free runs · ${trialPer()}/${trialPer()} used` : trialMine() > 0 ? `Free runs · ${trialMine()}/${trialPer()} left` : trialUsed() ? "Free run · yours" : "Add a key";
     else if (t) txt = t.used_by_you ? "Free run · yours" : t.runs_left > 0 ? `Free run · ${t.runs_left}/${t.runs_total}` : "Add a key";
     else { const l = cfg.hosted_jobs_left ?? 0; txt = l > 0 ? `Demo · ${l} jobs` : "Add a key"; }
     pill.dataset.pay = m;
@@ -208,11 +209,12 @@
     $('#access [data-a="free"]').hidden = !hasFree;
     $('#access [data-a="judge"]').hidden = !cfg.judge_code;
     $("#access").style.setProperty("--n", 1 + hasFree + !!cfg.judge_code);
-    $("#accFreeN").textContent = t ? `${t.used_by_you ? "in use" : `${t.runs_left} of ${t.runs_total} left`}` : cfg.hosted ? `${cfg.hosted_jobs_left ?? "∞"} jobs left` : "";
+    $("#accFreeN").textContent = t ? (trialPer() > 1 ? (t.used_by_you ? "all used" : `${trialMine()} of ${trialPer()} yours`) : `${t.used_by_you ? "in use" : `${t.runs_left} of ${t.runs_total} left`}`) : cfg.hosted ? `${cfg.hosted_jobs_left ?? "∞"} jobs left` : "";
     $('#access [data-a="free"]').disabled = hasFree && !freeOk();
     $("#accFreeNote").innerHTML = key()
       ? `Free run selected: your saved key stays in this browser and will <b>not</b> be charged. Pick “My Comfy key” to pay with it again.`
-      : t ? `Nothing to paste. One free run per visitor: one video in any mode, up to ${t.jobs_per_run} Comfy jobs.`
+      : t ? (trialPer() > 1 ? `Nothing to paste. Up to ${trialPer()} free runs per visitor (${trialMine()} left for you): each is one video in any mode, up to ${t.jobs_per_run} Comfy jobs.`
+               : `Nothing to paste. One free run per visitor: one video in any mode, up to ${t.jobs_per_run} Comfy jobs.`)
         : "Nothing to paste: uses the capped public demo credits.";
     // the switch always shows the mode that will be charged, unless a prompt just opened another pane
     if (!$("#paySheet").contains(document.activeElement) || access === null) setAccess(payMode());
@@ -222,7 +224,7 @@
     const m = payMode();
     if (m === "key") r.textContent = key() ? "Pays with your key" : "Add your key to generate";
     else if (m === "judge") r.textContent = judge() ? `Pays with promo code${judgeLeft != null ? ` · ${judgeLeft} jobs left` : ""}` : "Enter your promo code";
-    else if (t) r.textContent = t.used_by_you ? "Pays with your free run" : `Free run · ${t.runs_left} of ${t.runs_total} left`;
+    else if (t) r.textContent = t.used_by_you ? "Pays with your free run" : trialPer() > 1 ? `Free run · ${trialMine()} of ${trialPer()} left for you` : `Free run · ${t.runs_left} of ${t.runs_total} left`;
     else if (cfg.hosted) r.textContent = `Demo credits · ${cfg.hosted_jobs_left ?? "∞"} jobs left`;
     else r.hidden = true;
     r.classList.toggle("out", !canPay());

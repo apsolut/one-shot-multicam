@@ -86,6 +86,14 @@ def pullback_filter(n_frames: int, zoom: float = 1.14) -> str:
             f"x2='{lo_x}':y2='{hi_y}':x3='{hi_x}':y3='{hi_y}':interpolation=cubic:eval=frame")
 
 
+def cam_tag(cam: str, name: str, generated: bool, a_label: str = "real") -> str:
+    """Burned-in camera label. a_label names CAM A: "real" for a phone take, "(AI base)" when the base
+    performance itself was AI-generated (then it reads "CAM A (AI base)", never "real")."""
+    if generated:
+        return f"CAM {cam}  {name} (AI)"
+    return f"CAM {cam} {a_label}" if a_label.startswith("(") else f"CAM {cam}  {a_label}"
+
+
 def resolve_shots(plan: dict, clips: dict, fps: float) -> list[dict]:
     """Attach clips to inserts; fall back to A when a clip is missing or doesn't cover the shot."""
     out = []
@@ -243,7 +251,7 @@ def assemble(plan: dict, out: str | Path, clips_json=None, clips_dir=None, video
         chain += f",setsar=1,format=yuv420p,tpad=stop_mode=clone:stop={n},trim=end_frame={n},setpts=PTS-STARTPTS"
         if labels and font:
             name = s.get("label_name") or plan.get("angle_names", {}).get(s["cam"], "")
-            tag = f"CAM {s['cam']}" + (f"  {name} (AI)" if s["src"] == "generated" else f"  {a_label}")
+            tag = cam_tag(s["cam"], name, s["src"] == "generated", a_label)
             fs = max(24, int(height * 56 / 1920))
             chain += (f",drawtext=fontfile='{font}':text='{tag}':x={fs}:y={int(fs * 1.7)}:fontsize={fs}:fontcolor=white:"
                       f"box=1:boxcolor=black@0.55:boxborderw={fs // 3}")

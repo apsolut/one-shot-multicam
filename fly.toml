@@ -19,10 +19,11 @@ primary_region = "fra"
   # more promo codes: secret MULTICAM_PROMO_CODES = "CODE:LIMIT,CODE:LIMIT" (per-code counters, hashed, in
   # /data/hosted_jobs.json "promo_jobs"; remove a code from the secret to revoke it). The floor below still applies.
   MULTICAM_MAX_JOBS = "0"              # no open free quota (free use = the trial runs below)
-  MULTICAM_HOSTED_RUNS = "11"          # free trial runs on the hosted key, 1 per visitor; topped up 6 -> 11 on 2026-10-28 (used count: /data/hosted_jobs.json)
+  MULTICAM_HOSTED_RUNS = "30"          # free trial runs on the hosted key in total (used count: /data/hosted_jobs.json)
+  MULTICAM_TRIAL_RUNS_PER_VISITOR = "4" # free runs one visitor may start
   MULTICAM_TRIAL_JOBS_PER_RUN = "10"   # Comfy jobs one free run may use
   MULTICAM_PROXY_HOPS = "1"            # Fly's edge proxy appends the client IP to X-Forwarded-For
-  MULTICAM_HOSTED_FLOOR_USD = "24.65"  # hard stop: lowered 28.15 -> 24.65 on 2026-10-28 with the 11-run top-up (~$6.35 free budget above the floor at the $31.00 balance)
+  MULTICAM_HOSTED_FLOOR_USD = "16.65"  # hard stop: lowered 24.65 -> 16.65 on 2026-10-30 for judging (~$9 free budget at the $25.77 balance); also set as a Fly secret, which wins over this value
 
 [mounts]
   source = "multicam_data"

@@ -21,8 +21,14 @@ const key = () => localStorage.getItem(KEY_LS) || "";
 const JUDGE_LS = "multicam.judgeCode";
 const judge = () => (cfg.judge_code && localStorage.getItem(JUDGE_LS)) || "";
 let judgeLeft = null;  // jobs left on a valid promo code (null = unknown / none)
-// free trial runs on the hosted key: a visitor may pay with one (the server enforces pool, 1 per visitor, floor)
-const trialOk = () => !!(cfg.trial && (cfg.trial.runs_left > 0 || cfg.trial.used_by_you));
+// free trial runs on the hosted key: a visitor may pay with one (the server enforces pool, runs per visitor, floor)
+// trial_status: runs_left = global pool, runs_left_for_you = new runs this visitor may start,
+// runs_used_by_you = runs started (still usable for their own project), used_by_you = all of theirs used
+const trialPer = () => cfg.trial?.runs_per_visitor || 1;
+const trialMine = () => !cfg.trial ? 0 : cfg.trial.runs_left_for_you ?? (cfg.trial.used_by_you ? 0 : cfg.trial.runs_left);
+const trialUsed = () => !cfg.trial ? 0 : cfg.trial.runs_used_by_you ?? (cfg.trial.used_by_you ? 1 : 0);
+const perVisitor = () => trialPer() > 1 ? `up to ${trialPer()} per visitor` : "one per visitor";
+const trialOk = () => !!(cfg.trial && (trialMine() > 0 || trialUsed() > 0));
 // Which credits pay for the next paid action. An explicit pick in the payment switch (PAY_LS) wins; otherwise a
 // saved key is the default, then a promo code, and the free run / demo credits only when neither is present.
 // "key" without a saved key (or "judge" without a code) means "nothing to pay with": we prompt, never fall back.
@@ -46,7 +52,7 @@ function payLabel() {
   const m = payMode(), t = cfg.trial;
   if (m === "key") return key() ? "your own Comfy key" : "your own Comfy key (not set)";
   if (m === "judge") return judge() ? `promo code${judgeLeft != null ? ` (${judgeLeft} jobs left)` : ""}` : "promo code (not set)";
-  if (t) return t.used_by_you ? "your free run" : "a free run";
+  if (t) return t.used_by_you ? "your free run" : trialPer() > 1 ? "one of your free runs" : "a free run";
   return "the public demo credits";
 }
 const payLine = () => `<p class="note pay-line"><b>Paid with:</b> ${esc(payLabel())}${payMode() === "free" && key()
@@ -91,7 +97,7 @@ function reqRunsHref(ctx) {
 }
 // solo = the only action in its spot (yellow accent); otherwise an outline secondary button
 const reqRunsBtn = (ctx, solo) => `<a class="btn req-runs${solo ? " solo" : ""}" href="${reqRunsHref(ctx)}">Request more runs</a>`;
-const outOfRuns = msg => /used up|expired|isn't valid any more|no longer valid|no runs left|\b0 (of \d+ )?(jobs |runs )?left|used your free run/i.test(msg || "");
+const outOfRuns = msg => /used up|expired|isn't valid any more|no longer valid|no runs left|\b0 (of \d+ )?(jobs |runs )?left|used your (\d+ )?free run/i.test(msg || "");
 function runsCtx(msg) {  // a fixed state label for the email; the server text itself is never copied in
   const m = String(msg || "").toLowerCase();
   if (/promo/.test(m)) return /isn't valid any more|expired|no longer valid/.test(m) ? RUNS_CTX.promoGone : RUNS_CTX.promo;
@@ -139,12 +145,12 @@ function renderKey() {
   $("#keyCard").classList.toggle("attention", !!(cfg.hosted && !k && !(cfg.hosted_jobs_left > 0)));
   if (cfg.hosted && !k && !(cfg.hosted_jobs_left > 0)) { b.textContent = "free demo used up · paste your key"; b.className = "badge bad"; }
   else if (cfg.hosted && !k) { b.textContent = `demo key · ${cfg.hosted_jobs_left ?? "∞"} jobs left`; b.className = "badge warn"; }
-  else if (payMode() === "free" && freeAvail()) { b.textContent = k ? "free run selected · key not charged" : cfg.trial?.used_by_you ? "using your free run" : `free run · ${cfg.trial?.runs_left ?? cfg.hosted_jobs_left} left`; b.className = "badge ok"; }
+  else if (payMode() === "free" && freeAvail()) { b.textContent = k ? "free run selected · key not charged" : cfg.trial?.used_by_you ? "using your free run" : cfg.trial && trialPer() > 1 ? `free run · ${trialMine()} of ${trialPer()} yours left` : `free run · ${cfg.trial?.runs_left ?? cfg.hosted_jobs_left} left`; b.className = "badge ok"; }
   else if (payMode() === "judge" && judge()) { b.textContent = `promo code · ${judgeLeft ?? "?"} jobs left`; b.className = "badge warn"; }
   else if (payMode() === "key" && !k && payPick() === "key") { b.textContent = "key selected · paste it"; b.className = "badge bad"; }
   else if (k) { b.textContent = "saved in this browser"; b.className = "badge ok"; }
   else if (judge()) { b.textContent = `promo code · ${judgeLeft ?? "?"} jobs left`; b.className = "badge warn"; }
-  else if (cfg.trial && trialOk()) { b.textContent = cfg.trial.used_by_you ? "using your free run" : `optional · ${cfg.trial.runs_left} of ${cfg.trial.runs_total} free runs left`; b.className = "badge ok"; }
+  else if (cfg.trial && trialOk()) { b.textContent = cfg.trial.used_by_you ? (trialPer() > 1 ? `all ${trialPer()} of your free runs used` : "using your free run") : trialPer() > 1 ? `optional · ${trialMine()} of ${trialPer()} free runs left for you` : `optional · ${cfg.trial.runs_left} of ${cfg.trial.runs_total} free runs left`; b.className = "badge ok"; }
   else if (cfg.trial) { b.textContent = "free runs used · paste your key"; b.className = "badge bad"; }
   else if (cfg.byok_only && cfg.public) { b.textContent = "required to generate"; b.className = "badge bad"; }
   else { b.textContent = "not set"; b.className = "badge"; }
@@ -521,15 +527,15 @@ function renderBanner() {
   $("#judgeBox").hidden = !cfg.judge_code;
   if (cfg.public && cfg.trial) {
     const t = cfg.trial, url = cfg.get_key_url || "https://platform.comfy.org/profile/api-keys";
-    const open = t.runs_left > 0 && !t.used_by_you;
+    const open = trialMine() > 0, N = trialPer();
     if (cfg.max_upload_s) $("#dropHint").textContent = `Vertical selfie video, up to ${cfg.max_upload_s} s.`;
-    $("#keyNote").innerHTML = `${open ? "<b>Optional while free runs last:</b> leave it empty to use your free run." : "<b>Bring your own key:</b> generation runs on <b>your</b> Comfy Cloud credits."} Get a key at <a href="${url}" target="_blank" rel="noopener">platform.comfy.org → API keys</a>. It's saved only in <b>this browser</b> (localStorage) and sent per request to this server, which forwards it to Comfy Cloud and <b>never stores or logs it</b>. <a href="#" id="keyForget">Forget key</a>`;
+    $("#keyNote").innerHTML = `${open ? `<b>Optional while free runs last:</b> leave it empty to use ${N > 1 ? "one of your free runs" : "your free run"}.` : "<b>Bring your own key:</b> generation runs on <b>your</b> Comfy Cloud credits."} Get a key at <a href="${url}" target="_blank" rel="noopener">platform.comfy.org → API keys</a>. It's saved only in <b>this browser</b> (localStorage) and sent per request to this server, which forwards it to Comfy Cloud and <b>never stores or logs it</b>. <a href="#" id="keyForget">Forget key</a>`;
     $("#keyForget").onclick = e => { e.preventDefault(); localStorage.removeItem(KEY_LS); if (payPick() === "key") setPayPick(null); renderKey(); toast("Key removed from this browser"); };
     b.hidden = false; b.classList.toggle("out", !open && !t.used_by_you);
     b.innerHTML = open
-      ? `<b>${t.runs_left} of ${t.runs_total} free runs left</b> · one per visitor · <a href="#keyCard" id="bannerKey">or use your own key</a>`
+      ? `<b>${t.runs_left} of ${t.runs_total} free runs left</b> · ${perVisitor()}${N > 1 && trialUsed() > 0 ? ` (${trialMine()} left for you)` : ""} · <a href="#keyCard" id="bannerKey">or use your own key</a>`
       : t.used_by_you
-        ? `<b>You're using your free run</b> (${t.runs_left} of ${t.runs_total} left for others) · for more, <a href="#keyCard" id="bannerKey">use your own Comfy key</a>${cfg.judge_code ? " or a promo code" : ""}`
+        ? `<b>${N > 1 ? `You've used your ${N} free runs` : "You're using your free run"}</b> (${t.runs_left} of ${t.runs_total} left for others) · for more, <a href="#keyCard" id="bannerKey">use your own Comfy key</a>${cfg.judge_code ? " or a promo code" : ""}`
         : `<b>The free runs are used up (0 of ${t.runs_total} left).</b> <a href="#keyCard" id="bannerKey"><b>Paste your own Comfy Cloud key</b></a> (<a href="${url}" target="_blank" rel="noopener">get one</a>)${cfg.judge_code ? " or a promo code" : ""} to generate. Upload, analyze, plan, edit and render stay free, or <a href="${cfg.repo_url}" target="_blank" rel="noopener">run it yourself</a>. ${reqRunsBtn(RUNS_CTX.trial)}`;
     $("#bannerKey").onclick = e => { e.preventDefault(); openPay(); $("#key").focus(); };
     return;

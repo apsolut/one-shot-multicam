@@ -11,8 +11,8 @@ A VFX "re-shoot from any angle" app for the Comfy *Open Source Higgsfield* chall
 and faster-whisper for the word cuts. MIT licensed.
 
 - **Live gallery (no key needed, before/after):** <https://apsolut.github.io/one-shot-multicam/>
-- **Try it:** <https://multicam.apsolut.dev/> (a few free runs, one per visitor, while they last; then bring your own Comfy Cloud key, [get one here](https://platform.comfy.org/profile/api-keys); analyze, plan, edit and render are free, a re-shoot insert is ≈ $0.055 on your Comfy credits. Or run it locally in 2 commands, below)
-- **Demo video (1:43):** <https://apsolut.github.io/one-shot-multicam/media/submission_demo.mp4> (the app in action, the ComfyUI workflow, v0.1 vs v0.2)
+- **Try it:** <https://multicam.apsolut.dev/> (free runs, a few per visitor, while they last; then bring your own Comfy Cloud key, [get one here](https://platform.comfy.org/profile/api-keys); analyze, plan, edit and render are free, a re-shoot insert is ≈ $0.055 on your Comfy credits. Or run it locally in 2 commands, below)
+- **Demo video (1:55):** <https://apsolut.github.io/one-shot-multicam/media/submission_demo.mp4> (the app in action, the ComfyUI workflow, Scene and Dub, v0.1 vs v0.2)
 - **Release / media:** <https://github.com/apsolut/one-shot-multicam/releases/tag/v0.1.0>
 
 <p align="center"><img src="docs/img/demo.gif" width="252" alt="v0.2 demo: real CAM A, then a wide CAM C and a profile CAM B re-shot from the same take, labeled"></p>
@@ -129,17 +129,19 @@ Comfy Cloud key (kept in their browser, forwarded per request, never stored or l
   Everyone else must bring their own key. Without a configured code, nobody can use the operator key.
   Set it with `fly secrets set MULTICAM_JUDGE_CODE=... COMFY_API_KEY=...`; never commit it.
 
-**Free trial runs** (`--hosted-runs` / `MULTICAM_HOSTED_RUNS`, on in the live demo with 6): visitors with
-no key and no promo code may use the operator key for **one free run each**. A run is one project in any
+**Free trial runs** (`--hosted-runs` / `MULTICAM_HOSTED_RUNS`, on in the live demo with 30): visitors with
+no key and no promo code may use the operator key for up to `MULTICAM_TRIAL_RUNS_PER_VISITOR` free runs each
+(`--trial-runs-per-visitor`, default 1; the live demo allows 4). A run is one project in any
 mode (Talk, Music, Scene or Dub; clips ≤ 30 s), capped at `MULTICAM_TRIAL_JOBS_PER_RUN` Comfy jobs (default
 10, so a 17 s Dub of 9 jobs fits). Its paid steps (for example Dub's translate, then generate, or a
-re-roll) share that one run. One per visitor is enforced by a salted IP hash **and** a random first-party
-cookie (`mc_vid`). The UI shows "X of 6 free runs left" and falls back to your own key or a promo code
+re-roll) share that one run. The per-visitor limit counts a visitor's distinct runs (projects) by a salted IP
+hash **and** a random first-party cookie (`mc_vid`). The UI shows "X of 30 free runs left" plus how many are left
+for you, and falls back to your own key or a promo code
 when they're gone. The promo-code (judge) quota is separate and unaffected, and the balance floor stays a hard stop
 for both. The counter lives in `<data>/hosted_jobs.json` → `"trial": {"used": N, ...}` (on Fly:
 `/data/hosted_jobs.json` on the `multicam_data` volume). Runs that never reached Comfy are refunded, so a
-failed upload doesn't burn a visitor's run. **To top up by 6 more**, raise `MULTICAM_HOSTED_RUNS` to 12 in
-`fly.toml` (the used count stays) and lower `MULTICAM_HOSTED_FLOOR_USD` by about $3, then `fly deploy`.
+failed upload doesn't burn a visitor's run. **To top up**, raise `MULTICAM_HOSTED_RUNS` in
+`fly.toml` (the used count stays) and lower `MULTICAM_HOSTED_FLOOR_USD` by about $0.50 per extra run, then `fly deploy`.
 
 `--public` turns on the public-site guards (no project listing, upload limits, TTL, fast 720p
 renders; each can also be set by env var, so a container only needs env):
@@ -563,6 +565,11 @@ multicam -C work assemble --clips-dir work/gen/clips --shake --out final.mp4
 
 - **Beats:** librosa beat tracking. Inserts are 1–2 s and start and end exactly on beats. The
   first and last shots are A.
+- **No wides over singing:** same rule as Talk (no wides over speech). A wide camera (`C` = wide
+  by default, or any angle named "wide") is only planned over instrumental or silent gaps. Sung
+  spans are your lyric lines; with no lyrics every audible stretch counts as sung, so wides only
+  land in silence. Inserts over singing go to the other angles, and the render guard swaps a wide
+  that ends up over a sung span (a pin or a manual edit) for another angle or CAM A.
 - **Covering weak moments:** OpenCV's frontal-face detector scores every frame. Inserts go where
   the real face is turned away or covered (the plan reports `face-hidden %` per insert).
 - **Prompts:** `[VISUAL]` is an angle template (same person, same outfit, same place and lighting,
